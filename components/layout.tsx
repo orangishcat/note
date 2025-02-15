@@ -1,14 +1,13 @@
-"use client"
-
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
-import { Bell, ChevronDown, ChevronRight, Folder, Grid, LayoutGrid, Moon, Search, Sun } from "lucide-react"
+import {Button} from "@/components/ui/button"
+import {Input} from "@/components/ui/input"
+import {cn} from "@/lib/utils"
+import {Bell, ChevronDown, ChevronRight, Folder as FolderIcon, Grid, LayoutGrid, Menu, Moon, Search, Sun, X} from "lucide-react"
+import {Folder} from "@/app/file-manager"
 import Image from "next/image"
 import Link from "next/link"
-import { useTheme } from "next-themes"
-import { useState, useEffect } from "react"
+import {useTheme} from "next-themes"
 import type React from "react"
+import {useEffect, useState} from "react"
 
 interface NavItemProps {
   href: string
@@ -17,7 +16,7 @@ interface NavItemProps {
   active?: boolean
 }
 
-function NavItem({ href, icon, children, active }: NavItemProps) {
+function NavItem({href, icon, children, active}: NavItemProps) {
   return (
     <Link
       href={href}
@@ -37,7 +36,7 @@ interface FolderItemProps {
   files: string[]
 }
 
-function FolderItem({ name, files = [] }: FolderItemProps) {
+export function FolderItem({name, files = []}: FolderItemProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -46,8 +45,8 @@ function FolderItem({ name, files = [] }: FolderItemProps) {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 w-full text-left"
       >
-        {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        <Folder className="h-4 w-4" />
+        {isOpen ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
+        <FolderIcon className="h-4 w-4"/>
         <span>{name}</span>
       </button>
       {isOpen && files && files.length > 0 && (
@@ -63,14 +62,27 @@ function FolderItem({ name, files = [] }: FolderItemProps) {
   )
 }
 
-export function Sidebar({ folders = {} }: { folders: Record<string, string[]> }) {
+export function Sidebar({
+                          folders = [],
+                          isOpen,
+                          onClose,
+                        }: { folders: Folder[]; isOpen: boolean; onClose: () => void }) {
   return (
-    <div className="w-64 border-r bg-white dark:bg-gray-800 dark:border-gray-700">
-      <div className="p-4">
+    <div
+      className={cn(
+        "inset-y-0 w-64 fixed xl:relative left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700" +
+        "transform transition-transform duration-200 ease-in-out xl:translate-x-0",
+        isOpen ? "" : "-translate-x-full"
+      )}
+    >
+      <div className="flex items-center justify-between p-4">
         <h1 className="text-xl font-bold dark:text-white">Note</h1>
+        <Button variant="ghost" size="icon" onClick={onClose} className="xl:hidden">
+          <X className="h-4 w-4"/>
+        </Button>
       </div>
       <nav className="space-y-1 px-2">
-        <NavItem href="/" icon={<LayoutGrid className="h-4 w-4" />} active>
+        <NavItem href="/" icon={<LayoutGrid className="h-4 w-4"/>} active>
           All content
         </NavItem>
         <NavItem
@@ -105,8 +117,8 @@ export function Sidebar({ folders = {} }: { folders: Record<string, string[]> })
         <div className="py-3">
           <div className="px-3 text-xs font-medium uppercase text-gray-500 dark:text-gray-400">Collections</div>
           <div className="mt-2">
-            {Object.entries(folders).map(([name, files]) => (
-              <FolderItem key={name} name={name} files={files || []} />
+            {folders.map(folder => (
+              <FolderItem key={folder.name} name={folder.name} files={folder.files || []}/>
             ))}
           </div>
         </div>
@@ -115,8 +127,8 @@ export function Sidebar({ folders = {} }: { folders: Record<string, string[]> })
   )
 }
 
-export function Navbar() {
-  const { setTheme, resolvedTheme } = useTheme()
+export function Navbar({onMenuClick}: { onMenuClick: () => void }) {
+  const {setTheme, resolvedTheme} = useTheme()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -125,10 +137,13 @@ export function Navbar() {
 
   return (
     <header className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700">
-      <div className="w-96">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
-          <Input type="search" placeholder="Search files..." className="pl-9 dark:bg-gray-800 dark:text-white" />
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onMenuClick} className="xl:hidden">
+          <Menu className="h-6 w-6"/>
+        </Button>
+        <div className="relative w-64 lg:w-96">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400"/>
+          <Input type="search" placeholder="Search files..." className="pl-9 dark:bg-gray-800 dark:text-white"/>
         </div>
       </div>
       <div className="flex items-center gap-4">
@@ -138,16 +153,16 @@ export function Navbar() {
           onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
           disabled={!mounted}
         >
-          {mounted && (resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />)}
+          {mounted && (resolvedTheme === "dark" ? <Sun className="h-4 w-4"/> : <Moon className="h-4 w-4"/>)}
         </Button>
         <Button variant="ghost" size="icon">
-          <Grid className="h-4 w-4" />
+          <Grid className="h-4 w-4"/>
         </Button>
         <Button variant="ghost" size="icon">
-          <Bell className="h-4 w-4" />
+          <Bell className="h-4 w-4"/>
         </Button>
         <div className="h-8 w-8 overflow-hidden rounded-full">
-          <Image src="/placeholder.svg" alt="Avatar" width={32} height={32} className="h-full w-full object-cover" />
+          <Image src="/placeholder.svg" alt="Avatar" width={32} height={32} className="h-full w-full object-cover"/>
         </div>
       </div>
     </header>
@@ -155,20 +170,29 @@ export function Navbar() {
 }
 
 export function Layout({
-                           children,
-                           folders = {},
+                         children,
+                         folders = [],
                        }: {
-    children: React.ReactNode,
-    folders: Record<string, string[]>,
-    onDrop?: (score: string, folder: string) => void
+  children: React.ReactNode
+  folders: Folder[]
 }) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
+
   return (
     <div className="flex h-screen bg-white dark:bg-gray-900">
-      <Sidebar folders={folders} />
-      <div className="flex-1 flex flex-col dark:bg-gray-900 overflow-y-auto">
-        <Navbar />
-        <main className="flex-1">{children}</main>
+      <Sidebar folders={folders} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)}/>
+      <div className="flex-1 flex flex-col dark:bg-gray-900 overflow-hidden">
+        <Navbar onMenuClick={toggleSidebar}/>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 xl:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
+      )}
     </div>
   )
 }

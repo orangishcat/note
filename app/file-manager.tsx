@@ -6,10 +6,11 @@ import { Star, FolderPlus, FileIcon } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Layout } from "@/components/layout"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { UploadDialog } from "@/components/upload-dialog"
+import {Get, Post} from "@/lib/network";
 
 interface MusicScore {
   id: string
@@ -20,57 +21,36 @@ interface MusicScore {
   folder?: string
 }
 
-const SCORE_PREFIX = "score:"
-const FOLDER_PREFIX = "folder:"
+export interface Folder {
+  id: string
+  name: string
+  files: string[]
+}
 
 export default function FileManager() {
   const [activeTab, setActiveTab] = useState<"recent" | "starred">("recent")
   const [scores, setScores] = useState<MusicScore[]>([])
-  const [folders, setFolders] = useState<Record<string, string[]>>({})
+  const [folders, setFolders] = useState<Folder[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [folderName, setFolderName] = useState("")
 
-  useEffect(() => {
-    loadScoresAndFolders()
-  }, [])
-
-  const loadScoresAndFolders = () => {
-    const loadedScores: MusicScore[] = []
-    const loadedFolders: Record<string, string[]> = {}
-
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key?.startsWith(SCORE_PREFIX)) {
-        const score = JSON.parse(localStorage.getItem(key) || "{}")
-        loadedScores.push(score)
-      } else if (key?.startsWith(FOLDER_PREFIX)) {
-        const folderName = key.slice(FOLDER_PREFIX.length)
-        loadedFolders[folderName] = JSON.parse(localStorage.getItem(key) || "[]")
-      }
-    }
-
-    setScores(loadedScores)
-    setFolders(loadedFolders)
+  const loadData = () => {
+    Get<MusicScore[]>("/api/score/list").then(() => setScores(scores))
+    Get<Folder[]>("/api/folder/list").then(() => setFolders(folders))
   }
 
-  const saveScore = (score: MusicScore) => {
-    localStorage.setItem(`${SCORE_PREFIX}${score.id}`, JSON.stringify(score))
-  }
+  loadData();
 
-  const saveFolder = (folderName: string, content: string[]) => {
-    localStorage.setItem(`${FOLDER_PREFIX}${folderName}`, JSON.stringify(content))
+  const uploadScore = (score: MusicScore) => {
+    Post("/api/score/upload", score).then(console.log)
   }
 
   const toggleStar = (id: string) => {
-    const updatedScores = scores.map((score) => {
-      if (score.id === id) {
-        const updatedScore = { ...score, starred: !score.starred }
-        saveScore(updatedScore)
-        return updatedScore
-      }
-      return score
-    })
-    setScores(updatedScores)
+    Post("/api/score/star", { id }).then(() => console.log("star toggled"))
+  }
+
+  const newFolder = (folderName: string, content: string[]) => {
+    Post("/api/folder/create", { folderName, content }).then(console.log)
   }
 
   const filteredScores = scores.filter((score) => (activeTab === "recent" ? true : score.starred))
@@ -79,33 +59,11 @@ export default function FileManager() {
     e.dataTransfer.setData("text/plain", id)
   }
 
-  const handleDrop = (scoreId: string, folderName: string) => {
-    const updatedScores = scores.map((s) => {
-      if (s.id === scoreId) {
-        const updatedScore = { ...s, folder: folderName }
-        saveScore(updatedScore)
-        return updatedScore
-      }
-      return s
-    })
-    setScores(updatedScores)
-
-    const updatedFolders = { ...folders }
-    if (!updatedFolders[folderName]) {
-      updatedFolders[folderName] = []
-    }
-    if (!updatedFolders[folderName].includes(scoreId)) {
-      updatedFolders[folderName] = [...updatedFolders[folderName], scoreId]
-      saveFolder(folderName, updatedFolders[folderName])
-    }
-    setFolders(updatedFolders)
-  }
-
   const handleCreateFolder = () => {
     if (folderName.trim() === "") return
     const updatedFolders = { ...folders, [folderName]: [] }
     setFolders(updatedFolders)
-    saveFolder(folderName, [])
+    newFolder(folderName, [])
     setFolderName("")
     setIsDialogOpen(false)
   }
@@ -120,7 +78,7 @@ export default function FileManager() {
         metadata: `Personal • Uploaded on ${new Date().toLocaleDateString()}`,
         starred: false,
       }
-      saveScore(newScore)
+      uploadScore(newScore)
       setScores([...scores, newScore])
     }
     reader.readAsDataURL(file)
@@ -129,7 +87,7 @@ export default function FileManager() {
   const isEmpty = filteredScores.length === 0 && Object.keys(folders).length === 0
 
   return (
-    <Layout folders={folders} onDrop={handleDrop}>
+    <Layout folders={folders}>
       <div className="p-6">
         <div className="mb-6 flex items-center justify-between">
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "recent" | "starred")}>

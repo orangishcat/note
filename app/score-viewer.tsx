@@ -1,11 +1,8 @@
-"use client"
-
 import { ArrowLeft, Download, Star, Share2 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Layout } from "@/components/layout"
-import { useState, useEffect, useRef } from "react"
-import { Vex } from "vexflow"
+import { useState, useRef } from "react"
 
 interface ScoreViewerProps {
   id: string
@@ -18,16 +15,6 @@ interface ScoreViewerProps {
 export default function ScoreViewer({ id, title, composer, starred, onStarToggle }: ScoreViewerProps) {
   const [showDownload, setShowDownload] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    if (canvasRef.current) {
-      const VF = Vex.Flow
-      const renderer = new VF.Renderer(canvasRef.current, VF.Renderer.Backends.CANVAS)
-      const context = renderer.getContext()
-      const stave = new VF.Stave(10, 10, 400)
-      stave.addClef("treble").setContext(context).draw()
-    }
-  }, [])
 
   const handleStarToggle = () => {
     onStarToggle(id)
@@ -44,7 +31,7 @@ export default function ScoreViewer({ id, title, composer, starred, onStarToggle
             <Download className="h-4 w-4" />
           </Button>
           <Button variant="ghost" onClick={handleStarToggle}>
-            <Star className={starred ? "text-yellow-400 fill-yellow-400" : ""} />
+            <Star className={starred ? "text-accent" : "text-muted-foreground"} />
           </Button>
           <Button variant="ghost">
             <Share2 className="h-4 w-4" />
