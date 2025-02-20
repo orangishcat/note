@@ -1,16 +1,15 @@
 "use client"
 
 import {useParams} from "next/navigation"
-import {useEffect, useState} from "react"
+import {useEffect, useRef, useState} from "react"
 import Link from "next/link";
-import {ArrowLeft, Download, Share2, Star} from "lucide-react";
+import {ArrowLeft, Download, Fullscreen, Share2, Star} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Layout} from "@/components/layout";
-import ScoreViewer, {MusicScore} from "@/components/score";
+import MusicXMLRenderer, {MusicScore} from "@/components/score";
 import {Get, Post} from "@/lib/network";
 import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
 import {useQuery} from "@tanstack/react-query";
-import {id} from "postcss-selector-parser";
 
 
 export default function ScorePage() {
@@ -25,17 +24,19 @@ export default function ScorePage() {
   const [lastStarTime, setLastStarTime] = useState(0);
   const onStarToggle = (score: MusicScore) => {
     setLastStarTime(Date.now())
-    if (Date.now() - lastStarTime < 1000) return
+    if (Date.now() - lastStarTime < 700) return
     setScore({...score, starred: !score.starred});
     Post(`/api/score/star/${score.id}`, {starred: !score.starred}).then().catch(console.error)
   }
-  const {data: loadedScore, error} = useQuery({
-     queryKey: ['score_' + id],
-     queryFn: () => Get<MusicScore>(`/api/score/data/${id}`)
+  const {data: loadedScore} = useQuery({
+    queryKey: ['score_' + id],
+    queryFn: () => Get<MusicScore>(`/api/score/data/${id}`)
   })
   useEffect(() => {
     if (loadedScore) setScore(loadedScore)
   }, [loadedScore])
+
+  const recenterButton = useRef<HTMLButtonElement>(null)
 
   return <Layout>
     <div className="flex items-center justify-between p-4">
@@ -47,6 +48,9 @@ export default function ScorePage() {
           className="text-gray-500 dark:text-gray-400">({score.subtitle})</span></p>
       </div>
       <div className="flex items-center gap-x-2">
+        <Button variant="ghost" size="icon" ref={recenterButton}>
+          <Fullscreen className="h-5 w-5"/>
+        </Button>
         <Button variant="ghost"
                 onClick={() => window.open(`/api/score/download/${score.file_id}?filename=${encodeURIComponent(score.title + ".mxl")}`)}>
           <Download className="h-4 w-4"/>
@@ -62,7 +66,7 @@ export default function ScorePage() {
       </div>
     </div>
     <div className="p-4 space-y-4">
-      {score && score.content ? <ScoreViewer musicXMLBase64={score.content}/> : ""}
+      {score && score.content ? <MusicXMLRenderer musicXMLBase64={score.content} recenter={recenterButton}/> : ""}
     </div>
   </Layout>
 }

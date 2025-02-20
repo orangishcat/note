@@ -1,36 +1,46 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { RefObject, useEffect, useRef, useState } from 'react';
 
-export default function ZoomableDiv({ children }: { children: React.ReactNode }) {
+export default function ZoomableDiv({
+  children,
+  recenter,
+}: {
+  children: React.ReactNode;
+  recenter: RefObject<HTMLButtonElement>;
+}) {
   const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [transformOrigin, setTransformOrigin] = useState('center center');
+  // Track the previous scale so we can compute relative changes.
+  const prevScaleRef = useRef(1);
   const zoomSensitivity = 0.0015;
+  const minScale = 0.5;
+  const maxScale = 4;
 
-  // Utility to prevent extreme zoom-in or zoom-out
+  // Utility to clamp scale value.
   const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
 
+  // Store the original (unscaled) dimensions of the inner container.
+  const [originalWidth, setOriginalWidth] = useState<number | null>(null);
+  const [originalHeight, setOriginalHeight] = useState<number | null>(null);
+
+  // On mount, capture the original dimensions.
+  useEffect(() => {
+    if (innerRef.current) {
+      setOriginalWidth(innerRef.current.offsetWidth);
+      setOriginalHeight(innerRef.current.offsetHeight);
+    }
+  }, []);
+
+  // Handle wheel events (Ctrl/Cmd+wheel for zoom) and recenter button click.
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      // Detect Ctrl/Cmd scrolling or pinch gesture on a trackpad
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const outer = outerRef.current;
-        if (!outer) return;
-
-        // Get the bounding box of the (untransformed) outer container
-        const rect = outer.getBoundingClientRect();
-
-        // Compute pointer offsets in "unscaled" space
-        const offsetX = (e.clientX - rect.left) / scale;
-        const offsetY = (e.clientY - rect.top) / scale;
-
-        // Update scale
-        const newScale = clamp(scale - e.deltaY * zoomSensitivity, 0.5, 4);
+        const newScale = clamp(scale - e.deltaY * zoomSensitivity, minScale, maxScale);
         setScale(newScale);
-
-        // Update transform origin to pivot around the cursor
-        setTransformOrigin(`${offsetX}px ${offsetY}px`);
       }
+      // Reset zoom when the recenter button is clicked.
+      recenter.current?.addEventListener('click', () => setScale(1));
     };
 
     const outer = outerRef.current;
@@ -42,21 +52,45 @@ export default function ZoomableDiv({ children }: { children: React.ReactNode })
         outer.removeEventListener('wheel', handleWheel);
       }
     };
-  }, [scale]);
+  }, [recenter, scale]);
+
+  // When scale changes, update the transform, recalc dimensions, and adjust scroll so that the center remains.
+  useEffect(() => {
+    if (!innerRef.current || !outerRef.current || originalWidth === null || originalHeight === null) return;
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+
+    // Capture the vertical center of the visible area.
+    const containerHeight = outer.clientHeight;
+    const currentScrollTop = outer.scrollTop;
+    const centerY = currentScrollTop + containerHeight / 2;
+
+    // Apply the scaling transform with origin at the top-left.
+    inner.style.transform = `scale(${scale})`;
+    inner.style.transformOrigin = '0 0';
+
+    // Calculate new effective dimensions.
+    const newWidth = originalWidth * scale;
+    const newHeight = originalHeight * scale;
+
+    // Update inner container's size so that the scrollable area reflects the new dimensions.
+    inner.style.width = `${newWidth}px`;
+    inner.style.height = `${newHeight}px`;
+
+    // Compute the new center by applying the scale change relative to the previous scale.
+    const prevScale = prevScaleRef.current;
+    const newCenterY = centerY * (scale / prevScale);
+
+    // Adjust scrollTop so that the content center remains constant.
+    outer.scrollTop = newCenterY - containerHeight / 2;
+
+    // Update previous scale.
+    prevScaleRef.current = scale;
+  }, [scale, originalWidth, originalHeight]);
 
   return (
-    <div
-      ref={outerRef}
-      // Outer container scrolls, not scaled
-      className="relative overflow-y-auto w-full h-full"
-    >
-      {/* Inner container is scaled */}
-      <div
-        style={{
-          transformOrigin,
-          transform: `scale(${scale})`,
-        }}
-      >
+    <div ref={outerRef} className="relative h-full overflow-auto">
+      <div ref={innerRef}>
         {children}
       </div>
     </div>
