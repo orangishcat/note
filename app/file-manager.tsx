@@ -1,31 +1,22 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Star, FolderPlus, FileIcon } from "lucide-react"
+import {Button} from "@/components/ui/button"
+import {Tabs, TabsList, TabsTrigger} from "@/components/ui/tabs"
+import {FileIcon, FolderPlus, Star} from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import type React from "react"
-import { useState } from "react"
-import { Layout } from "@/components/layout"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { UploadDialog } from "@/components/upload-dialog"
+import React, {useEffect, useState} from "react"
+import {Layout} from "@/components/layout"
+import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog"
+import {UploadDialog} from "@/components/upload-dialog"
 import {Get, Post} from "@/lib/network";
+import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
+import {AccountContext} from "@/app/providers";
+import {TooltipArrow} from "@radix-ui/react-tooltip";
+import {useQuery} from "@tanstack/react-query";
+import {Folder} from "@/components/folder";
+import {MusicScore} from "@/components/score";
 
-interface MusicScore {
-  id: string
-  title: string
-  composer: string
-  metadata: string
-  starred: boolean
-  folder?: string
-}
-
-export interface Folder {
-  id: string
-  name: string
-  files: string[]
-}
 
 export default function FileManager() {
   const [activeTab, setActiveTab] = useState<"recent" | "starred">("recent")
@@ -33,35 +24,55 @@ export default function FileManager() {
   const [folders, setFolders] = useState<Folder[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [folderName, setFolderName] = useState("")
+  const [loadSuccess, setLoadSuccess] = useState(false);
+  const [fmErr, setFMErr] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string>()
+  const [filteredScores, setFilteredScores] = useState<MusicScore[]>([]);
 
-  const loadData = () => {
-    Get<MusicScore[]>("/api/score/list").then(() => setScores(scores))
-    Get<Folder[]>("/api/folder/list").then(() => setFolders(folders))
+  const loadError = (reason: string) => {
+    setLoadSuccess(false);
+    setFMErr("Error: " + reason);
   }
+  const {data: scoreList, error: scoreError} = useQuery({
+    queryKey: ["scores"],
+    queryFn: () => Get<MusicScore[]>("/api/score/list"),
+  });
+  const {data: folderList, error: folderError} = useQuery({
+    queryKey: ["folders"],
+    queryFn: () => Get<Folder[]>("/api/folder/list"),
+  });
+  useEffect(() => {
+    if (scoreList) setScores(scoreList);
+    if (folderList) setFolders(folderList);
+    if (scoreError) loadError(scoreError.message);
+    if (folderError) loadError(folderError.message);
+    if (scoreList && folderList) setLoadSuccess(true);
+    if (scoreList) setFilteredScores(scoreList.filter((score) => (activeTab === "recent" ? true : score.starred)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoreList, folderList]);
 
-  loadData();
-
-  const uploadScore = (score: MusicScore) => {
-    Post("/api/score/upload", score).then(console.log)
+  const uploadScore = (file: File, score: MusicScore) => {
+    const formData = new FormData()
+    formData.append("file", file, file.name)
+    formData.append("info", JSON.stringify(score))
+    Post("/api/score/upload", formData).then(console.log).catch(console.error)
   }
 
   const toggleStar = (id: string) => {
-    Post("/api/score/star", { id }).then(() => console.log("star toggled"))
+    Post("/api/score/star", {'id': id}).then(() => console.log("star toggled"))
   }
 
   const newFolder = (folderName: string, content: string[]) => {
-    Post("/api/folder/create", { folderName, content }).then(console.log)
+    Post("/api/folder/create", {folderName, content}).then(console.log)
   }
-
-  const filteredScores = scores.filter((score) => (activeTab === "recent" ? true : score.starred))
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData("text/plain", id)
   }
 
   const handleCreateFolder = () => {
-    if (folderName.trim() === "") return
-    const updatedFolders = { ...folders, [folderName]: [] }
+    if (folderName.trim() === "") return setErrorMessage("Folder name empty")
+    const updatedFolders = {...folders, [folderName]: []}
     setFolders(updatedFolders)
     newFolder(folderName, [])
     setFolderName("")
@@ -69,25 +80,21 @@ export default function FileManager() {
   }
 
   const handleUpload = (file: File, id: string) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const newScore: MusicScore = {
-        id,
-        title: file.name.replace(".mxl", ""),
-        composer: "Unknown",
-        metadata: `Personal • Uploaded on ${new Date().toLocaleDateString()}`,
-        starred: false,
-      }
-      uploadScore(newScore)
-      setScores([...scores, newScore])
+    const newScore: MusicScore = {
+      id,
+      title: file.name.replace(".mxl", ""),
+      subtitle: "Unknown",
+      upload_date: new Date().toISOString(),
+      starred: false,
     }
-    reader.readAsDataURL(file)
+    uploadScore(file, newScore)
+    setScores([...scores, newScore])
   }
 
-  const isEmpty = filteredScores.length === 0 && Object.keys(folders).length === 0
+  const account = React.useContext(AccountContext)?.account;
 
   return (
-    <Layout folders={folders}>
+    <Layout>
       <div className="p-6">
         <div className="mb-6 flex items-center justify-between">
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "recent" | "starred")}>
@@ -100,38 +107,57 @@ export default function FileManager() {
             </TabsList>
           </Tabs>
           <div className="flex items-center gap-4">
-            <UploadDialog onUpload={handleUpload} />
-            <Button variant="outline" className="gap-2" onClick={() => setIsDialogOpen(true)}>
-              <FolderPlus className="h-4 w-4" />
-              Create folder
-            </Button>
+            <UploadDialog onUpload={handleUpload}/>
+            {account ?
+              <Button variant="outline" className="gap-2" onClick={() => setIsDialogOpen(true)}>
+                <FolderPlus className="h-4 w-4"/>
+                Create folder
+              </Button> :
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={-1}>
+                    <Button variant="outline" className="gap-2" disabled>
+                      <FolderPlus className="h-4 w-4"/>
+                      Create folder
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Log in or create an account first!
+                  <TooltipArrow className="fill-primary"/>
+                </TooltipContent>
+              </Tooltip>}
           </div>
         </div>
 
-        {isEmpty ? (
-          <div className="text-center py-12">
-            <p className="text-lg text-gray-500 dark:text-gray-400">It&#39;s empty in here...</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-              {activeTab === "starred"
-                ? "Starred items show up here!"
-                : "Upload some files or create a folder to get started!"}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {filteredScores.map((score) => (
-              <ScoreCard
-                key={score.id}
-                {...score}
-                onStarToggle={() => toggleStar(score.id)}
-                onDragStart={handleDragStart}
-              />
-            ))}
-          </div>
-        )}
+        {
+          scores.length === 0 ? (
+            <div className="text-center py-12">
+              <p
+                className="text-lg text-gray-500 dark:text-gray-400">{loadSuccess ? "It's empty in here..." : "Failed to load data"}</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                {loadSuccess ? (activeTab === "starred"
+                    ? "Starred items show up here!"
+                    : "Upload some files or create a folder to get started!") :
+                  fmErr}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredScores.map((score) => (
+                <ScoreCard
+                  key={score.id}
+                  {...score}
+                  onStarToggle={() => toggleStar(score.id)}
+                  onDragStart={handleDragStart}
+                />
+              ))}
+            </div>
+          )
+        }
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="bg-gray-50 dark:bg-gray-800">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Folder</DialogTitle>
             </DialogHeader>
@@ -141,8 +167,9 @@ export default function FileManager() {
                 value={folderName}
                 onChange={(e) => setFolderName(e.target.value)}
                 placeholder="Folder name"
-                className="w-full border p-2 rounded"
+                className="w-full border p-2 rounded dark:bg-gray-900/80"
               />
+              {errorMessage && <p className="text-red-500 text-center text-sm">{errorMessage}</p>}
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
@@ -158,14 +185,14 @@ export default function FileManager() {
 }
 
 function ScoreCard({
-  id,
-  title,
-  composer,
-  metadata,
-  starred,
-  onStarToggle,
-  onDragStart,
-}: MusicScore & {
+                     id,
+                     title,
+                     subtitle,
+                     upload_date,
+                     starred,
+                     onStarToggle,
+                     onDragStart,
+                   }: MusicScore & {
   onStarToggle: () => void
   onDragStart: (e: React.DragEvent, id: string) => void
 }) {
@@ -175,7 +202,7 @@ function ScoreCard({
       draggable
       onDragStart={(e) => onDragStart(e, id)}
     >
-      <Link href={`/score/${id}`} className="block">
+      <Link href={`/score/${id}`} className="block" key={id}>
         <div className="aspect-[4/3] overflow-hidden">
           <Image
             src={`/score/${id}/image`}
@@ -187,11 +214,12 @@ function ScoreCard({
         </div>
         <div className="p-4">
           <div className="flex items-center gap-2">
-            <FileIcon className="h-4 w-4 text-gray-400" />
+            <FileIcon className="h-4 w-4 text-gray-400"/>
             <h3 className="font-medium text-gray-900 dark:text-white truncate">{title}</h3>
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{composer}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{metadata}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
+          <p
+            className="text-xs text-gray-500 dark:text-gray-400">Uploaded {new Date(upload_date).toLocaleDateString()}</p>
         </div>
       </Link>
       <Button
@@ -203,7 +231,7 @@ function ScoreCard({
           onStarToggle()
         }}
       >
-        <Star className={`h-5 w-5 ${starred ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
+        <Star className={`h-5 w-5 ${starred ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`}/>
       </Button>
     </div>
   )

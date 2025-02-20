@@ -1,18 +1,20 @@
-import type React from "react"
-import { useState, useRef } from "react"
-import { Button } from "@/components/ui/button"
+import React, {useContext, useRef, useState} from "react"
+import {Button} from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Upload, X, FileIcon, Check } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { SUPPORTED_FILE_TYPES, SUPPORTED_FILE_TYPES_TEXT } from "@/lib/constants"
+import {Check, FileIcon, Upload, X} from "lucide-react"
+import {cn} from "@/lib/utils"
+import {SUPPORTED_FILE_TYPES, SUPPORTED_FILE_TYPES_TEXT} from "@/lib/constants"
+import {AccountContext} from "@/app/providers";
+import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
+import {TooltipArrow} from "@radix-ui/react-tooltip";
 
 interface UploadingFile {
   file: File
@@ -20,11 +22,21 @@ interface UploadingFile {
   id: string
 }
 
-export function UploadDialog({ onUpload }: { onUpload: (file: File, id: string) => void }) {
-  const [files, setFiles] = useState<UploadingFile[]>([])
+export function UploadDialog({onUpload}: { onUpload: (file: File, id: string, progress: number) => void }) {
+  const [files, setFiles] = useState<UploadingFile[]>([]) // Declare setFiles
   const [isDragging, setIsDragging] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const uploadFile = async (file: File, fileId: string) => {
+    try {
+      onUpload(file, fileId, 100)
+      setFiles((prev) => prev.filter((f) => f.id !== fileId))
+    } catch (error) {
+      console.error("Upload failed:", error)
+      setFiles((prev) => prev.map((f) => (f.id === fileId ? {...f, progress: -1} : f)))
+    }
+  }
 
   const isValidFileType = (file: File) => {
     return SUPPORTED_FILE_TYPES.some((type) => file.name.toLowerCase().endsWith(type))
@@ -61,35 +73,16 @@ export function UploadDialog({ onUpload }: { onUpload: (file: File, id: string) 
 
   const addFiles = (newFiles: File[]) => {
     const uploadingFiles = newFiles.map((file) => ({
-      file,
+      file: file,
       progress: 0,
       id: `upload-${Date.now()}-${file.name}`,
     }))
     setFiles((prev) => [...prev, ...uploadingFiles])
 
-    // Simulate upload progress for each file
+    // Start uploading each file
     uploadingFiles.forEach((uploadingFile) => {
-      simulateUploadProgress(uploadingFile.id)
+      uploadFile(uploadingFile.file, uploadingFile.id).then(r => console.log("File uploaded", r))
     })
-  }
-
-  const simulateUploadProgress = (fileId: string) => {
-    let progress = 0
-    const interval = setInterval(() => {
-      progress += 10
-      setFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, progress: Math.min(progress, 100) } : f)))
-
-      if (progress >= 100) {
-        clearInterval(interval)
-        setFiles((prev) => {
-          const file = prev.find((f) => f.id === fileId)
-          if (file) {
-            onUpload(file.file, fileId)
-          }
-          return prev.filter((f) => f.id !== fileId)
-        })
-      }
-    }, 200)
   }
 
   const removeFile = (fileId: string) => {
@@ -105,11 +98,28 @@ export function UploadDialog({ onUpload }: { onUpload: (file: File, id: string) 
     setIsDialogOpen(false)
   }
 
+  if (!useContext(AccountContext)?.account)
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={-1}>
+            <Button variant="outline" className="gap-2" disabled>
+              <Upload className="h-4 w-4"/>
+              Upload
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          Log in or create an account first!
+          <TooltipArrow className="fill-primary"/>
+        </TooltipContent>
+      </Tooltip>
+    )
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
-          <Upload className="h-4 w-4" />
+          <Upload className="h-4 w-4"/>
           Upload
         </Button>
       </DialogTrigger>
@@ -136,7 +146,7 @@ export function UploadDialog({ onUpload }: { onUpload: (file: File, id: string) 
             className="hidden"
             multiple
           />
-          <Upload className="h-8 w-8 text-muted-foreground mb-4" />
+          <Upload className="h-8 w-8 text-muted-foreground mb-4"/>
           <p className="text-sm text-muted-foreground text-center">
             Drag and drop the file(s) to here, or use the{" "}
             <button type="button" onClick={openFileSelector} className="text-primary hover:underline">
@@ -149,14 +159,16 @@ export function UploadDialog({ onUpload }: { onUpload: (file: File, id: string) 
             {files.map((file) => (
               <div key={file.id} className="relative">
                 <div className="flex items-center gap-3 mb-1">
-                  <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0"/>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
                       <p className="text-sm truncate dark:text-gray-300">{file.file.name}</p>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="text-xs text-muted-foreground">{Math.round(file.file.size / 1024)}kb</span>
                         {file.progress === 100 ? (
-                          <Check className="h-4 w-4 text-green-500" />
+                          <Check className="h-4 w-4 text-green-500"/>
+                        ) : file.progress === -1 ? (
+                          <span className="text-xs text-red-500">Failed</span>
                         ) : (
                           <span className="text-xs text-muted-foreground">{file.progress}%</span>
                         )}
@@ -166,7 +178,7 @@ export function UploadDialog({ onUpload }: { onUpload: (file: File, id: string) 
                           className="h-4 w-4 p-0 hover:bg-transparent"
                           onClick={() => removeFile(file.id)}
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-4 w-4"/>
                         </Button>
                       </div>
                     </div>
@@ -175,7 +187,7 @@ export function UploadDialog({ onUpload }: { onUpload: (file: File, id: string) 
                 <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-green-500 transition-all duration-200"
-                    style={{ width: `${file.progress}%` }}
+                    style={{width: `${file.progress}%`}}
                   />
                 </div>
               </div>

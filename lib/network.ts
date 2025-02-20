@@ -1,23 +1,17 @@
-import {useQuery} from "@tanstack/react-query";
+"use client"
 
-export function Get<T>(url: string, headers: Record<string, string> = {}) {
-  return useQuery<T>({
-    queryKey: [url],
-    queryFn: async () => {
-      const response = await fetch(url, {method: 'GET', headers});
-      if (!response.ok) throw new Error(`GET request failed: ${response.statusText}`);
-      return response.json();
-    },
-    retry: false,
-  }).promise;
+export async function Get<T>(url: string, headers: Record<string, string> = {}) {
+  const response = await fetch(url, {method: 'GET', headers});
+  if (!response.ok) throw new Error(`GET request ${response.status}: ${JSON.stringify(await response.json())}`);
+  return await response.json() as T;
 }
 
-export async function Post<U>(url: string, data: U, headers: Record<string, string> = {}) {
+export async function Post<T>(url: string, data: object = {}, headers: Record<string, string> = {}) {
   const response = await fetch(url, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json', ...headers},
-    body: JSON.stringify(data),
+    headers: data instanceof FormData ? {...headers} : {'Content-Type': 'application/json', ...headers},
+    body: data instanceof FormData ? data : JSON.stringify(data),
   });
-  if (!response.ok) throw new Error(`POST request failed: ${response.statusText}`);
-  return response.json();
+  if (!response.ok) throw new Error(`POST request ${response.status}: ${JSON.stringify(await response.json())}`);
+  return await response.json() as T;
 }
