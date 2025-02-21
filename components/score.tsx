@@ -1,6 +1,6 @@
 "use client";
-import { RefObject, useEffect, useRef } from "react";
-import { IOSMDOptions, OpenSheetMusicDisplay } from "opensheetmusicdisplay";
+import React, {RefObject, useEffect, useRef} from "react";
+import {IOSMDOptions, OpenSheetMusicDisplay} from "opensheetmusicdisplay";
 import ZoomableDiv from "@/components/ui-custom/zoomable-div";
 
 export interface MusicScore {
@@ -9,17 +9,17 @@ export interface MusicScore {
   subtitle: string;
   upload_date: string;
   file_id?: string;
-  content?: string;
+  preview_id?: string;
   starred?: boolean;
   folder?: string;
 }
 
 interface MusicXMLRendererProps {
-  musicXMLBase64: string;
+  scoreFileID: string;
   recenter: RefObject<HTMLButtonElement>;
 }
 
-export default function MusicXMLRenderer({ musicXMLBase64, recenter }: MusicXMLRendererProps) {
+export default function MusicXMLRenderer({scoreFileID, recenter}: MusicXMLRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
 
@@ -45,7 +45,10 @@ export default function MusicXMLRenderer({ musicXMLBase64, recenter }: MusicXMLR
   };
 
   useEffect(() => {
+    if (!containerRef.current) return;
+
     async function fetchAndRender() {
+      const musicXMLBase64 = await fetch(`/api/score/as-base64/${scoreFileID}`).then(res => res.text());
       if (!containerRef.current || !musicXMLBase64) return;
       try {
         if (!osmdRef.current) {
@@ -56,16 +59,17 @@ export default function MusicXMLRenderer({ musicXMLBase64, recenter }: MusicXMLR
           };
           osmdRef.current = new OpenSheetMusicDisplay(containerRef.current, options);
         }
-        // Load the MusicXML content (decoded from base64).
-        await osmdRef.current.load(atob(musicXMLBase64), "temporary title");
-        await osmdRef.current.render();
+        await osmdRef.current.load(atob(musicXMLBase64), "Score");
+        osmdRef.current.render();
         updateVisiblePages();
       } catch (error) {
         console.error("Error processing MusicXML file:", error);
       }
     }
-    fetchAndRender();
-  }, [musicXMLBase64]);
+
+    const start = performance.now();
+    fetchAndRender().then(() => console.log(`Rendering took ${performance.now() - start}ms`))
+  }, [scoreFileID]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -78,12 +82,12 @@ export default function MusicXMLRenderer({ musicXMLBase64, recenter }: MusicXMLR
   }, []);
 
   return (
-    <div className="overflow-hidden flex flex-col place-items-center" style={{ height: "calc(100vh - 11rem)" }}>
+    <div className="overflow-hidden flex flex-col place-items-center" style={{height: "calc(100vh - 11rem)"}}>
       <ZoomableDiv recenter={recenter}>
         <div
           ref={containerRef}
           className="border flex flex-col justify-center place-items-center p-2 bg-white"
-          style={{ width: "70rem" }}
+          style={{width: "70rem"}}
         ></div>
       </ZoomableDiv>
     </div>

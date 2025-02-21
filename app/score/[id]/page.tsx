@@ -17,7 +17,7 @@ export default function ScorePage() {
   const params = useParams()
   const id = params.id as string
   const [score, setScore] = useState<MusicScore>({
-    id: "nothing",
+    id: "",
     title: "loading",
     subtitle: "you're not supposed to be seeing this. if you are, good for you.",
     upload_date: "now",
@@ -73,7 +73,7 @@ export default function ScorePage() {
       </div>
     </div>
     <div className="p-4 space-y-4">
-      {score && score.content ? <MusicXMLRenderer musicXMLBase64={score.content} recenter={recenterButton}/> : ""}
+      {score && score.id && score.file_id ? <MusicXMLRenderer scoreFileID={score.file_id} recenter={recenterButton}/> : ""}
     </div>
   </Layout>
 }

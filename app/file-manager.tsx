@@ -13,7 +13,7 @@ import {Get, Post} from "@/lib/network";
 import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
 import {AccountContext} from "@/app/providers";
 import {TooltipArrow} from "@radix-ui/react-tooltip";
-import {useQuery} from "@tanstack/react-query";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {Folder} from "@/components/folder";
 import {MusicScore} from "@/components/score";
 
@@ -25,6 +25,7 @@ export default function FileManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [folderName, setFolderName] = useState("")
   const [loadSuccess, setLoadSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [fmErr, setFMErr] = useState("");
   const [errorMessage, setErrorMessage] = useState<string>()
   const [filteredScores, setFilteredScores] = useState<MusicScore[]>([]);
@@ -48,14 +49,19 @@ export default function FileManager() {
     if (folderError) loadError(folderError.message);
     if (scoreList && folderList) setLoadSuccess(true);
     if (scoreList) setFilteredScores(scoreList.filter((score) => (activeTab === "recent" ? true : score.starred)))
+    setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoreList, folderList]);
 
+  const qc = useQueryClient();
   const uploadScore = (file: File, score: MusicScore) => {
     const formData = new FormData()
     formData.append("file", file, file.name)
     formData.append("info", JSON.stringify(score))
-    Post("/api/score/upload", formData).then(console.log).catch(console.error)
+    Post("/api/score/upload", formData).then(data => {
+      qc.invalidateQueries({queryKey: ['scores']}).then(r => console.log("Scores query invalidated", r))
+      console.log(data);
+    }).catch(console.error)
   }
 
   const toggleStar = (id: string) => {
@@ -133,8 +139,9 @@ export default function FileManager() {
         {
           scores.length === 0 ? (
             <div className="text-center py-12">
-              <p
-                className="text-lg text-gray-500 dark:text-gray-400">{loadSuccess ? "It's empty in here..." : "Failed to load data"}</p>
+              <p className="text-lg text-gray-500 dark:text-gray-400">
+                {loadSuccess ? "It's empty in here..." : (isLoading ? "Loading..." : "Failed to load data")}
+              </p>
               <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
                 {loadSuccess ? (activeTab === "starred"
                     ? "Starred items show up here!"
@@ -190,6 +197,7 @@ function ScoreCard({
                      subtitle,
                      upload_date,
                      starred,
+                     preview_id,
                      onStarToggle,
                      onDragStart,
                    }: MusicScore & {
@@ -205,10 +213,10 @@ function ScoreCard({
       <Link href={`/score/${id}`} className="block" key={id}>
         <div className="aspect-[4/3] overflow-hidden">
           <Image
-            src={`/score/${id}/image`}
+            src={`/api/score/preview/${preview_id}`}
             alt={`Score preview for ${title}`}
-            width={300}
-            height={225}
+            style={{width: "80%", height: "auto", display: "block", margin: "0 auto"}}
+            width={300} height={225}
             className="w-full h-full object-contain"
           />
         </div>
