@@ -7,7 +7,10 @@ import AccountDropdown from "@/components/ui-custom/account-dropdown";
 import {AuthModal} from "@/components/auth-modals";
 import Link from "next/link";
 import {cn} from "@/lib/utils";
-import {AccountContext} from "@/app/providers";
+import {AccountContext, AccountView} from "@/app/providers";
+import {useQuery} from "@tanstack/react-query";
+import {Get} from "@/lib/network";
+import {toast} from "react-toastify";
 
 interface NavItemProps {
   href: string
@@ -47,6 +50,20 @@ export function Navbar({onMenuClick}: { onMenuClick: () => void }) {
   const handleAuthSwitch = () => {
     setAuthType(authType === "login" ? "signup" : "login")
   }
+
+  const setAccount = React.useContext(AccountContext)?.setAccount;
+  const {data, error} = useQuery({
+    queryKey: ["user-data"],
+    queryFn: () => Get<AccountView>("/api/account/user-data"),
+    staleTime: 15 * 60 * 1000,
+    gcTime: 15 * 60 * 1000
+  })
+  useEffect(() => {
+    if (data && setAccount)
+      setAccount(data);
+    if (error)
+      toast.error("Failed to fetch user data");
+  }, [data, error]);
 
   const context = React.useContext(AccountContext);
   if (!context) throw new Error("Account context not found.")

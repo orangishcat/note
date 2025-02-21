@@ -10,6 +10,7 @@ import MusicXMLRenderer, {MusicScore} from "@/components/score";
 import {Get, Post} from "@/lib/network";
 import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
 import {useQuery} from "@tanstack/react-query";
+import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 
 
 export default function ScorePage() {
@@ -48,16 +49,22 @@ export default function ScorePage() {
           className="text-gray-500 dark:text-gray-400">({score.subtitle})</span></p>
       </div>
       <div className="flex items-center gap-x-2">
-        <Button variant="ghost" size="icon" ref={recenterButton}>
-          <Fullscreen className="h-5 w-5"/>
-        </Button>
-        <Button variant="ghost"
-                onClick={() => window.open(`/api/score/download/${score.file_id}?filename=${encodeURIComponent(score.title + ".mxl")}`)}>
-          <Download className="h-4 w-4"/>
-        </Button>
-        <Button variant="ghost" onClick={() => onStarToggle(score)}>
-          <Star className={score.starred ? "text-yellow-400 fill-yellow-400" : "text-black dark:text-white"}/>
-        </Button>
+        <BasicTooltip text="Reset zoom">
+          <Button variant="ghost" size="icon" ref={recenterButton}>
+            <Fullscreen className="h-5 w-5"/>
+          </Button>
+        </BasicTooltip>
+        <BasicTooltip text="Download">
+          <Button variant="ghost"
+                  onClick={() => window.open(`/api/score/download/${score.file_id}?filename=${encodeURIComponent(score.title + ".mxl")}`)}>
+            <Download className="h-4 w-4"/>
+          </Button>
+        </BasicTooltip>
+        <BasicTooltip text="Star">
+          <Button variant="ghost" onClick={() => onStarToggle(score)}>
+            <Star className={score.starred ? "text-yellow-400 fill-yellow-400" : "text-black dark:text-white"}/>
+          </Button>
+        </BasicTooltip>
         <NotImplementedTooltip>
           <Button variant="ghost" disabled>
             <Share2 className="h-4 w-4"/>
