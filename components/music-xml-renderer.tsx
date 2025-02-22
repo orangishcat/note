@@ -1,6 +1,5 @@
-"use client";
-import React, {RefObject, useEffect, useRef} from "react";
-import {IOSMDOptions, OpenSheetMusicDisplay} from "opensheetmusicdisplay";
+import React, { RefObject, useEffect, useRef } from 'react';
+import { IOSMDOptions, OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 import ZoomableDiv from "@/components/ui-custom/zoomable-div";
 
 export interface MusicScore {
@@ -19,7 +18,7 @@ interface MusicXMLRendererProps {
   recenter: RefObject<HTMLButtonElement>;
 }
 
-export default function MusicXMLRenderer({scoreFileID, recenter}: MusicXMLRendererProps) {
+export default function MusicXMLRenderer({ scoreFileID, recenter }: MusicXMLRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
 
@@ -55,7 +54,7 @@ export default function MusicXMLRenderer({scoreFileID, recenter}: MusicXMLRender
           const options: IOSMDOptions = {
             backend: "svg",
             drawTitle: true,
-            autoResize: false,
+            autoResize: true,
           };
           osmdRef.current = new OpenSheetMusicDisplay(containerRef.current, options);
         }
@@ -68,7 +67,7 @@ export default function MusicXMLRenderer({scoreFileID, recenter}: MusicXMLRender
     }
 
     const start = performance.now();
-    fetchAndRender().then(() => console.log(`Rendering took ${performance.now() - start}ms`))
+    fetchAndRender().then(() => console.log(`Rendering took ${performance.now() - start}ms`));
   }, [scoreFileID]);
 
   useEffect(() => {
@@ -82,12 +81,13 @@ export default function MusicXMLRenderer({scoreFileID, recenter}: MusicXMLRender
   }, []);
 
   return (
-    <div className="overflow-hidden flex flex-col place-items-center" style={{height: "calc(100vh - 11rem)"}}>
+    <div className="overflow-hidden flex flex-col place-items-center" style={{ height: "calc(100vh - 11rem)" }}>
       <ZoomableDiv recenter={recenter}>
         <div
           ref={containerRef}
           className="border flex flex-col justify-center place-items-center p-2 bg-white"
-          style={{width: "70rem"}}
+          // Use CSS min() to ensure the container width doesn't exceed the screen width (minus 6px)
+          style={{ width: "min(70rem, calc(100vw - 6px))" }}
         ></div>
       </ZoomableDiv>
     </div>

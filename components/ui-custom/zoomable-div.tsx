@@ -13,20 +13,23 @@ export default function ZoomableDiv({
   // Track the previous scale so we can compute relative changes.
   const prevScaleRef = useRef(1);
   const zoomSensitivity = 0.0015;
-  const minScale = 0.5;
+  const minScale = 0.25;
   const maxScale = 4;
 
   // Utility to clamp scale value.
-  const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
+  const clamp = (val: number, min: number, max: number) =>
+    Math.min(Math.max(val, min), max);
 
   // Store the original (unscaled) dimensions of the inner container.
   const [originalWidth, setOriginalWidth] = useState<number | null>(null);
   const [originalHeight, setOriginalHeight] = useState<number | null>(null);
 
-  // On mount, capture the original dimensions.
+  // On mount, capture the original dimensions and set width to the minimum of the current width and (screen width - 6px)
   useEffect(() => {
     if (innerRef.current) {
-      setOriginalWidth(innerRef.current.offsetWidth);
+      const currentWidth = innerRef.current.offsetWidth;
+      const screenWidth = window.innerWidth - 6;
+      setOriginalWidth(Math.min(currentWidth, screenWidth));
       setOriginalHeight(innerRef.current.offsetHeight);
     }
   }, []);
@@ -39,7 +42,6 @@ export default function ZoomableDiv({
         const newScale = clamp(scale - e.deltaY * zoomSensitivity, minScale, maxScale);
         setScale(newScale);
       }
-      // Reset zoom when the recenter button is clicked.
       recenter.current?.addEventListener('click', () => setScale(1));
     };
 

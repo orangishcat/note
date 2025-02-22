@@ -57,7 +57,7 @@ export function Providers({children}: { children: React.ReactNode }) {
   return (
     <AccountContext.Provider value={{account, setAccount}}>
       <QueryClientProvider client={client}>
-        <TooltipProvider delayDuration={0}>
+        <TooltipProvider delayDuration={500}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             {children}
           </ThemeProvider>

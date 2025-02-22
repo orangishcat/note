@@ -2,7 +2,7 @@
 
 import {Button} from "@/components/ui/button"
 import {Tabs, TabsList, TabsTrigger} from "@/components/ui/tabs"
-import {FileIcon, FolderPlus, Star} from "lucide-react"
+import {FolderPlus, RefreshCw, Star} from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import React, {useEffect, useState} from "react"
@@ -15,7 +15,10 @@ import {AccountContext} from "@/app/providers";
 import {TooltipArrow} from "@radix-ui/react-tooltip";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {Folder} from "@/components/folder";
-import {MusicScore} from "@/components/score";
+import {MusicScore} from "@/components/music-xml-renderer";
+import FileOptionsDropdown from "@/components/ui-custom/file-options-dropdown";
+import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
+import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 
 
 export default function FileManager() {
@@ -29,12 +32,13 @@ export default function FileManager() {
   const [fmErr, setFMErr] = useState("");
   const [errorMessage, setErrorMessage] = useState<string>()
   const [filteredScores, setFilteredScores] = useState<MusicScore[]>([]);
+  const [refetchDisabled, setRefetchDisabled] = useState(false);
 
   const loadError = (reason: string) => {
     setLoadSuccess(false);
     setFMErr("Error: " + reason);
   }
-  const {data: scoreList, error: scoreError} = useQuery({
+  const {data: scoreList, error: scoreError, refetch: refetchScores} = useQuery({
     queryKey: ["scores"],
     queryFn: () => Get<MusicScore[]>("/api/score/list"),
   });
@@ -42,30 +46,41 @@ export default function FileManager() {
     queryKey: ["folders"],
     queryFn: () => Get<Folder[]>("/api/folder/list"),
   });
+  useEffect(
+    () => setFilteredScores(scores.filter((score) => (activeTab === "recent" ? true : score.starred))),
+    [activeTab, scores])
+
   useEffect(() => {
     if (scoreList) setScores(scoreList);
     if (folderList) setFolders(folderList);
     if (scoreError) loadError(scoreError.message);
     if (folderError) loadError(folderError.message);
     if (scoreList && folderList) setLoadSuccess(true);
-    if (scoreList) setFilteredScores(scoreList.filter((score) => (activeTab === "recent" ? true : score.starred)))
     setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoreList, folderList]);
 
   const qc = useQueryClient();
+  const invalidateScores = () => {
+    qc.invalidateQueries({queryKey: ['scores']}).then(r => console.log("Scores query invalidated", r))
+  };
   const uploadScore = (file: File, score: MusicScore) => {
     const formData = new FormData()
     formData.append("file", file, file.name)
     formData.append("info", JSON.stringify(score))
     Post("/api/score/upload", formData).then(data => {
-      qc.invalidateQueries({queryKey: ['scores']}).then(r => console.log("Scores query invalidated", r))
+      invalidateScores();
       console.log(data);
     }).catch(console.error)
   }
 
-  const toggleStar = (id: string) => {
-    Post("/api/score/star", {'id': id}).then(() => console.log("star toggled"))
+  const [lastStarTime, setLastStarTime] = useState(0);
+  const toggleStar = (score: MusicScore) => {
+    setLastStarTime(Date.now())
+    if (Date.now() - lastStarTime < 700) return
+
+    setScores(scores.map((s) => (s.id === score.id ? {...s, starred: !s.starred} : s)))
+    Post(`/api/score/star/${score.id}`, {starred: !score.starred}).catch(console.error)
   }
 
   const newFolder = (folderName: string, content: string[]) => {
@@ -99,6 +114,10 @@ export default function FileManager() {
 
   const account = React.useContext(AccountContext)?.account;
 
+  const onDelete = (id: string) => {
+    setScores(scores.filter((score) => score.id !== id))
+    invalidateScores()
+  };
   return (
     <Layout>
       <div className="p-6">
@@ -107,18 +126,26 @@ export default function FileManager() {
             <TabsList>
               <TabsTrigger value="recent">Recent</TabsTrigger>
               <TabsTrigger value="starred">Starred</TabsTrigger>
-              <TabsTrigger value="shared" disabled>
-                Shared
-              </TabsTrigger>
+              <TabsTrigger value="shared" disabled>Shared</TabsTrigger>
             </TabsList>
           </Tabs>
           <div className="flex items-center gap-4">
+            <BasicTooltip text="Refresh scores list">
+              <Button variant="outline" className="gap-2" disabled={refetchDisabled} onClick={() => {
+                setRefetchDisabled(true);
+                refetchScores().then(() => setRefetchDisabled(false));
+              }}>
+                <RefreshCw className={`h-4 w-4 ${refetchDisabled && "animate-spin"}`}/>
+              </Button>
+            </BasicTooltip>
             <UploadDialog onUpload={handleUpload}/>
             {account ?
-              <Button variant="outline" className="gap-2" onClick={() => setIsDialogOpen(true)}>
-                <FolderPlus className="h-4 w-4"/>
-                Create folder
-              </Button> :
+              <NotImplementedTooltip>
+                <Button variant="outline" className="gap-2" disabled onClick={() => setIsDialogOpen(true)}>
+                  <FolderPlus className="h-4 w-4"/>
+                  Create folder
+                </Button>
+              </NotImplementedTooltip> :
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span tabIndex={-1}>
@@ -150,13 +177,14 @@ export default function FileManager() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {filteredScores.map((score) => (
                 <ScoreCard
                   key={score.id}
-                  {...score}
-                  onStarToggle={() => toggleStar(score.id)}
+                  score={score}
+                  onStarToggle={() => toggleStar(score)}
                   onDragStart={handleDragStart}
+                  onDelete={onDelete}
                 />
               ))}
             </div>
@@ -192,55 +220,59 @@ export default function FileManager() {
 }
 
 function ScoreCard({
-                     id,
-                     title,
-                     subtitle,
-                     upload_date,
-                     starred,
-                     preview_id,
+                     score,
                      onStarToggle,
                      onDragStart,
-                   }: MusicScore & {
+                     onDelete,
+                   }: {
+  score: MusicScore
   onStarToggle: () => void
   onDragStart: (e: React.DragEvent, id: string) => void
+  onDelete: (id: string) => void
 }) {
+  const {id, title, subtitle, upload_date, starred, preview_id} = score;
+
   return (
     <div
-      className="group relative overflow-hidden rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700"
+      className="group relative overflow-hidden rounded-lg border bg-white dark:bg-gray-700 dark:border-gray-700
+       dark:hover:border-gray-500 transition-colors duration-200"
       draggable
       onDragStart={(e) => onDragStart(e, id)}
     >
-      <Link href={`/score/${id}`} className="block" key={id}>
+      <Link href={`/score/${id}`} key={id}>
         <div className="aspect-[4/3] overflow-hidden">
           <Image
             src={`/api/score/preview/${preview_id}`}
             alt={`Score preview for ${title}`}
             style={{width: "80%", height: "auto", display: "block", margin: "0 auto"}}
-            width={300} height={225}
+            width={300} height={225} priority
             className="w-full h-full object-contain"
           />
         </div>
-        <div className="p-4">
-          <div className="flex items-center gap-2">
-            <FileIcon className="h-4 w-4 text-gray-400"/>
-            <h3 className="font-medium text-gray-900 dark:text-white truncate">{title}</h3>
-          </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
-          <p
-            className="text-xs text-gray-500 dark:text-gray-400">Uploaded {new Date(upload_date).toLocaleDateString()}</p>
-        </div>
       </Link>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-transparent hover:bg-transparent"
-        onClick={(e) => {
-          e.preventDefault()
-          onStarToggle()
-        }}
-      >
-        <Star className={`h-5 w-5 ${starred ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`}/>
-      </Button>
+
+      <div className="flex items-center justify-between dark:bg-gray-800 dark:border-gray-600 border-t border-inherit">
+        <Link href={`/score/${id}`} key={id}>
+          <div className="p-4 ml-4">
+            <h3 className="font-medium text-gray-900 dark:text-white truncate">{title}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{subtitle} •
+              Uploaded {new Date(upload_date).toLocaleDateString()}</p>
+          </div>
+        </Link>
+        <div className="flex flex-col md:flex-row xl:gap-3 gap-4 mr-4 text-gray-400">
+          <Button
+            variant="ghost"
+            size="link"
+            onClick={(e) => {
+              e.preventDefault()
+              onStarToggle()
+            }}
+          >
+            <Star className={`xl:size-4 ${starred && "fill-yellow-400 text-yellow-400"}`}/>
+          </Button>
+          <FileOptionsDropdown score={score} onDelete={onDelete}/>
+        </div>
+      </div>
     </div>
   )
 }

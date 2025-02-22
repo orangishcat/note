@@ -6,7 +6,7 @@ import Link from "next/link";
 import {ArrowLeft, Download, Fullscreen, Share2, Star} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Layout} from "@/components/layout";
-import MusicXMLRenderer, {MusicScore} from "@/components/score";
+import MusicXMLRenderer, {MusicScore} from "@/components/music-xml-renderer";
 import {Get, Post} from "@/lib/network";
 import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
 import {useQuery} from "@tanstack/react-query";
@@ -45,8 +45,10 @@ export default function ScorePage() {
         <Link href="/" className="text-muted-foreground">
           <ArrowLeft className="h-6 w-6"/>
         </Link>
-        <p><span className="text-2xl">{score.title}</span> <span
-          className="text-gray-500 dark:text-gray-400">({score.subtitle})</span></p>
+        <p className="text-2xl">
+          {score.title}
+          <span className="text-gray-500 dark:text-gray-400"> ({score.subtitle})</span>
+        </p>
       </div>
       <div className="flex items-center gap-x-2">
         <BasicTooltip text="Reset zoom">
@@ -62,7 +64,7 @@ export default function ScorePage() {
         </BasicTooltip>
         <BasicTooltip text="Star">
           <Button variant="ghost" onClick={() => onStarToggle(score)}>
-            <Star className={score.starred ? "text-yellow-400 fill-yellow-400" : "text-black dark:text-white"}/>
+            <Star className={"size-4 " + (score.starred ? "text-yellow-400 fill-yellow-400" : "text-black dark:text-white")}/>
           </Button>
         </BasicTooltip>
         <NotImplementedTooltip>
