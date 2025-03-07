@@ -13,101 +13,101 @@ import {Get} from "@/lib/network";
 import {toast} from "react-toastify";
 
 interface NavItemProps {
-  href: string
-  icon: React.ReactNode
-  children: React.ReactNode
-  active?: boolean
+    href: string
+    icon: React.ReactNode
+    children: React.ReactNode
+    active?: boolean
 }
 
 export function NavItem({href, icon, children, active}: NavItemProps) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 rounded-lg",
-        active && "bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-200",
-      )}
-    >
-      {icon}
-      <span>{children}</span>
-    </Link>
-  )
+    return (
+      <Link
+        href={href}
+        className={cn(
+          "flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 rounded-lg",
+          active && "bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-200",
+        )}
+      >
+          {icon}
+          <span>{children}</span>
+      </Link>
+    )
 }
 
 export function Navbar({onMenuClick}: { onMenuClick: () => void }) {
-  const {setTheme, resolvedTheme} = useTheme()
-  const [mounted, setMounted] = useState(false)
-  const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [authType, setAuthType] = useState<"login" | "signup">("login")
+    const {setTheme, resolvedTheme} = useTheme()
+    const [mounted, setMounted] = useState(false)
+    const [authModalOpen, setAuthModalOpen] = useState(false)
+    const [authType, setAuthType] = useState<"login" | "signup">("login")
 
-  useEffect(() => setMounted(true), [])
+    useEffect(() => setMounted(true), [])
 
-  const handleAuthClick = () => {
-    setAuthType("login")
-    setAuthModalOpen(true)
-  }
+    const handleAuthClick = () => {
+        setAuthType("login")
+        setAuthModalOpen(true)
+    }
 
-  const handleAuthSwitch = () => {
-    setAuthType(authType === "login" ? "signup" : "login")
-  }
+    const handleAuthSwitch = () => {
+        setAuthType(authType === "login" ? "signup" : "login")
+    }
 
-  const setAccount = React.useContext(AccountContext)?.setAccount;
-  const {data, error} = useQuery({
-    queryKey: ["user-data"],
-    queryFn: () => Get<AccountView>("/api/account/user-data"),
-    staleTime: 15 * 60 * 1000,
-    gcTime: 15 * 60 * 1000
-  })
-  useEffect(() => {
-    if (data && setAccount)
-      setAccount(data);
-    if (error)
-      toast.error("Failed to fetch user data");
-  }, [data, error]);
+    const setAccount = React.useContext(AccountContext)?.setAccount;
+    const {data, error} = useQuery({
+        queryKey: ["user-data"],
+        queryFn: () => Get<AccountView>("/api/account/user-data"),
+        staleTime: 15 * 60 * 1000,
+        gcTime: 15 * 60 * 1000
+    })
+    useEffect(() => {
+        if (data && setAccount)
+            setAccount(data);
+        if (error)
+            toast.error("Failed to fetch user data");
+    }, [data, error, setAccount]);
 
-  const context = React.useContext(AccountContext);
-  if (!context) throw new Error("Account context not found.")
-  const {account} = context;
+    const context = React.useContext(AccountContext);
+    if (!context) throw new Error("Account context not found.")
+    const {account} = context;
 
-  return (
-    <>
-      <header className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={onMenuClick} className="xl:hidden">
-            <Menu className="h-6 w-6"/>
-          </Button>
-          <SearchBox/>
-        </div>
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-            disabled={!mounted}
-          >
-            {mounted &&
-              (resolvedTheme === "dark" ? <Sun className="h-4 w-4"/> : <Moon className="h-4 w-4"/>)}
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Grid className="h-4 w-4"/>
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Bell className="h-4 w-4"/>
-          </Button>
-          {/* If user is logged in, display their name and email; otherwise show the auth button */}
-          {account ? <AccountDropdown/> : (
-            <Button size="icon" className="rounded-full" onClick={handleAuthClick}>
-              <User className="h-6 w-6 text-white"/>
-            </Button>
-          )}
-        </div>
-      </header>
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        onSwitch={handleAuthSwitch}
-        type={authType}
-      />
-    </>
-  )
+    return (
+      <>
+          <header className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700">
+              <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="icon" onClick={onMenuClick} className="xl:hidden">
+                      <Menu className="h-6 w-6"/>
+                  </Button>
+                  <SearchBox/>
+              </div>
+              <div className="flex items-center gap-4">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                    disabled={!mounted}
+                  >
+                      {mounted &&
+                        (resolvedTheme === "dark" ? <Sun className="h-4 w-4"/> : <Moon className="h-4 w-4"/>)}
+                  </Button>
+                  <Button variant="ghost" size="icon">
+                      <Grid className="h-4 w-4"/>
+                  </Button>
+                  <Button variant="ghost" size="icon">
+                      <Bell className="h-4 w-4"/>
+                  </Button>
+                  {/* If user is logged in, display their name and email; otherwise show the auth button */}
+                  {account ? <AccountDropdown/> : (
+                    <Button size="icon" className="rounded-full" onClick={handleAuthClick}>
+                        <User className="h-6 w-6 text-white"/>
+                    </Button>
+                  )}
+              </div>
+          </header>
+          <AuthModal
+            isOpen={authModalOpen}
+            onClose={() => setAuthModalOpen(false)}
+            onSwitch={handleAuthSwitch}
+            type={authType}
+          />
+      </>
+    )
 }
