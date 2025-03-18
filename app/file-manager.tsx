@@ -64,15 +64,6 @@ export default function FileManager() {
     const invalidateScores = () => {
         qc.invalidateQueries({queryKey: ['scores']}).then(r => console.log("Scores query invalidated", r))
     };
-    const uploadScore = (file: File, score: MusicScore) => {
-        const formData = new FormData()
-        formData.append("file", file, file.name)
-        formData.append("info", JSON.stringify(score))
-        Post("/api/score/upload", formData).then(data => {
-            invalidateScores();
-            console.log(data);
-        }).catch(console.error)
-    }
 
     const [lastStarTime, setLastStarTime] = useState(0);
     const toggleStar = (score: MusicScore) => {
@@ -98,18 +89,6 @@ export default function FileManager() {
         newFolder(folderName, [])
         setFolderName("")
         setIsDialogOpen(false)
-    }
-
-    const handleUpload = (file: File, id: string) => {
-        const newScore: MusicScore = {
-            id,
-            title: file.name.replace(".mxl", ""),
-            subtitle: "Unknown",
-            upload_date: new Date().toISOString(),
-            starred: false,
-        }
-        uploadScore(file, newScore)
-        setScores([...scores, newScore])
     }
 
     const account = React.useContext(AccountContext)?.account;
@@ -138,7 +117,7 @@ export default function FileManager() {
                               <RefreshCw className={`h-4 w-4 ${refetchDisabled && "animate-spin"}`}/>
                           </Button>
                       </BasicTooltip>
-                      <UploadDialog onUpload={handleUpload}/>
+                      <UploadDialog/>
                       {account ?
                         <NotImplementedTooltip>
                             <Button variant="outline" className="gap-2" disabled onClick={() => setIsDialogOpen(true)}>

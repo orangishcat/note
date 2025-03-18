@@ -1,3 +1,2 @@
-export const SUPPORTED_FILE_TYPES = [".mxl"]
-export const SUPPORTED_FILE_TYPES_TEXT = "Supported file types: " + SUPPORTED_FILE_TYPES.join(", ")
-
+export const SUPPORTED_FILE_TYPES = [".mxl", ".musicxml", ".xml", ".mxmls", ".pdf", ".png", ".jpg", ".jpeg"]
+export const SUPPORTED_FILE_TYPES_TEXT = SUPPORTED_FILE_TYPES.join(", ")

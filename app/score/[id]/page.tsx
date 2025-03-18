@@ -91,7 +91,7 @@ export default function ScorePage() {
             const silenceThreshold = 0.01; // Adjust this threshold as needed
 
             // Process audio data to detect silence.
-            processor.onaudioprocess = (event) => {
+            processor.addEventListener("audioprocess", (event) => {
                 const inputData = event.inputBuffer.getChannelData(0);
                 let sum = 0;
                 for (let i = 0; i < inputData.length; i++) {
@@ -113,7 +113,7 @@ export default function ScorePage() {
                     // Reset silence detection if audio level rises above threshold.
                     silenceStart = null;
                 }
-            };
+            })
 
             // When the recorder stops, send the data to the server and restart recording if needed.
             mediaRecorder.onstop = () => {

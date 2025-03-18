@@ -95,11 +95,7 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
       <ModalContent>
         <ModalHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
           <ModalTitle className="font-bold">{type === "login" ? "Log In" : "Sign Up"}</ModalTitle>
-          <ModalDescription>
-            {type === "login"
-              ? "Enter your credentials to access your accounts"
-              : "Create a new accounts to get started"}
-          </ModalDescription>
+          <ModalDescription/>
         </ModalHeader>
 
         {showCaptcha ?
