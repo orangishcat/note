@@ -53,8 +53,14 @@ export default function FileManager() {
     useEffect(() => {
         if (scoreList) setScores(scoreList);
         if (folderList) setFolders(folderList);
-        if (scoreError) loadError(scoreError.message);
-        if (folderError) loadError(folderError.message);
+        if (scoreError)
+            loadError(scoreError.message);
+        else
+            setLoadSuccess(true);
+        if (folderError)
+            loadError(folderError.message);
+        else
+            setLoadSuccess(true);
         if (scoreList && folderList) setLoadSuccess(true);
         setIsLoading(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,12 +133,12 @@ export default function FileManager() {
                         </NotImplementedTooltip> :
                         <Tooltip>
                             <TooltipTrigger asChild>
-                  <span tabIndex={-1}>
-                    <Button variant="outline" className="gap-2" disabled>
-                      <FolderPlus className="h-4 w-4"/>
-                      Create folder
-                    </Button>
-                  </span>
+                                <span tabIndex={-1}>
+                                <Button variant="outline" className="gap-2" disabled>
+                                  <FolderPlus className="h-4 w-4"/>
+                                  Create folder
+                                </Button>
+                                </span>
                             </TooltipTrigger>
                             <TooltipContent>
                                 Log in or create an account first!
