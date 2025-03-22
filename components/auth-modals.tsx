@@ -5,7 +5,7 @@ import {Modal, ModalContent, ModalDescription, ModalFooter, ModalHeader, ModalTi
 import {Lock, Mail, User} from "lucide-react"
 import HCaptcha from "@hcaptcha/react-hcaptcha"
 import {AccountContext, AccountView} from "@/app/providers";
-import {Post} from "@/lib/network";
+import axios from "axios";
 
 interface AuthModalProps {
   isOpen: boolean
@@ -78,10 +78,10 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
     if (context?.account) return;
     try {
       setStatus(type === "login" ? "Logging in..." : "Loading...");
-      Post<AccountView>("/api/account/login", {email: email, password: password}).then(resp => {
+      axios.post<AccountView>("/api/account/login", {email: email, password: password}).then(resp => {
         console.log("Auth successful:", resp);
         if (!context) throw new Error("Auth failed: Account not found.");
-        context.setAccount(resp)
+        context.setAccount(resp.data)
         onClose();
       }).catch(console.error);
     } catch (error) {

@@ -6,6 +6,7 @@ import {TooltipProvider} from "@/components/ui/tooltip";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {persistQueryClient} from "@tanstack/query-persist-client-core";
 import {createSyncStoragePersister} from "@tanstack/query-sync-storage-persister";
+import axios from "axios";
 
 export interface AccountView {
     user_id: string
@@ -15,7 +16,7 @@ export interface AccountView {
 
 interface AccountContextType {
     account: AccountView | null;
-    setAccount: (newValue: AccountView) => void;
+    setAccount: (newValue: AccountView | null) => void;
 }
 
 export const AccountContext = React.createContext<AccountContextType | null>(null)
@@ -27,6 +28,7 @@ export function Providers({children}: { children: React.ReactNode }) {
     useEffect(() => {
         document.title = "Note";
     }, [])
+
 
     // Initialize QueryClient and persist immediately
     const [client] = useState(() => {

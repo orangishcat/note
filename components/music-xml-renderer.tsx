@@ -103,7 +103,6 @@ export default function MusicXMLRenderer({scoreFileID, recenter}: MusicXMLRender
       await osmdRef.current.load(atob(musicXMLBase64), "Score");
       osmdRef.current.render();
       updateVisiblePages();
-      drawDebugText();
     } catch (error) {
       console.error("Error processing MusicXML file:", error);
     }

@@ -14,7 +14,6 @@ import {Check, CheckCircle, FileIcon, FileImage, FileMusic, FileText, Text, Uplo
 import {cn} from "@/lib/utils"
 import {AUDIO_FILE_TYPES, AUDIO_FILE_TYPES_TEXT, SCORE_FILE_TYPES} from "@/lib/constants"
 import axios, {type CancelTokenSource} from "axios"
-import {Post} from "@/lib/network"
 import {Input} from "@/components/ui/input"
 
 // Define file type selection options
@@ -451,7 +450,7 @@ export function UploadDialog({onUpload}: { onUpload: () => void  }) {
                     newSet.delete(file.file.name)
                     return newSet
                 })
-                Post("/api/score/cancel-upload", {file_name: file.file.name})
+                axios.post("/api/score/cancel-upload", {file_name: file.file.name})
             }
 
             // Remove from list

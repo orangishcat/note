@@ -9,7 +9,6 @@ import React, {useEffect, useState} from "react"
 import {Layout} from "@/components/layout"
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog"
 import {UploadDialog} from "@/components/upload-dialog"
-import {Get, Post} from "@/lib/network";
 import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
 import {AccountContext} from "@/app/providers";
 import {TooltipArrow} from "@radix-ui/react-tooltip";
@@ -19,6 +18,7 @@ import {MusicScore} from "@/components/music-xml-renderer";
 import FileOptionsDropdown from "@/components/ui-custom/file-options-dropdown";
 import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
+import axios from "axios";
 
 
 export default function FileManager() {
@@ -33,6 +33,7 @@ export default function FileManager() {
     const [errorMessage, setErrorMessage] = useState<string>()
     const [filteredScores, setFilteredScores] = useState<MusicScore[]>([]);
     const [refetchDisabled, setRefetchDisabled] = useState(false);
+    const account = React.useContext(AccountContext)?.account;
 
     const loadError = (reason: string) => {
         setLoadSuccess(false);
@@ -40,15 +41,20 @@ export default function FileManager() {
     }
     const {data: scoreList, error: scoreError, refetch: refetchScores} = useQuery({
         queryKey: ["scores"],
-        queryFn: () => Get<MusicScore[]>("/api/score/list"),
+        queryFn: () => axios.get<MusicScore[]>("/api/score/list").then(resp => resp.data),
     });
     const {data: folderList, error: folderError} = useQuery({
         queryKey: ["folders"],
-        queryFn: () => Get<Folder[]>("/api/folder/list"),
+        queryFn: () => axios.get<Folder[]>("/api/folder/list").then(resp => resp.data),
     });
     useEffect(
       () => setFilteredScores(scores.filter((score) => (activeTab === "recent" ? true : score.starred))),
       [activeTab, scores])
+
+    useEffect(() => {
+        if (account)
+            refetchScores()
+    }, [account]);
 
     useEffect(() => {
         if (scoreList) setScores(scoreList);
@@ -77,11 +83,11 @@ export default function FileManager() {
         if (Date.now() - lastStarTime < 700) return
 
         setScores(scores.map((s) => (s.id === score.id ? {...s, starred: !s.starred} : s)))
-        Post(`/api/score/star/${score.id}`, {starred: !score.starred}).catch(console.error)
+        axios.post(`/api/score/star/${score.id}`, {starred: !score.starred}).catch(console.error)
     }
 
     const newFolder = (folderName: string, content: string[]) => {
-        Post("/api/folder/create", {folderName, content}).then(console.log)
+        axios.post("/api/folder/create", {folderName, content}).then(console.log)
     }
 
     const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -96,8 +102,6 @@ export default function FileManager() {
         setFolderName("")
         setIsDialogOpen(false)
     }
-
-    const account = React.useContext(AccountContext)?.account;
 
     const onDelete = (id: string) => {
         setScores(scores.filter((score) => score.id !== id))
@@ -123,7 +127,7 @@ export default function FileManager() {
                               <RefreshCw className={`h-4 w-4 ${refetchDisabled && "animate-spin"}`}/>
                           </Button>
                       </BasicTooltip>
-                      <UploadDialog/>
+                      <UploadDialog onUpload={invalidateScores}/>
                       {account ?
                         <NotImplementedTooltip>
                             <Button variant="outline" className="gap-2" disabled onClick={() => setIsDialogOpen(true)}>
@@ -152,13 +156,15 @@ export default function FileManager() {
                   scores.length === 0 ? (
                     <div className="text-center py-12">
                         <p className="text-lg text-gray-500 dark:text-gray-400">
-                            {loadSuccess ? "It's empty in here..." : (isLoading ? "Loading..." : "Failed to load data")}
+                            {account ? (loadSuccess ? "It's empty in here..." : (isLoading ? "Loading..." : "Failed to load data")) : "Log in first!"}
                         </p>
                         <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                            {loadSuccess ? (activeTab === "starred"
-                                ? "Starred items show up here!"
-                                : "Upload some files or create a folder to get started!") :
-                              fmErr}
+                            {account ?
+                                (loadSuccess ? (activeTab === "starred"
+                                    ? "Starred items show up here!"
+                                    : "Upload some files or create a folder to get started!") :
+                                  fmErr)
+                             : "Session expired"}
                         </p>
                     </div>
                   ) : (

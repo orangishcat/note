@@ -9,8 +9,8 @@ import Link from "next/link";
 import {cn} from "@/lib/utils";
 import {AccountContext, AccountView} from "@/app/providers";
 import {useQuery} from "@tanstack/react-query";
-import {Get} from "@/lib/network";
 import {toast} from "react-toastify";
+import axios from "axios";
 
 interface NavItemProps {
     href: string
@@ -33,18 +33,17 @@ export function NavItem({href, icon, children, active}: NavItemProps) {
       </Link>
     )
 }
-
 export function Navbar({onMenuClick}: { onMenuClick: () => void }) {
     const {setTheme, resolvedTheme} = useTheme()
     const [mounted, setMounted] = useState(false)
-    const [authModalOpen, setAuthModalOpen] = useState(false)
     const [authType, setAuthType] = useState<"login" | "signup">("login")
+    const [authOpen, setAuthOpen] = React.useState(false);
 
     useEffect(() => setMounted(true), [])
 
     const handleAuthClick = () => {
         setAuthType("login")
-        setAuthModalOpen(true)
+        setAuthOpen(true)
     }
 
     const handleAuthSwitch = () => {
@@ -52,14 +51,19 @@ export function Navbar({onMenuClick}: { onMenuClick: () => void }) {
     }
 
     const setAccount = React.useContext(AccountContext)?.setAccount;
+    if (!setAccount) throw new Error("Account not found");
     const {data, error} = useQuery({
         queryKey: ["user-data"],
-        queryFn: () => Get<AccountView>("/api/account/user-data"),
-        staleTime: 15 * 60 * 1000,
-        gcTime: 15 * 60 * 1000
+        queryFn: () => axios.get<AccountView>("/api/account/user-data").then(resp => resp.data).catch(e => {
+            if (e.response.data.error.error.include("try clearing cookies")) {
+                setAccount(null)
+            }
+        }),
+        staleTime: 60 * 1000,
+        gcTime: 60 * 1000
     })
     useEffect(() => {
-        if (data && setAccount)
+        if (data)
             setAccount(data);
         if (error)
             toast.error("Failed to fetch user data");
@@ -103,8 +107,8 @@ export function Navbar({onMenuClick}: { onMenuClick: () => void }) {
               </div>
           </header>
           <AuthModal
-            isOpen={authModalOpen}
-            onClose={() => setAuthModalOpen(false)}
+            isOpen={authOpen}
+            onClose={() => setAuthOpen(false)}
             onSwitch={handleAuthSwitch}
             type={authType}
           />

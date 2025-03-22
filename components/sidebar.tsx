@@ -13,7 +13,7 @@ export function Sidebar({
   return (
     <div
       className={cn(
-        "inset-y-0 w-64 fixed xl:relative left-0 z-50 bg-white dark:bg-gray-800 border-r dark:border-gray-700" +
+        "inset-y-0 w-72 mr-4 fixed xl:relative left-0 z-50 bg-gray-100 dark:bg-gray-800/50 border-r dark:border-gray-700 " +
         "transform transition-transform duration-200 ease-in-out xl:translate-x-0",
         isOpen ? "" : "-translate-x-full"
       )}

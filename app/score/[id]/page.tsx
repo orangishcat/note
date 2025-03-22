@@ -7,10 +7,10 @@ import {ArrowLeft, Download, Fullscreen, Mic, Share2, SquareIcon, Star} from "lu
 import {Button} from "@/components/ui/button"
 import {Layout} from "@/components/layout"
 import MusicXMLRenderer, {MusicScore} from "@/components/music-xml-renderer"
-import {Get, Post} from "@/lib/network"
 import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip"
 import {useQuery} from "@tanstack/react-query"
 import BasicTooltip from "@/components/ui-custom/basic-tooltip"
+import axios from "axios";
 
 
 interface ScoringContextType {
@@ -36,12 +36,12 @@ export default function ScorePage() {
         setLastStarTime(Date.now())
         if (Date.now() - lastStarTime < 700) return
         setScore({...score, starred: !score.starred})
-        Post(`/api/score/star/${score.id}`, {starred: !score.starred}).catch(console.error)
+        axios.post(`/api/score/star/${score.id}`, {starred: !score.starred}).catch(console.error)
     }
 
     const {data: loadedScore} = useQuery({
         queryKey: ["score_" + id],
-        queryFn: () => Get<MusicScore>(`/api/score/data/${id}`)
+        queryFn: () => axios.get<MusicScore>(`/api/score/data/${id}`).then(resp => resp.data),
     })
 
     useEffect(() => {
