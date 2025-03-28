@@ -2,7 +2,6 @@ import {useTheme} from "next-themes";
 import React, {useEffect, useState} from "react";
 import {Button} from "@/components/ui/button";
 import {Bell, Grid, Menu, Moon, Sun, User} from "lucide-react";
-import SearchBox from "@/components/ui-custom/search-box";
 import AccountDropdown from "@/components/ui-custom/account-dropdown";
 import {AuthModal} from "@/components/auth-modals";
 import Link from "next/link";
@@ -25,7 +24,7 @@ export function NavItem({href, icon, children, active}: NavItemProps) {
         href={href}
         className={cn(
           "flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 rounded-lg",
-          active && "bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-200",
+          active && "bg-accent-100 dark:bg-accent-900 text-accent-600 dark:text-accent-200",
         )}
       >
           {icon}
@@ -33,7 +32,14 @@ export function NavItem({href, icon, children, active}: NavItemProps) {
       </Link>
     )
 }
-export function Navbar({onMenuClick}: { onMenuClick: () => void }) {
+
+interface NavbarProps {
+    onMenuClick: () => void;
+    leftSection?: React.ReactNode;
+    rightSection?: React.ReactNode;
+}
+
+export function Navbar({ onMenuClick, leftSection, rightSection }: NavbarProps) {
     const {setTheme, resolvedTheme} = useTheme()
     const [mounted, setMounted] = useState(false)
     const [authType, setAuthType] = useState<"login" | "signup">("login")
@@ -77,32 +83,42 @@ export function Navbar({onMenuClick}: { onMenuClick: () => void }) {
       <>
           <header className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700">
               <div className="flex items-center gap-4">
-                  <Button variant="ghost" size="icon" onClick={onMenuClick} className="xl:hidden">
-                      <Menu className="h-6 w-6"/>
-                  </Button>
-                  <SearchBox/>
-              </div>
-              <div className="flex items-center gap-4">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-                    disabled={!mounted}
-                  >
-                      {mounted &&
-                        (resolvedTheme === "dark" ? <Sun className="h-4 w-4"/> : <Moon className="h-4 w-4"/>)}
-                  </Button>
-                  <Button variant="ghost" size="icon">
-                      <Grid className="h-4 w-4"/>
-                  </Button>
-                  <Button variant="ghost" size="icon">
-                      <Bell className="h-4 w-4"/>
-                  </Button>
-                  {/* If user is logged in, display their name and email; otherwise show the auth button */}
-                  {account ? <AccountDropdown/> : (
-                    <Button size="icon" className="rounded-full" onClick={handleAuthClick}>
-                        <User className="h-6 w-6 text-white"/>
+                  {!leftSection ? (
+                    <Button variant="ghost" size="icon" onClick={onMenuClick} className="xl:hidden">
+                        <Menu className="h-6 w-6"/>
                     </Button>
+                  ) : (
+                    leftSection
+                  )}
+              </div>
+              
+              <div className="flex items-center gap-4">
+                  {rightSection ? (
+                    rightSection
+                  ) : (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                        disabled={!mounted}
+                      >
+                          {mounted &&
+                            (resolvedTheme === "dark" ? <Sun className="h-4 w-4"/> : <Moon className="h-4 w-4"/>)}
+                      </Button>
+                      <Button variant="ghost" size="icon">
+                          <Grid className="h-4 w-4"/>
+                      </Button>
+                      <Button variant="ghost" size="icon">
+                          <Bell className="h-4 w-4"/>
+                      </Button>
+                      {/* If user is logged in, display their name and email; otherwise show the auth button */}
+                      {account ? <AccountDropdown/> : (
+                        <Button size="icon" className="rounded-full" onClick={handleAuthClick}>
+                            <User className="h-6 w-6 text-white"/>
+                        </Button>
+                      )}
+                    </>
                   )}
               </div>
           </header>

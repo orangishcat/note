@@ -55,7 +55,7 @@ export default function DocumentView({
                       </Button>
                   </div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
                   <div className="aspect-video relative">
                       <Image
                         src={thumbnail || "/placeholder.svg"}

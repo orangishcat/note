@@ -6,7 +6,6 @@ import {TooltipProvider} from "@/components/ui/tooltip";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {persistQueryClient} from "@tanstack/query-persist-client-core";
 import {createSyncStoragePersister} from "@tanstack/query-sync-storage-persister";
-import axios from "axios";
 
 export interface AccountView {
     user_id: string
@@ -17,6 +16,8 @@ export interface AccountView {
 interface AccountContextType {
     account: AccountView | null;
     setAccount: (newValue: AccountView | null) => void;
+    justLogin: boolean;
+    setJustLogin: (b: boolean) => void;
 }
 
 export const AccountContext = React.createContext<AccountContextType | null>(null)
@@ -24,6 +25,7 @@ const cacheTime = 7 * 24 * 60 * 60 * 1000;
 
 export function Providers({children}: { children: React.ReactNode }) {
     const [account, setAccount] = React.useState<AccountView | null>(null)
+    const [justLogin, setJustLogin] = useState(false)
 
     useEffect(() => {
         document.title = "Note";
@@ -55,7 +57,7 @@ export function Providers({children}: { children: React.ReactNode }) {
     });
 
     return (
-      <AccountContext.Provider value={{account, setAccount}}>
+      <AccountContext.Provider value={{account, setAccount, justLogin, setJustLogin}}>
           <QueryClientProvider client={client}>
               <TooltipProvider delayDuration={500}>
                   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

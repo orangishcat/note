@@ -36,7 +36,7 @@ interface ScoreMetadata {
 }
 
 // Update the component to include metadata state and MXL tracking
-export function UploadDialog({onUpload}: { onUpload: () => void  }) {
+export function UploadDialog({onUpload}: { onUpload: () => void }) {
     const [currentStep, setCurrentStep] = useState(1)
     const [selectedFileType, setSelectedFileType] = useState<FileTypeOption>("not-selected")
     const [scoreFiles, setScoreFiles] = useState<UploadingFile[]>([])
@@ -315,7 +315,7 @@ export function UploadDialog({onUpload}: { onUpload: () => void  }) {
         ) {
             return <FileImage className="h-4 w-4 text-blue-500"/>
         } else {
-            return <FileIcon className="h-4 w-4 text-purple-500"/>
+            return <FileIcon className="h-4 w-4 text-accent-500"/>
         }
     }
 
@@ -527,21 +527,22 @@ export function UploadDialog({onUpload}: { onUpload: () => void  }) {
 
         if (currentStep === 4) {
             if (metadata.title.trim() === "") {
-                // Don't proceed if title is empty
                 alert("Please enter a title for your score")
                 return
             }
 
-            // Send confirmation request with metadata
+            // Create a list of filenames from the scoreFiles in the visual order
+            const fileNames = scoreFiles.map((file) => file.file.name)
+
             try {
                 setIsSubmitting(true)
                 await axios.post("/api/score/confirm-upload", {
                     title: metadata.title,
                     subtitle: metadata.subtitle,
                     fileType: selectedFileType,
+                    ref_order: fileNames,
                 });
 
-                // Only set isComplete and advance to next step if the request was successful
                 setIsComplete(true)
                 setCurrentStep(currentStep + 1)
                 setIsSubmitting(false)
@@ -596,11 +597,11 @@ export function UploadDialog({onUpload}: { onUpload: () => void  }) {
                     className={cn(
                       "flex flex-col items-center justify-center p-6 rounded-lg border-2 border-dashed transition-colors",
                       selectedFileType === "mxl"
-                        ? "border-purple-400 bg-purple-50 dark:bg-purple-900/20"
+                        ? "border-accent-400 bg-accent-50 dark:bg-accent-900/20"
                         : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500",
                     )}
                   >
-                      <FileIcon className="h-12 w-12 mb-3 text-purple-500"/>
+                      <FileIcon className="h-12 w-12 mb-3 text-accent-500"/>
                       <span className="font-medium">MusicXML</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">MXL, XML files</span>
                   </button>
@@ -611,7 +612,7 @@ export function UploadDialog({onUpload}: { onUpload: () => void  }) {
                     className={cn(
                       "flex flex-col items-center justify-center p-6 rounded-lg border-2 border-dashed transition-colors",
                       selectedFileType === "image"
-                        ? "border-purple-400 bg-purple-50 dark:bg-purple-900/20"
+                        ? "border-accent-400 bg-accent-50 dark:bg-accent-900/20"
                         : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500",
                     )}
                   >
@@ -770,48 +771,51 @@ export function UploadDialog({onUpload}: { onUpload: () => void  }) {
                       </button>
                   </div>
               </div>
-              {scoreFiles.map((file) => (
-                <div key={file.id} className="relative bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm">
-                    <div className="flex items-center gap-3 mb-1">
-                        {getFileIcon(file.file.name)}
-                        <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-center">
-                                <p className="text-sm font-medium truncate dark:text-gray-200">{file.file.name}</p>
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                    <span className="text-xs text-muted-foreground">{getFileSize(file.file.size)}</span>
-                                    {getStatusText(file.status, file.progress)}
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-5 w-5 p-0 hover:bg-transparent"
-                                      onClick={() => (file.status === "uploading" ? cancelUpload(file.id) : removeScoreFile(file.id))}
-                                    >
-                                        <X className="h-3 w-3"/>
-                                    </Button>
+              <div className="h-64 overflow-y-auto flex flex-col gap-4">
+                  {scoreFiles.map((file) => (
+                    <div key={file.id} className="relative bg-gray-50 dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+                        <div className="flex items-center gap-3 mb-1">
+                            {getFileIcon(file.file.name)}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center">
+                                    <p className="text-sm font-medium truncate dark:text-gray-200">{file.file.name}</p>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <span
+                                          className="text-xs text-muted-foreground">{getFileSize(file.file.size)}</span>
+                                        {getStatusText(file.status, file.progress)}
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-5 w-5 p-0 hover:bg-transparent"
+                                          onClick={() => (file.status === "uploading" ? cancelUpload(file.id) : removeScoreFile(file.id))}
+                                        >
+                                            <X className="h-3 w-3"/>
+                                        </Button>
+                                    </div>
                                 </div>
-                            </div>
-                            <div
-                              className="h-1.5 w-full bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden mt-2">
                                 <div
-                                  className={cn(
-                                    "h-full transition-all duration-200",
-                                    file.status === "completed"
-                                      ? "bg-green-500"
-                                      : file.status === "uploading"
-                                        ? "bg-blue-500"
-                                        : file.status === "failed"
-                                          ? "bg-red-500"
-                                          : file.status === "cancelled"
-                                            ? "bg-orange-500"
-                                            : "bg-gray-400",
-                                  )}
-                                  style={{width: `${file.progress}%`}}
-                                />
+                                  className="h-1.5 w-full bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden mt-2">
+                                    <div
+                                      className={cn(
+                                        "h-full transition-all duration-200",
+                                        file.status === "completed"
+                                          ? "bg-green-500"
+                                          : file.status === "uploading"
+                                            ? "bg-blue-500"
+                                            : file.status === "failed"
+                                              ? "bg-red-500"
+                                              : file.status === "cancelled"
+                                                ? "bg-orange-500"
+                                                : "bg-gray-400",
+                                      )}
+                                      style={{width: `${file.progress}%`}}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-              ))}
+                  ))}
+              </div>
 
               {isDraggingScore && (
                 <div
@@ -900,7 +904,7 @@ export function UploadDialog({onUpload}: { onUpload: () => void  }) {
                   </div>
               </div>
               {audioFiles.map((file) => (
-                <div key={file.id} className="relative bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+                <div key={file.id} className="relative bg-gray-50 dark:bg-gray-700 rounded-lg p-3 shadow-sm">
                     <div className="flex items-center gap-3 mb-1">
                         <FileMusic className="h-4 w-4 text-orange-500"/>
                         <div className="flex-1 min-w-0">
@@ -1074,7 +1078,7 @@ export function UploadDialog({onUpload}: { onUpload: () => void  }) {
               {/* Progress bar with light purple color and white gradient animation */}
               <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
                   <div
-                    className="bg-purple-300 dark:bg-purple-400 h-full relative overflow-hidden rounded-full"
+                    className="bg-accent-300 dark:bg-accent-400 h-full relative overflow-hidden rounded-full"
                     style={{width: `${progressPercentage}%`, transition: "width 0.35s ease-out"}}
                   >
                       <div

@@ -11,6 +11,7 @@ import NotImplementedTooltip from "@/components/ui-custom/not-implemented-toolti
 import {useQuery} from "@tanstack/react-query"
 import BasicTooltip from "@/components/ui-custom/basic-tooltip"
 import axios from "axios";
+import ImageScoreRenderer from "@/components/image-score-renderer";
 
 
 interface ScoringContextType {
@@ -39,13 +40,14 @@ export default function ScorePage() {
         axios.post(`/api/score/star/${score.id}`, {starred: !score.starred}).catch(console.error)
     }
 
-    const {data: loadedScore} = useQuery({
+    const {data: loadedScore, refetch} = useQuery({
         queryKey: ["score_" + id],
         queryFn: () => axios.get<MusicScore>(`/api/score/data/${id}`).then(resp => resp.data),
     })
 
     useEffect(() => {
-        if (loadedScore) setScore(loadedScore)
+        if (!loadedScore) return;
+        setScore(loadedScore)
     }, [loadedScore])
 
     const recenterButton = useRef<HTMLButtonElement>(null)
@@ -166,73 +168,78 @@ export default function ScorePage() {
     }
 
     return (
-      <Layout>
-          <div className="flex items-center justify-between p-4">
-              <div className="flex gap-2 place-items-center">
-                  <Link href="/" className="text-muted-foreground">
-                      <ArrowLeft className="h-6 w-6"/>
-                  </Link>
-                  <p className="text-2xl">
-                      {score.title}
-                      <span className="text-gray-500 dark:text-gray-400"> ({score.subtitle})</span>
-                  </p>
-              </div>
-              <div className="flex items-center gap-x-2">
-                  <BasicTooltip text="Reset zoom">
-                      <Button variant="ghost" size="icon" ref={recenterButton}>
-                          <Fullscreen className="h-5 w-5"/>
-                      </Button>
-                  </BasicTooltip>
-                  <BasicTooltip text="Download">
-                      <Button
-                        variant="ghost"
-                        onClick={() =>
-                          window.open(
-                            `/api/score/download/${score.file_id}?filename=${encodeURIComponent(score.title + ".mxl")}`
-                          )
-                        }
-                      >
-                          <Download className="h-4 w-4"/>
-                      </Button>
-                  </BasicTooltip>
-                  <BasicTooltip text="Star">
-                      <Button variant="ghost" onClick={() => onStarToggle(score)}>
-                          <Star
-                            className={"size-4 " + (score.starred ? "text-yellow-400 fill-yellow-400" : "text-black dark:text-white")}/>
-                      </Button>
-                  </BasicTooltip>
-                  <NotImplementedTooltip>
-                      <Button variant="ghost" disabled>
-                          <Share2 className="h-4 w-4"/>
-                      </Button>
-                  </NotImplementedTooltip>
-              </div>
+      <Layout
+        navbarProps={{
+          leftSection: (
+            <div className="flex gap-2 place-items-center">
+              <Link href="/" className="text-muted-foreground">
+                <ArrowLeft className="h-6 w-6"/>
+              </Link>
+              <p className="text-2xl">
+                {score.title}
+                <span className="text-gray-500 dark:text-gray-400"> {score.subtitle}</span>
+              </p>
+            </div>
+          ),
+          rightSection: (
+            <div className="flex items-center gap-x-2">
+              <BasicTooltip text="Reset zoom">
+                <Button variant="ghost" size="icon" ref={recenterButton}>
+                  <Fullscreen className="h-5 w-5"/>
+                </Button>
+              </BasicTooltip>
+              <BasicTooltip text="Download">
+                <Button
+                  variant="ghost"
+                  onClick={() =>
+                    window.open(
+                      `/api/score/download/${score.id}`
+                    )
+                  }
+                >
+                  <Download className="h-4 w-4"/>
+                </Button>
+              </BasicTooltip>
+              <BasicTooltip text="Star">
+                <Button variant="ghost" onClick={() => onStarToggle(score)}>
+                  <Star
+                    className={"size-4 " + (score.starred ? "text-yellow-400 fill-yellow-400" : "text-black dark:text-white")}/>
+                </Button>
+              </BasicTooltip>
+              <NotImplementedTooltip>
+                <Button variant="ghost" disabled>
+                  <Share2 className="h-4 w-4"/>
+                </Button>
+              </NotImplementedTooltip>
+            </div>
+          )
+        }}
+      >
+        <div className="p-4 space-y-4 relative">
+          {score && score.id && score.file_id ? (
+            score.is_mxl ? <MusicXMLRenderer scoreId={score.file_id} recenter={recenterButton} retry={refetch}/> : <ImageScoreRenderer scoreId={score.id} recenter={recenterButton} retry={refetch}/>
+          ) : ""}
+          <div className="absolute bottom-[50px] left-1/2 transform -translate-x-1/2">
+            <Button
+              onClick={toggleRecording}
+              className="bg-primary text-white w-20 h-20 rounded-full flex items-center justify-center text-lg"
+            >
+              {isRecording ? <SquareIcon className="h-8 w-8"/> : <Mic className="h-8 w-8"/>}
+            </Button>
           </div>
-          <div className="p-4 space-y-4 relative">
-              {score && score.id && score.file_id ? (
-                <MusicXMLRenderer scoreFileID={score.file_id} recenter={recenterButton}/>
-              ) : ""}
-              <div className="absolute bottom-[50px] left-1/2 transform -translate-x-1/2">
-                  <Button
-                    onClick={toggleRecording}
-                    className="bg-primary text-white w-20 h-20 rounded-full flex items-center justify-center text-lg"
-                  >
-                      {isRecording ? <SquareIcon className="h-8 w-8"/> : <Mic className="h-8 w-8"/>}
-                  </Button>
-              </div>
-              {processedData && (
-                <div className="fixed top-[100px] right-[100px] bg-gray-50 dark:bg-gray-800 p-4 rounded-lg"><h3
-                  className="text-lg font-bold">Processed Audio Data</h3>
-                    <ul>
-                        {Object.entries(processedData).map(([key, value]) => (
-                          <li key={key}>
-                              <strong>{key}:</strong> {value}
-                          </li>
-                        ))}
-                    </ul>
-                </div>
-              )}
-          </div>
+          {processedData && (
+            <div className="fixed top-[100px] right-[100px] bg-gray-50 dark:bg-gray-800 p-4 rounded-lg"><h3
+              className="text-lg font-bold">Processed Audio Data</h3>
+              <ul>
+                {Object.entries(processedData).map(([key, value]) => (
+                  <li key={key}>
+                    <strong>{key}:</strong> {value}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </Layout>
     )
 }

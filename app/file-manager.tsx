@@ -2,7 +2,7 @@
 
 import {Button} from "@/components/ui/button"
 import {Tabs, TabsList, TabsTrigger} from "@/components/ui/tabs"
-import {FolderPlus, RefreshCw, Star} from "lucide-react"
+import {FolderPlus, RefreshCw, Star, Menu} from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import React, {useEffect, useState} from "react"
@@ -19,6 +19,7 @@ import FileOptionsDropdown from "@/components/ui-custom/file-options-dropdown";
 import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import axios from "axios";
+import SearchBox from "@/components/ui-custom/search-box";
 
 
 export default function FileManager() {
@@ -33,7 +34,9 @@ export default function FileManager() {
     const [errorMessage, setErrorMessage] = useState<string>()
     const [filteredScores, setFilteredScores] = useState<MusicScore[]>([]);
     const [refetchDisabled, setRefetchDisabled] = useState(false);
-    const account = React.useContext(AccountContext)?.account;
+    const context = React.useContext(AccountContext);
+    const account = context?.account;
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const loadError = (reason: string) => {
         setLoadSuccess(false);
@@ -52,9 +55,9 @@ export default function FileManager() {
       [activeTab, scores])
 
     useEffect(() => {
-        if (account)
+        if (context?.justLogin)
             refetchScores()
-    }, [account]);
+    }, [context?.justLogin, refetchScores]);
 
     useEffect(() => {
         if (scoreList) setScores(scoreList);
@@ -107,8 +110,22 @@ export default function FileManager() {
         setScores(scores.filter((score) => score.id !== id))
         invalidateScores()
     };
+
+    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
     return (
-      <Layout>
+      <Layout
+        navbarProps={{
+          leftSection: (
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={toggleSidebar} className="xl:hidden">
+                <Menu className="h-6 w-6"/>
+              </Button>
+              <SearchBox />
+            </div>
+          )
+        }}
+      >
           <div className="p-6">
               <div className="mb-6 flex items-center justify-between">
                   <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "recent" | "starred")}>
@@ -168,7 +185,7 @@ export default function FileManager() {
                         </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4" style={{gap: "3vw"}}>
                         {filteredScores.map((score) => (
                           <ScoreCard
                             key={score.id}
@@ -225,9 +242,8 @@ function ScoreCard({
 
     return (
       <div
-        className="group relative overflow-hidden rounded-lg border bg-white dark:bg-gray-700 dark:border-gray-700
+        className="group relative overflow-hidden rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-700
        dark:hover:border-gray-500 transition-colors duration-200"
-        draggable
         onDragStart={(e) => onDragStart(e, id)}
       >
           <Link href={`/score/${id}`} key={id}>
@@ -237,18 +253,18 @@ function ScoreCard({
                     alt={`Score preview for ${title}`}
                     style={{width: "80%", height: "auto", display: "block", margin: "0 auto"}}
                     width={300} height={225} priority
-                    className="w-full h-full object-contain"
+                    draggable={false}
+                    className={"w-full h-full object-contain " + (preview_id && "bg-white")}
                   />
               </div>
           </Link>
 
-          <div
-            className="flex items-center justify-between dark:bg-gray-800 dark:border-gray-600 border-t border-inherit">
-              <Link href={`/score/${id}`} key={id}>
+          <div className="flex items-center justify-between bg-gray-200 dark:bg-gray-800 dark:border-gray-600 border-t border-inherit">
+              <Link href={`/score/${id}`} key={id} style={{maxWidth: "calc(100% - 60px)"}}>
                   <div className="p-4 ml-4">
                       <h3 className="font-medium text-gray-900 dark:text-white truncate">{title}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{subtitle} •
-                          Uploaded {new Date(upload_date).toLocaleDateString()}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1 truncate">{subtitle} •&nbsp;
+                          {new Date(upload_date).toLocaleDateString()}</p>
                   </div>
               </Link>
               <div className="flex flex-col md:flex-row xl:gap-3 gap-4 mr-4 text-gray-400">

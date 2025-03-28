@@ -3,9 +3,11 @@ import React, { RefObject, useEffect, useRef, useState } from 'react';
 export default function ZoomableDiv({
   children,
   recenter,
+  onScaleChange,
 }: {
   children: React.ReactNode;
   recenter: RefObject<HTMLButtonElement>;
+  onScaleChange?: (scale: number) => void;
 }) {
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -88,7 +90,12 @@ export default function ZoomableDiv({
 
     // Update previous scale.
     prevScaleRef.current = scale;
-  }, [scale, originalWidth, originalHeight]);
+    
+    // Notify parent component about scale change if the callback is provided
+    if (onScaleChange) {
+      onScaleChange(scale);
+    }
+  }, [scale, originalWidth, originalHeight, onScaleChange]);
 
   return (
     <div ref={outerRef} className="relative h-full overflow-auto">

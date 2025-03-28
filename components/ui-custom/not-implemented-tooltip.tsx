@@ -11,7 +11,7 @@ export default function NotImplementedTooltip({children}: { children: React.Reac
       </span>
     </TooltipTrigger>
     <TooltipContent>
-      Not implemented yet!
+      Coming soon!
       <TooltipArrow className="fill-primary"/>
     </TooltipContent>
   </Tooltip>

@@ -2,17 +2,28 @@ import React, {useState} from "react"
 import {Navbar} from "@/components/navbar";
 import {Sidebar} from "@/components/sidebar";
 
+interface LayoutProps {
+  children: React.ReactNode;
+  navbarProps?: {
+    leftSection?: React.ReactNode;
+    rightSection?: React.ReactNode;
+  };
+}
 
-export function Layout({children,}: { children: React.ReactNode }) {
+export function Layout({ children, navbarProps }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
 
   return (
-    <div className="flex h-screen bg-white dark:bg-gray-900">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)}/>
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar onMenuClick={toggleSidebar}/>
+        <Navbar 
+          onMenuClick={toggleSidebar}
+          leftSection={navbarProps?.leftSection}
+          rightSection={navbarProps?.rightSection}
+        />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
       {isSidebarOpen && (

@@ -79,7 +79,7 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
     try {
       setStatus(type === "login" ? "Logging in..." : "Loading...");
       axios.post<AccountView>("/api/account/login", {email: email, password: password}).then(resp => {
-        console.log("Auth successful:", resp);
+        console.log("Auth successful:");
         if (!context) throw new Error("Auth failed: Account not found.");
         context.setAccount(resp.data)
         onClose();
@@ -158,7 +158,7 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
               </div>
               <ModalFooter className="border-t border-gray-200 dark:border-gray-700 pt-8">
                 <Button
-                  className="w-full bg-primary hover:bg-purple-400 dark:hover:bg-purple-700 text-black dark:text-white py-5"
+                  className="w-full bg-primary hover:bg-accent-400 dark:hover:bg-accent-700 text-black dark:text-white py-5"
                   type="submit"
                   disabled={!isValidForm}
                 >
@@ -167,7 +167,7 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
               </ModalFooter>
             </form>
             <div className="px-6 text-center text-sm">
-              {type === "login" ? "Don't have an accounts? " : "Already have an accounts? "}
+              {type === "login" ? "Don't have an account? " : "Already have an account? "}
               <Button variant="link" size="link" onClick={() => {
                 onSwitch()
                 setError("")
