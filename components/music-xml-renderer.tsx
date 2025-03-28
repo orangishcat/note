@@ -21,9 +21,10 @@ export interface MusicXMLRendererProps {
     scoreId: string;
     recenter: RefObject<HTMLButtonElement>;
     retry: () => void;
+    isFullscreen?: boolean;
 }
 
-export default function MusicXMLRenderer({ scoreId, recenter, retry }: MusicXMLRendererProps) {
+export default function MusicXMLRenderer({ scoreId, recenter, retry, isFullscreen }: MusicXMLRendererProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
     const debug = !!localStorage.getItem("debug");
@@ -131,7 +132,11 @@ export default function MusicXMLRenderer({ scoreId, recenter, retry }: MusicXMLR
     };
 
     return (
-        <div className="overflow-hidden flex flex-col place-items-center" style={{ height: "calc(100vh - 11rem)" }}>
+        <div className="overflow-hidden overflow-x-hidden flex flex-col place-items-center" 
+            style={{ 
+                height: isFullscreen ? "100vh" : "calc(100vh - 11rem)",
+                transition: 'height 0.3s ease'
+            }}>
             <ZoomableDiv recenter={recenter}>
                 <div
                     ref={containerRef}

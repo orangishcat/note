@@ -4,19 +4,27 @@ export default function ZoomableDiv({
   children,
   recenter,
   onScaleChange,
+  defaultScale = 1,
 }: {
   children: React.ReactNode;
   recenter: RefObject<HTMLButtonElement>;
   onScaleChange?: (scale: number) => void;
+  defaultScale?: number;
 }) {
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(defaultScale);
   // Track the previous scale so we can compute relative changes.
-  const prevScaleRef = useRef(1);
+  const prevScaleRef = useRef(defaultScale);
   const zoomSensitivity = 0.0015;
   const minScale = 0.25;
   const maxScale = 4;
+
+  // Update scale when defaultScale changes
+  useEffect(() => {
+    setScale(defaultScale);
+    prevScaleRef.current = defaultScale;
+  }, [defaultScale]);
 
   // Utility to clamp scale value.
   const clamp = (val: number, min: number, max: number) =>
@@ -44,19 +52,24 @@ export default function ZoomableDiv({
         const newScale = clamp(scale - e.deltaY * zoomSensitivity, minScale, maxScale);
         setScale(newScale);
       }
-      recenter.current?.addEventListener('click', () => setScale(1));
     };
+
+    const handleRecenter = () => setScale(defaultScale);
 
     const outer = outerRef.current;
     if (outer) {
       outer.addEventListener('wheel', handleWheel, { passive: false });
     }
+    
+    recenter.current?.addEventListener('click', handleRecenter);
+    
     return () => {
       if (outer) {
         outer.removeEventListener('wheel', handleWheel);
       }
+      recenter.current?.removeEventListener('click', handleRecenter);
     };
-  }, [recenter, scale]);
+  }, [recenter, scale, defaultScale]);
 
   // When scale changes, update the transform, recalc dimensions, and adjust scroll so that the center remains.
   useEffect(() => {
@@ -98,7 +111,7 @@ export default function ZoomableDiv({
   }, [scale, originalWidth, originalHeight, onScaleChange]);
 
   return (
-    <div ref={outerRef} className="relative h-full overflow-auto">
+    <div ref={outerRef} className="relative h-full overflow-x-hidden overflow-y-auto">
       <div ref={innerRef}>
         {children}
       </div>

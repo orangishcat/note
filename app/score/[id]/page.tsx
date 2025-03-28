@@ -3,7 +3,7 @@
 import {useParams} from "next/navigation"
 import {createContext, useContext, useEffect, useRef, useState} from "react"
 import Link from "next/link"
-import {ArrowLeft, Download, Fullscreen, Mic, Share2, SquareIcon, Star} from "lucide-react"
+import {ArrowLeft, Download, Fullscreen, Maximize2, Mic, Minimize2, Share2, SquareIcon, Star} from "lucide-react"
 import {Button} from "@/components/ui/button"
 import {Layout} from "@/components/layout"
 import MusicXMLRenderer, {MusicScore} from "@/components/music-xml-renderer"
@@ -32,6 +32,9 @@ export default function ScorePage() {
     })
     const [lastStarTime, setLastStarTime] = useState(0)
     const [processedData, setProcessedData] = useState<object | null>(null)
+    const [isFullscreen, setIsFullscreen] = useState(false)
+    const [showControls, setShowControls] = useState(true)
+    const mouseMoveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     const onStarToggle = (score: MusicScore) => {
         setLastStarTime(Date.now())
@@ -49,6 +52,48 @@ export default function ScorePage() {
         if (!loadedScore) return;
         setScore(loadedScore)
     }, [loadedScore])
+
+    // Handle fullscreen mode controls visibility
+    useEffect(() => {
+        if (!isFullscreen) {
+            setShowControls(true);
+            return;
+        }
+
+        const handleMouseMove = () => {
+            setShowControls(true);
+            
+            // Clear any existing timeout
+            if (mouseMoveTimeoutRef.current) {
+                clearTimeout(mouseMoveTimeoutRef.current);
+            }
+            
+            // Set a new timeout to hide controls after 3 seconds
+            mouseMoveTimeoutRef.current = setTimeout(() => {
+                setShowControls(false);
+            }, 3000);
+        };
+
+        // Add mouse move listener when in fullscreen
+        window.addEventListener('mousemove', handleMouseMove);
+        
+        // Initialize timeout on first enter to fullscreen
+        mouseMoveTimeoutRef.current = setTimeout(() => {
+            setShowControls(false);
+        }, 3000);
+        
+        // Cleanup function
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            if (mouseMoveTimeoutRef.current) {
+                clearTimeout(mouseMoveTimeoutRef.current);
+            }
+        };
+    }, [isFullscreen]);
+
+    const toggleFullscreen = () => {
+        setIsFullscreen(!isFullscreen);
+    };
 
     const recenterButton = useRef<HTMLButtonElement>(null)
     const notesCont = useContext(ScoringContext)
@@ -167,79 +212,132 @@ export default function ScorePage() {
         record()
     }
 
-    return (
-      <Layout
-        navbarProps={{
-          leftSection: (
-            <div className="flex gap-2 place-items-center">
-              <Link href="/" className="text-muted-foreground">
-                <ArrowLeft className="h-6 w-6"/>
-              </Link>
-              <p className="text-2xl">
-                {score.title}
-                <span className="text-gray-500 dark:text-gray-400"> {score.subtitle}</span>
-              </p>
-            </div>
-          ),
-          rightSection: (
-            <div className="flex items-center gap-x-2">
-              <BasicTooltip text="Reset zoom">
-                <Button variant="ghost" size="icon" ref={recenterButton}>
-                  <Fullscreen className="h-5 w-5"/>
-                </Button>
-              </BasicTooltip>
-              <BasicTooltip text="Download">
-                <Button
-                  variant="ghost"
-                  onClick={() =>
-                    window.open(
-                      `/api/score/download/${score.id}`
-                    )
-                  }
+    // When in fullscreen mode, render only the score and floating controls
+    if (isFullscreen) {
+        return (
+            <div className="w-full h-screen overflow-hidden bg-gray-900">
+                {/* Top floating navbar - hidden when not moused over */}
+                <div 
+                    className={`fixed top-0 left-0 right-0 z-50 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    onMouseEnter={() => setShowControls(true)}
                 >
-                  <Download className="h-4 w-4"/>
-                </Button>
-              </BasicTooltip>
-              <BasicTooltip text="Star">
-                <Button variant="ghost" onClick={() => onStarToggle(score)}>
-                  <Star
-                    className={"size-4 " + (score.starred ? "text-yellow-400 fill-yellow-400" : "text-black dark:text-white")}/>
-                </Button>
-              </BasicTooltip>
-              <NotImplementedTooltip>
-                <Button variant="ghost" disabled>
-                  <Share2 className="h-4 w-4"/>
-                </Button>
-              </NotImplementedTooltip>
+                    <div className="flex items-center justify-between p-4 bg-black bg-opacity-50">
+                        <div className="flex gap-2 place-items-center">
+                            <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="text-white">
+                                <Minimize2 className="h-5 w-5"/>
+                            </Button>
+                            <p className="text-xl text-white">
+                                {score.title}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-x-2">
+                            <BasicTooltip text="Reset zoom">
+                                <Button variant="ghost" size="icon" ref={recenterButton} className="text-white">
+                                    <Fullscreen className="h-5 w-5"/>
+                                </Button>
+                            </BasicTooltip>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Main score renderer */}
+                <div className="h-full w-full">
+                    {score && score.id && score.file_id ? (
+                        score.is_mxl ? 
+                            <MusicXMLRenderer scoreId={score.file_id} recenter={recenterButton} retry={refetch} isFullscreen={true}/> : 
+                            <ImageScoreRenderer scoreId={score.id} recenter={recenterButton} retry={refetch} isFullscreen={true}/>
+                    ) : ""}
+                </div>
+                
+                {/* Recording button */}
+                <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                    <Button
+                        onClick={toggleRecording}
+                        className="bg-primary text-white w-16 h-16 rounded-full flex items-center justify-center"
+                    >
+                        {isRecording ? <SquareIcon className="h-6 w-6"/> : <Mic className="h-6 w-6"/>}
+                    </Button>
+                </div>
             </div>
-          )
-        }}
-      >
-        <div className="p-4 space-y-4 relative">
-          {score && score.id && score.file_id ? (
-            score.is_mxl ? <MusicXMLRenderer scoreId={score.file_id} recenter={recenterButton} retry={refetch}/> : <ImageScoreRenderer scoreId={score.id} recenter={recenterButton} retry={refetch}/>
-          ) : ""}
-          <div className="absolute bottom-[50px] left-1/2 transform -translate-x-1/2">
-            <Button
-              onClick={toggleRecording}
-              className="bg-primary text-white w-20 h-20 rounded-full flex items-center justify-center text-lg"
-            >
-              {isRecording ? <SquareIcon className="h-8 w-8"/> : <Mic className="h-8 w-8"/>}
-            </Button>
+        );
+    }
+
+    // Regular mode with Layout
+    return (
+      <Layout>
+          <div className="flex items-center justify-between p-4">
+              <div className="flex gap-2 place-items-center">
+                  <Link href="/" className="text-muted-foreground">
+                      <ArrowLeft className="h-6 w-6"/>
+                  </Link>
+                  <p className="text-2xl ml-4">
+                      {score.title}
+                      <span className="text-gray-500 dark:text-gray-400"> {score.subtitle}</span>
+                  </p>
+              </div>
+              <div className="flex items-center gap-x-2">
+                  <BasicTooltip text="Reset zoom">
+                      <Button variant="ghost" size="icon" ref={recenterButton}>
+                          <Fullscreen className="h-5 w-5"/>
+                      </Button>
+                  </BasicTooltip>
+                  <BasicTooltip text="Enter fullscreen">
+                      <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
+                          <Maximize2 className="h-5 w-5"/>
+                      </Button>
+                  </BasicTooltip>
+                  <BasicTooltip text="Download">
+                      <Button
+                        variant="ghost"
+                        onClick={() =>
+                          window.open(
+                            `/api/score/download/${score.id}`
+                          )
+                        }
+                      >
+                          <Download className="h-4 w-4"/>
+                      </Button>
+                  </BasicTooltip>
+                  <BasicTooltip text="Star">
+                      <Button variant="ghost" onClick={() => onStarToggle(score)}>
+                          <Star
+                            className={"size-4 " + (score.starred ? "text-yellow-400 fill-yellow-400" : "text-black dark:text-white")}/>
+                      </Button>
+                  </BasicTooltip>
+                  <NotImplementedTooltip>
+                      <Button variant="ghost" disabled>
+                          <Share2 className="h-4 w-4"/>
+                      </Button>
+                  </NotImplementedTooltip>
+              </div>
           </div>
-          {processedData && (
-            <div className="fixed top-[100px] right-[100px] bg-gray-50 dark:bg-gray-800 p-4 rounded-lg"><h3
-              className="text-lg font-bold">Processed Audio Data</h3>
-              <ul>
-                {Object.entries(processedData).map(([key, value]) => (
-                  <li key={key}>
-                    <strong>{key}:</strong> {value}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+          <div className="p-4 space-y-4 relative">
+              {score && score.id && score.file_id ? (
+                score.is_mxl ? 
+                  <MusicXMLRenderer scoreId={score.file_id} recenter={recenterButton} retry={refetch}/> : 
+                  <ImageScoreRenderer scoreId={score.id} recenter={recenterButton} retry={refetch}/>
+              ) : ""}
+              <div className="absolute bottom-[50px] left-1/2 transform -translate-x-1/2">
+                  <Button
+                    onClick={toggleRecording}
+                    className="bg-primary text-white w-20 h-20 rounded-full flex items-center justify-center text-lg"
+                  >
+                      {isRecording ? <SquareIcon className="h-8 w-8"/> : <Mic className="h-8 w-8"/>}
+                  </Button>
+              </div>
+              {processedData && (
+                <div className="fixed top-[100px] right-[100px] bg-gray-50 dark:bg-gray-800 p-4 rounded-lg"><h3
+                  className="text-lg font-bold">Processed Audio Data</h3>
+                    <ul>
+                        {Object.entries(processedData).map(([key, value]) => (
+                          <li key={key}>
+                              <strong>{key}:</strong> {value}
+                          </li>
+                        ))}
+                    </ul>
+                </div>
+              )}
+          </div>
       </Layout>
     )
 }

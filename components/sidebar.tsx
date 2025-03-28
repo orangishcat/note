@@ -13,9 +13,9 @@ export function Sidebar({
   return (
     <div
       className={cn(
-        "inset-y-0 w-72 mr-4 fixed xl:relative left-0 z-50 bg-gray-100 dark:bg-gray-800/50 backdrop-blur border-r dark:border-gray-700 " +
+        "fixed top-0 left-0 h-full w-72 z-50 bg-gray-100 dark:bg-gray-800/50 backdrop-blur border-r dark:border-gray-700 " +
         "transform transition-transform duration-200 ease-in-out xl:translate-x-0",
-        isOpen ? "" : "-translate-x-full"
+        isOpen ? "translate-x-0" : "-translate-x-full"
       )}
     >
       <div className="flex items-center justify-between p-4">

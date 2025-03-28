@@ -2,7 +2,7 @@
 
 import {Button} from "@/components/ui/button"
 import {Tabs, TabsList, TabsTrigger} from "@/components/ui/tabs"
-import {FolderPlus, RefreshCw, Star, Menu} from "lucide-react"
+import {FolderPlus, RefreshCw, Star} from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import React, {useEffect, useState} from "react"
@@ -19,7 +19,6 @@ import FileOptionsDropdown from "@/components/ui-custom/file-options-dropdown";
 import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import axios from "axios";
-import SearchBox from "@/components/ui-custom/search-box";
 
 
 export default function FileManager() {
@@ -36,7 +35,6 @@ export default function FileManager() {
     const [refetchDisabled, setRefetchDisabled] = useState(false);
     const context = React.useContext(AccountContext);
     const account = context?.account;
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const loadError = (reason: string) => {
         setLoadSuccess(false);
@@ -110,22 +108,8 @@ export default function FileManager() {
         setScores(scores.filter((score) => score.id !== id))
         invalidateScores()
     };
-
-    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
     return (
-      <Layout
-        navbarProps={{
-          leftSection: (
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={toggleSidebar} className="xl:hidden">
-                <Menu className="h-6 w-6"/>
-              </Button>
-              <SearchBox />
-            </div>
-          )
-        }}
-      >
+      <Layout>
           <div className="p-6">
               <div className="mb-6 flex items-center justify-between">
                   <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "recent" | "starred")}>

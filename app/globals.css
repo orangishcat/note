@@ -37,7 +37,7 @@
     --radius: 0.5rem;
   }
   .dark {
-    --background: hsl(240 10% 3.9%);
+    --background: hsl(240, 10%, 12%);
     --foreground: hsl(0 0% 98%);
     --card: hsl(240 10% 3.9%);
     --card-foreground: hsl(0 0% 98%);
