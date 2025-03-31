@@ -1,38 +1,42 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import JSZip from 'jszip';
 import Image from 'next/image';
 import ZoomableDiv from '@/components/ui-custom/zoomable-div';
-import {MusicXMLRendererProps} from '@/components/music-xml-renderer';
-import {useQuery, useQueryClient} from '@tanstack/react-query';
-
-// Time constants for caching
-const ONE_WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
+import { MusicXMLRendererProps } from '@/components/music-xml-renderer';
+import { useQuery } from '@tanstack/react-query';
 
 // Store blobs in memory cache
 const blobCache = new Map<string, string[]>();
 
-interface ScoreFileResponse {
-    urls: string[];
-    fromCache: boolean;
+// Clear blob cache on page reload
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+        // Revoke all blob URLs before page unload
+        blobCache.forEach((urls) => {
+            urls.forEach(url => URL.revokeObjectURL(url));
+        });
+        blobCache.clear();
+    });
 }
 
 export default function ImageScoreRenderer({
-                                               scoreId,
-                                               recenter,
-                                               retry,
-                                               pagesPerView = 1, // New optional prop to control 1 or 2 pages per view
-                                               isFullscreen = false,
-                                           }: MusicXMLRendererProps & { pagesPerView?: number, isFullscreen?: boolean }) {
+    scoreId,
+    recenter,
+    currentPage,
+    pagesPerView = 1,
+    isFullscreen,
+}: MusicXMLRendererProps) {
     const [imageUrls, setImageUrls] = useState<string[]>([]);
-    const [error, setError] = useState<string | null>(null);
     const [currentPageIndex, setCurrentPageIndex] = useState(0);
-    const [isZoomed, setIsZoomed] = useState(false);
+    const [loadingProgress, setLoadingProgress] = useState(0);
+    const [error, setError] = useState<string | null>(null);
+    const [currentScale, setCurrentScale] = useState(1);
+    const [defaultScale, setDefaultScale] = useState(1);
     const [isAnimating, setIsAnimating] = useState(false);
     const [animationDirection, setAnimationDirection] = useState<'prev' | 'next' | null>(null);
     const [transitionPage, setTransitionPage] = useState<number | null>(null);
-    const [defaultScale, setDefaultScale] = useState(1);
-    const [currentScale, setCurrentScale] = useState(1);
+    
     const containerRef = useRef<HTMLDivElement>(null);
     const scoreContainerRef = useRef<HTMLDivElement>(null);
     const touchStartX = useRef(0);
@@ -40,129 +44,137 @@ export default function ImageScoreRenderer({
     const mouseStartX = useRef(0);
     const mouseCurrentX = useRef(0);
     const isDragging = useRef(false);
-
-    // Get the queryClient for manual invalidation
-    const queryClient = useQueryClient();
+    const fetchedRef = useRef<boolean>(false);
+    const isProcessingScroll = useRef<boolean>(false);
 
     // Fetch score file using React Query
-    const fetchScoreFileData = async (): Promise<ScoreFileResponse> => {
-        // Check if we already have cached blobs for this score
-        if (blobCache.has(scoreId)) {
-            const cachedUrls = blobCache.get(scoreId)!;
-            
-            // Verify that all blob URLs in the cache are still valid
-            try {
-                // Basic validation - check if URLs exist and are accessible
-                const areUrlsValid = await Promise.all(
-                    cachedUrls.map(async (url) => {
-                        try {
-                            // Attempt to fetch the blob URL as a head request
-                            const response = await fetch(url, { method: 'HEAD' });
-                            return response.ok;
-                        } catch (e) {
-                            console.error('Error validating blob URL:', e);
-                            return false;
-                        }
-                    })
-                );
-                
-                // If all URLs are valid, return them
-                if (areUrlsValid.every(Boolean)) {
-                    console.log('Using cached blobs for score', scoreId);
-                    return { urls: cachedUrls, fromCache: true };
-                } else {
-                    console.log('Some cached blobs are invalid, refetching score', scoreId);
-                    // Continue to fetch new blobs below
+    const { data, isLoading, isError, refetch: refetchScoreFile } = useQuery({
+        queryKey: ['scoreFile', scoreId],
+        queryFn: async () => {
+            // Prevent duplicate fetches during React's double-render
+            if (fetchedRef.current) {
+                if (blobCache.has(scoreId)) {
+                    return { 
+                        urls: blobCache.get(scoreId) || [], 
+                        fromCache: true 
+                    };
                 }
-            } catch (error) {
-                console.error('Error validating cached blobs:', error);
-                // Continue to fetch new blobs below
+                // Wait for the first render's fetch to complete
+                await new Promise(resolve => setTimeout(resolve, 100));
+                if (blobCache.has(scoreId)) {
+                    return { 
+                        urls: blobCache.get(scoreId) || [], 
+                        fromCache: true 
+                    };
+                }
             }
             
-            // If we reach here, some validation failed - remove invalid cache entry
-            blobCache.delete(scoreId);
-        }
-        
-        // Fetch from API (happens if no cache or cache validation failed)
-        const response = await axios.get(`/api/score/download/${scoreId}`, {
-            responseType: 'blob',
-        });
-        const fileBlob = response.data as Blob;
-        const urls: string[] = [];
-        
-        if (fileBlob.type === 'application/zip') {
-            const zip = await JSZip.loadAsync(fileBlob);
-            for (const filename in zip.files) {
-                const zipEntry = zip.files[filename];
-                if (!zipEntry.dir && /\.(png|jpe?g|gif)$/i.test(filename)) {
+            fetchedRef.current = true;
+            setLoadingProgress(0);
+            
+            // Clear any existing cache for this score
+            if (blobCache.has(scoreId)) {
+                const cachedUrls = blobCache.get(scoreId)!;
+                cachedUrls.forEach(url => URL.revokeObjectURL(url));
+                blobCache.delete(scoreId);
+            }
+            
+            // Fetch from API
+            const response = await axios.get(`/api/score/download/${scoreId}`, {
+                responseType: 'blob',
+                onDownloadProgress: (progressEvent) => {
+                    if (progressEvent.total) {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        setLoadingProgress(percentCompleted);
+                    }
+                }
+            });
+            
+            const fileBlob = response.data as Blob;
+            const urls: string[] = [];
+            
+            setLoadingProgress(90);
+            
+            if (fileBlob.type === 'application/zip') {
+                const zip = await JSZip.loadAsync(fileBlob);
+                const imageFiles = Object.keys(zip.files).filter(filename => 
+                    !zip.files[filename].dir && /\.(png|jpe?g|gif)$/i.test(filename)
+                );
+                
+                let processedEntries = 0;
+                
+                for (const filename of imageFiles) {
+                    const zipEntry = zip.files[filename];
                     const entryBlob = await zipEntry.async('blob');
                     const url = URL.createObjectURL(entryBlob);
                     urls.push(url);
+                    
+                    processedEntries++;
+                    const extractionProgress = 90 + Math.round((processedEntries / imageFiles.length) * 10);
+                    setLoadingProgress(Math.min(extractionProgress, 100));
                 }
+            } else if (fileBlob.type.startsWith('image/')) {
+                const url = URL.createObjectURL(fileBlob);
+                urls.push(url);
+                setLoadingProgress(100);
+            } else {
+                throw new Error(`Unsupported file type: ${fileBlob.type}`);
             }
-        } else if (fileBlob.type.startsWith('image/')) {
-            const url = URL.createObjectURL(fileBlob);
-            urls.push(url);
-        } else {
-            throw new Error(`Unsupported file type: ${fileBlob.type}`);
-        }
-        
-        // Cache the blobs
-        blobCache.set(scoreId, urls);
-        
-        return { urls, fromCache: false };
-    };
-    
-    // React Query for score file
-    const { data, isLoading, isError, error: queryError, refetch: refetchScoreFile } = useQuery<ScoreFileResponse, Error>({
-        queryKey: ['scoreFile', scoreId],
-        queryFn: fetchScoreFileData,
-        staleTime: ONE_WEEK_IN_MS, // Data is fresh for a week
-        gcTime: ONE_WEEK_IN_MS, // Keep in cache for a week
-        retry: 2,
+            
+            // Cache the blobs
+            blobCache.set(scoreId, urls);
+            
+            return { urls, fromCache: false };
+        },
+        staleTime: 7 * 24 * 60 * 60 * 1000, // 1 week
+        gcTime: 7 * 24 * 60 * 60 * 1000,    // 1 week
     });
 
     // Handle query results
     useEffect(() => {
-        if (data) {
+        if (data?.urls) {
             setImageUrls(data.urls);
             setError(null);
+            
+            // Report total pages on successful load
+            if (data.urls.length > 0) {
+                const event = new CustomEvent('score:pageInfo', {
+                    detail: {
+                        scoreId,
+                        totalPages: data.urls.length,
+                        currentPage: currentPageIndex,
+                    },
+                    bubbles: true
+                });
+                document.dispatchEvent(event);
+            }
         }
-    }, [data]);
-
-    // Check for empty URLs array and refetch if needed
-    useEffect(() => {
-        if (data && data.urls.length === 0) {
-            console.warn('Retrieved empty URLs array for score:', scoreId);
-            // Remove from cache and retry
-            blobCache.delete(scoreId);
-            // Add a small delay before retrying
-            setError('Score data appears to be empty. Retrying...');
-            setTimeout(() => {
-                // Refetch both the score data and score file
-                retry(); // Refetch score data from parent
-                refetchScoreFile(); // Refetch the score file/blob
-                queryClient.invalidateQueries({ queryKey: ['scoreFile', scoreId] });
-            }, 800);
-        }
-    }, [data, scoreId, retry, refetchScoreFile, queryClient]);
+    }, [data, scoreId, currentPageIndex]);
 
     // Handle query errors
     useEffect(() => {
-        if (isError && queryError) {
-            console.error('Error fetching score file:', queryError);
+        if (isError) {
             setError('Failed to load score. Please try again.');
         }
-    }, [isError, queryError]);
+    }, [isError]);
 
-    // Calculate initial scale to fit height when component mounts or container resizes
+    // Calculate initial scale to fit height
     useEffect(() => {
         const calculateScale = () => {
-            if (scoreContainerRef.current) {
-                const viewportHeight = window.innerHeight - (isFullscreen ? 0 : 176); // 11rem = 176px
-                const contentHeight = 1000; // Height of our score container
-                const scaleToFit = viewportHeight / contentHeight;
-                setDefaultScale(Math.min(scaleToFit, 1)); // Don't scale up beyond original size
+            if (scoreContainerRef.current && containerRef.current) {
+                const containerHeight = containerRef.current.clientHeight;
+                const containerWidth = containerRef.current.clientWidth;
+                
+                const contentHeight = 1000; // Standard height of our score container
+                const contentWidth = pagesPerView === 2 ? 1600 : 800;
+                
+                const scaleToFitHeight = containerHeight / contentHeight;
+                const scaleToFitWidth = containerWidth / contentWidth;
+                
+                const scaleToFit = Math.min(scaleToFitHeight, scaleToFitWidth) * 0.95; // 5% margin
+                
+                setDefaultScale(scaleToFit);
+                setCurrentScale(scaleToFit);
             }
         };
 
@@ -172,71 +184,117 @@ export default function ImageScoreRenderer({
         return () => {
             window.removeEventListener('resize', calculateScale);
         };
-    }, [isFullscreen]);
+    }, [isFullscreen, pagesPerView]);
 
-    // Calculate the total number of views based on page count and pagesPerView setting
+    // Calculate the total number of views based on page count and pagesPerView
     const totalViews = Math.ceil(imageUrls.length / pagesPerView);
 
-    // Function to check if zoom level is near default for swiping
-    const isNearDefaultZoom = (scale: number) => {
-        return scale >= 0.95 * defaultScale && scale <= 1.05 * defaultScale;
-    };
-
-    // Handle navigation to previous or next page with animation
+    // Navigation function for page turning
     const navigatePages = (direction: 'prev' | 'next') => {
-        // Check if zoom is near default to allow swiping even if technically "zoomed"
-        const zoomTooHigh = !isNearDefaultZoom(currentScale);
-        
-        if (zoomTooHigh || isAnimating) return; // Prevent navigation when zoomed in (beyond threshold) or already animating
+        if (isAnimating) return; 
         
         setAnimationDirection(direction);
         setIsAnimating(true);
         
-        // Calculate the new page index
         let newPageIndex;
         if (direction === 'prev' && currentPageIndex > 0) {
             newPageIndex = currentPageIndex - 1;
         } else if (direction === 'next' && currentPageIndex < totalViews - 1) {
             newPageIndex = currentPageIndex + 1;
         } else {
-            // If we can't navigate in the requested direction, abort
             setIsAnimating(false);
             setAnimationDirection(null);
             return;
         }
         
-        // Set the transition page (the page we're transitioning to)
         setTransitionPage(newPageIndex);
         
-        // After animation completes, update the current page and reset animation state
         setTimeout(() => {
             setCurrentPageIndex(newPageIndex);
             setIsAnimating(false);
             setAnimationDirection(null);
             setTransitionPage(null);
-        }, 300); // Match this with CSS transition duration
+            
+            // Notify parent about page change
+            notifyPageChange(newPageIndex);
+        }, 300); // Match with CSS transition duration
+    };
+    
+    // Function to notify parent about page changes
+    const notifyPageChange = (pageIndex: number) => {
+        if (typeof window !== 'undefined') {
+            const event = new CustomEvent('score:pageChange', {
+                detail: {
+                    scoreId,
+                    currentPage: pageIndex,
+                },
+                bubbles: true
+            });
+            document.dispatchEvent(event);
+        }
     };
 
-    // Handle wheel events for page navigation - only respond to horizontal scrolling
+    // Sync with external currentPage prop if provided
+    useEffect(() => {
+        if (currentPage !== undefined) {
+            const maxPage = Math.max(0, totalViews - 1);
+            const safeCurrentPage = Math.min(currentPage, maxPage);
+            
+            if (safeCurrentPage !== currentPageIndex) {
+                setCurrentPageIndex(safeCurrentPage);
+                
+                // Don't animate distant page jumps
+                if (Math.abs(safeCurrentPage - currentPageIndex) > 1) {
+                    setIsAnimating(false);
+                    setAnimationDirection(null);
+                    setTransitionPage(null);
+                }
+            }
+        }
+    }, [currentPage, totalViews, currentPageIndex]);
+
+    // Event handlers for navigation
+    
+    // Keyboard handler for arrow key navigation
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (isAnimating) return;
+
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            // Prevent default behavior (like scrolling)
+            e.preventDefault();
+            
+            // Navigate to previous or next page
+            navigatePages(e.key === 'ArrowLeft' ? 'prev' : 'next');
+        }
+    };
+    
+    // Wheel handler - horizontal scrolling for page navigation
     const handleWheel = (e: WheelEvent) => {
-        // Only handle horizontal scrolling when zoom is acceptable
-        if (!isNearDefaultZoom(currentScale) || isAnimating) return;
+        if (isAnimating) return;
         
-        // Prevent default to avoid page scrolling
+        // Handle horizontal scrolling for navigation
         if (Math.abs(e.deltaX) > 20 && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
-            navigatePages(e.deltaX > 0 ? 'next' : 'prev');
+            
+            // Handle macOS momentum scroll by only allowing one navigation per gesture
+            if (!isProcessingScroll.current) {
+                isProcessingScroll.current = true;
+                
+                // Determine direction and navigate
+                navigatePages(e.deltaX > 0 ? 'next' : 'prev');
+                
+                // Debounce to prevent multiple triggers during momentum scrolling
+                // The 500ms timeout helps ensure we catch the entire momentum scroll sequence
+                setTimeout(() => {
+                    isProcessingScroll.current = false;
+                }, 500);
+            }
         }
     };
 
-    // Handle touch events for swipe navigation
+    // Touch handlers for swipe navigation
     const handleTouchStart = (e: TouchEvent) => {
         touchStartX.current = e.touches[0].clientX;
-        
-        // Prevent browser back navigation on horizontal swipe
-        if (e.touches.length === 1) {
-            e.preventDefault();
-        }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
@@ -249,25 +307,24 @@ export default function ImageScoreRenderer({
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-        if (!isNearDefaultZoom(currentScale) || isAnimating) return; // Prevent swipe when zoomed in or animating
+        if (isAnimating) return;
         
-        const swipeThreshold = 50; // Minimum distance for a swipe
+        const swipeThreshold = 50;
         const diff = touchEndX.current - touchStartX.current;
         
         if (Math.abs(diff) > swipeThreshold) {
             navigatePages(diff > 0 ? 'prev' : 'next');
-            e.preventDefault(); // Prevent any default browser behavior
+            e.preventDefault();
         }
     };
 
-    // Handle mouse drag events for page navigation
+    // Mouse drag handlers for page navigation
     const handleMouseDown = (e: MouseEvent) => {
-        if (!isNearDefaultZoom(currentScale) || isAnimating) return;
+        if (isAnimating) return;
         
         isDragging.current = true;
         mouseStartX.current = e.clientX;
         
-        // Add the temporary event listeners for drag tracking
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
     };
@@ -280,44 +337,39 @@ export default function ImageScoreRenderer({
     const handleMouseUp = () => {
         if (!isDragging.current) return;
         
-        const dragThreshold = 50; // Minimum distance for a drag
+        const dragThreshold = 50;
         const diff = mouseCurrentX.current - mouseStartX.current;
         
         if (Math.abs(diff) > dragThreshold) {
             navigatePages(diff > 0 ? 'prev' : 'next');
         }
         
-        // Clean up event listeners
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
         isDragging.current = false;
     };
 
-    // Watch for scale changes from ZoomableDiv
+    // Scale change handler from ZoomableDiv
     const handleScaleChange = (scale: number) => {
         setCurrentScale(scale);
-        // Set zoomed flag for UI elements visibility
-        setIsZoomed(!isNearDefaultZoom(scale));
     };
 
+    // Set up event listeners
     useEffect(() => {
         // Block browser's default back/forward navigation on swipe
         const preventDefaultNavigation = (e: TouchEvent) => {
-            // Only prevent if it might be a horizontal swipe
             if (e.touches.length === 1) {
-                const touch = e.touches[0];
-                const touchX = touch.clientX;
-                
-                // Check if touch is near screen edge (common for back navigation)
+                const touchX = e.touches[0].clientX;
                 if (touchX < 50 || touchX > window.innerWidth - 50) {
                     e.preventDefault();
                 }
             }
         };
         
+        // Add keyboard event listener for arrow key navigation
+        document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('touchstart', preventDefaultNavigation, { passive: false });
         
-        // Set up event listeners for navigation
         const container = containerRef.current;
         if (container) {
             container.addEventListener('wheel', handleWheel, { passive: false });
@@ -328,6 +380,7 @@ export default function ImageScoreRenderer({
         }
         
         return () => {
+            document.removeEventListener('keydown', handleKeyDown);
             document.removeEventListener('touchstart', preventDefaultNavigation);
             
             if (container) {
@@ -337,64 +390,46 @@ export default function ImageScoreRenderer({
                 container.removeEventListener('touchend', handleTouchEnd as EventListener);
                 container.removeEventListener('mousedown', handleMouseDown as EventListener);
             }
-            // Clean up any lingering document event listeners
+            
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
     }, [currentPageIndex, totalViews, currentScale, isAnimating]);
 
-    // Manual retry handler
-    const handleRetry = () => {
-        // Clear blob cache for this score
-        blobCache.delete(scoreId);
-        
-        // Invalidate both queries
-        retry(); // Parent component's score data query
-        refetchScoreFile(); // Score file query
-        queryClient.invalidateQueries({ queryKey: ['scoreFile', scoreId] });
-    };
-
-    // Handle image error - if an image fails to load, invalidate the cache and retry
-    const handleImageError = (url: string) => {
-        console.error('Image failed to load:', url);
-        
-        // Clear the cache for this score
-        blobCache.delete(scoreId);
-        
-        // Trigger a refetch using the retry callback
-        setError('An image failed to load. Retrying...');
-        setTimeout(() => {
-            retry(); // Parent score data
-            refetchScoreFile(); // Score file/blob 
-            queryClient.invalidateQueries({ queryKey: ['scoreFile', scoreId] });
-        }, 500);
-    };
-
     if (error) {
         return (
-          <div
-            className="flex flex-col items-center justify-center text-center p-4 text-red-600"
-            style={{height: 'calc(100vh - 11rem)'}}
-          >
-              <h1 className="text-xl my-4">{error}</h1>
-              <button
-                onClick={handleRetry}
-                className="mt-2 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 rounded"
-              >
-                  Retry
-              </button>
-          </div>
+            <div className="flex flex-col items-center justify-center text-center p-4 h-full">
+                <h1 className="text-xl my-4">Loading score...</h1>
+                <div className="w-64 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 my-4">
+                    <div className="bg-primary h-2.5 rounded-full transition-all duration-300" style={{ width: `20%` }}></div>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Error loading score. Please try again.
+                </p>
+                <button
+                    onClick={() => refetchScoreFile()}
+                    className="mt-4 px-4 py-2 bg-primary-100 hover:bg-primary-200 text-primary-800 rounded text-sm"
+                >
+                    Reload
+                </button>
+            </div>
         );
     }
 
     if (isLoading) {
         return (
-          <div
-            className="flex flex-col items-center justify-center text-center p-4"
-            style={{height: 'calc(100vh - 11rem)'}}
-          >
-              <h1 className="text-xl my-4">Loading score...</h1>
-          </div>
+            <div className="flex flex-col items-center justify-center text-center p-4 h-full">
+                <h1 className="text-xl my-4">Loading score...</h1>
+                <div className="w-64 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 my-4">
+                    <div className="bg-primary h-2.5 rounded-full transition-all duration-300" style={{ width: `${loadingProgress}%` }}></div>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {loadingProgress < 90 
+                        ? `Downloading score data... ${loadingProgress}%` 
+                        : `Processing images... ${loadingProgress}%`
+                    }
+                </p>
+            </div>
         );
     }
 
@@ -410,9 +445,6 @@ export default function ImageScoreRenderer({
         transitionPages = imageUrls.slice(transitionStartIndex, transitionStartIndex + pagesPerView);
     }
 
-    // Add navigation indicators/controls
-    const showNavigation = totalViews > 1;
-
     // Calculate animation classes
     const currentPageAnimClass = isAnimating 
         ? animationDirection === 'next' 
@@ -427,113 +459,99 @@ export default function ImageScoreRenderer({
         : '';
 
     return (
-      <div
-        ref={containerRef}
-        className="overflow-x-hidden flex flex-col place-items-center relative"
-        style={{
-            height: isFullscreen ? '100vh' : 'calc(100vh - 11rem)',
-            transition: 'height 0.3s ease'
-        }}
-      >
-          <ZoomableDiv 
-              recenter={recenter}
-              onScaleChange={handleScaleChange}
-              defaultScale={defaultScale}
-          >
-              {/* Container for the page transition effect */}
-              <div 
-                  ref={scoreContainerRef}
-                  style={{
-                      width: pagesPerView === 2 ? "1600px" : "800px", 
-                      height: "1000px",
-                      position: "relative",
-                      backgroundColor: "#fff",
-                  }}
-              >
-                  {/* Current page */}
-                  <div 
-                      className={currentPageAnimClass}
-                      style={{
-                          display: 'flex', 
-                          flexDirection: 'row',
-                          width: "100%",
-                          height: "100%",
-                      }}
-                  >
-                      {visiblePages.map((url, index) => (
-                        <div
-                          key={`current-${currentPageIndex}-${index}`}
-                          className="bg-white"
-                          style={{
-                              flex: '0 0 auto',
-                              width: pagesPerView === 2 ? '800px' : '800px',
-                              height: '1000px',
-                              padding: '0.5rem',
-                              position: "relative"
-                          }}
-                        >
-                            <Image
-                              src={url}
-                              draggable={false}
-                              layout="fill"
-                              objectFit="contain"
-                              alt={`Score page ${startIndex + index + 1}`}
-                              style={{display: 'block'}}
-                              onError={() => handleImageError(url)}
-                            />
-                        </div>
-                      ))}
-                  </div>
-                  
-                  {/* Transition page - only rendered during animations */}
-                  {isAnimating && transitionPages && (
-                      <div 
-                          className={transitionPageAnimClass}
-                          style={{
-                              display: 'flex', 
-                              flexDirection: 'row',
-                              width: "100%",
-                              height: "100%",
-                          }}
-                      >
-                          {transitionPages.map((url, index) => (
+        <div
+            ref={containerRef}
+            id={`score-${scoreId}`}
+            className={`overflow-x-hidden flex flex-col place-items-center relative h-full ${isFullscreen ? 'pt-16' : ''}`}
+            tabIndex={0} // Make div focusable for keyboard events
+        >
+            <ZoomableDiv 
+                recenter={recenter}
+                onScaleChange={handleScaleChange}
+                defaultScale={defaultScale}
+            >
+                <div 
+                    ref={scoreContainerRef}
+                    style={{
+                        width: pagesPerView === 2 ? "1600px" : "800px", 
+                        height: "1000px",
+                        position: "relative",
+                        backgroundColor: "#fff",
+                    }}
+                >
+                    {/* Current page */}
+                    <div 
+                        className={currentPageAnimClass}
+                        style={{
+                            display: 'flex', 
+                            flexDirection: 'row',
+                            width: "100%",
+                            height: "100%",
+                        }}
+                    >
+                        {visiblePages.map((url, index) => (
                             <div
-                              key={`transition-${transitionPage}-${index}`}
-                              className="bg-white"
-                              style={{
-                                  flex: '0 0 auto',
-                                  width: pagesPerView === 2 ? '800px' : '800px',
-                                  height: '1000px',
-                                  padding: '0.5rem',
-                                  position: "relative"
-                              }}
+                                key={`current-${currentPageIndex}-${index}`}
+                                className="bg-white"
+                                style={{
+                                    flex: '0 0 auto',
+                                    width: pagesPerView === 2 ? '800px' : '800px',
+                                    height: '1000px',
+                                    padding: '0.5rem',
+                                    position: "relative"
+                                }}
                             >
                                 <Image
-                                  src={url}
-                                  draggable={false}
-                                  layout="fill"
-                                  objectFit="contain"
-                                  alt={`Score page ${transitionStartIndex !== null ? transitionStartIndex + index + 1 : ''}`}
-                                  style={{display: 'block'}}
-                                  onError={() => handleImageError(url)}
+                                    src={url}
+                                    draggable={false}
+                                    layout="fill"
+                                    objectFit="contain"
+                                    alt={`Score page ${startIndex + index + 1}`}
+                                    style={{display: 'block'}}
+                                    onError={() => refetchScoreFile()}
                                 />
                             </div>
-                          ))}
-                      </div>
-                  )}
-              </div>
-          </ZoomableDiv>
-          
-          {showNavigation && !isZoomed && (
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2 z-10">
-                <span className="text-sm bg-gray-800 text-white px-3 py-1 rounded-md shadow-sm">
-                    {pagesPerView === 1 
-                        ? `Page ${startIndex + 1} of ${imageUrls.length}`
-                        : `Page ${startIndex + 1}-${Math.min(startIndex + pagesPerView, imageUrls.length)} of ${imageUrls.length}`
-                    }
-                </span>
-            </div>
-          )}
-      </div>
+                        ))}
+                    </div>
+                    
+                    {/* Transition page - only rendered during animations */}
+                    {isAnimating && transitionPages && (
+                        <div 
+                            className={transitionPageAnimClass}
+                            style={{
+                                display: 'flex', 
+                                flexDirection: 'row',
+                                width: "100%",
+                                height: "100%",
+                            }}
+                        >
+                            {transitionPages.map((url, index) => (
+                                <div
+                                    key={`transition-${transitionPage}-${index}`}
+                                    className="bg-white"
+                                    style={{
+                                        flex: '0 0 auto',
+                                        width: pagesPerView === 2 ? '800px' : '800px',
+                                        height: '1000px',
+                                        padding: '0.5rem',
+                                        position: "relative"
+                                    }}
+                                >
+                                    <Image
+                                        src={url}
+                                        draggable={false}
+                                        layout="fill"
+                                        objectFit="contain"
+                                        alt={`Score page ${transitionStartIndex !== null ? transitionStartIndex + index + 1 : ''}`}
+                                        style={{display: 'block'}}
+                                        onError={() => refetchScoreFile()}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </ZoomableDiv>
+        </div>
     );
 }

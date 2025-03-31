@@ -10,8 +10,10 @@ export interface MusicScore {
     title: string;
     subtitle: string;
     upload_date: string;
+    total_pages: number;
     is_mxl?: boolean;
     file_id?: string;
+    notes_id?: string
     preview_id?: string;
     starred?: boolean;
     folder?: string;
@@ -22,6 +24,8 @@ export interface MusicXMLRendererProps {
     recenter: RefObject<HTMLButtonElement>;
     retry: () => void;
     isFullscreen?: boolean;
+    pagesPerView: number; // New optional prop to control 1 or 2 pages per view
+    currentPage: number;
 }
 
 export default function MusicXMLRenderer({ scoreId, recenter, retry, isFullscreen }: MusicXMLRendererProps) {
