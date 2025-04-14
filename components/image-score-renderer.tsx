@@ -5,6 +5,7 @@ import Image from 'next/image';
 import ZoomableDiv from '@/components/ui-custom/zoomable-div';
 import { MusicXMLRendererProps } from '@/components/music-xml-renderer';
 import { useQuery } from '@tanstack/react-query';
+import log from '@/lib/logger';
 
 // Store blobs in memory cache
 const blobCache = new Map<string, string[]>();
@@ -54,6 +55,7 @@ export default function ImageScoreRenderer({
             // Prevent duplicate fetches during React's double-render
             if (fetchedRef.current) {
                 if (blobCache.has(scoreId)) {
+                    log.debug(`Using cached score data for ${scoreId}`);
                     return { 
                         urls: blobCache.get(scoreId) || [], 
                         fromCache: true 
@@ -62,6 +64,7 @@ export default function ImageScoreRenderer({
                 // Wait for the first render's fetch to complete
                 await new Promise(resolve => setTimeout(resolve, 100));
                 if (blobCache.has(scoreId)) {
+                    log.debug(`Using cached score data after waiting for ${scoreId}`);
                     return { 
                         urls: blobCache.get(scoreId) || [], 
                         fromCache: true 
@@ -74,12 +77,14 @@ export default function ImageScoreRenderer({
             
             // Clear any existing cache for this score
             if (blobCache.has(scoreId)) {
+                log.debug(`Clearing existing cache for ${scoreId}`);
                 const cachedUrls = blobCache.get(scoreId)!;
                 cachedUrls.forEach(url => URL.revokeObjectURL(url));
                 blobCache.delete(scoreId);
             }
             
             // Fetch from API
+            log.info(`Fetching score file ${scoreId}`);
             const response = await axios.get(`/api/score/download/${scoreId}`, {
                 responseType: 'blob',
                 onDownloadProgress: (progressEvent) => {
@@ -96,6 +101,7 @@ export default function ImageScoreRenderer({
             setLoadingProgress(90);
             
             if (fileBlob.type === 'application/zip') {
+                log.debug(`Processing zip file for ${scoreId}`);
                 const zip = await JSZip.loadAsync(fileBlob);
                 const imageFiles = Object.keys(zip.files).filter(filename => 
                     !zip.files[filename].dir && /\.(png|jpe?g|gif)$/i.test(filename)
@@ -113,7 +119,10 @@ export default function ImageScoreRenderer({
                     const extractionProgress = 90 + Math.round((processedEntries / imageFiles.length) * 10);
                     setLoadingProgress(Math.min(extractionProgress, 100));
                 }
+                
+                log.info(`Extracted ${urls.length} images from zip for ${scoreId}`);
             } else if (fileBlob.type.startsWith('image/')) {
+                log.debug(`Processing single image for ${scoreId}`);
                 const url = URL.createObjectURL(fileBlob);
                 urls.push(url);
                 setLoadingProgress(100);
@@ -223,6 +232,7 @@ export default function ImageScoreRenderer({
     // Function to notify parent about page changes
     const notifyPageChange = (pageIndex: number) => {
         if (typeof window !== 'undefined') {
+            log.debug(`Notifying page change to ${pageIndex}`);
             const event = new CustomEvent('score:pageChange', {
                 detail: {
                     scoreId,
@@ -231,6 +241,19 @@ export default function ImageScoreRenderer({
                 bubbles: true
             });
             document.dispatchEvent(event);
+            
+            // Force redraw of any page-specific annotations
+            setTimeout(() => {
+                log.debug(`Requesting redraw for page ${pageIndex}`);
+                const redrawEvent = new CustomEvent('score:redrawAnnotations', {
+                    detail: {
+                        scoreId,
+                        currentPage: pageIndex,
+                    },
+                    bubbles: true
+                });
+                document.dispatchEvent(redrawEvent);
+            }, 300); // Increased delay to ensure page render is complete
         }
     };
 
@@ -249,6 +272,9 @@ export default function ImageScoreRenderer({
                     setAnimationDirection(null);
                     setTransitionPage(null);
                 }
+                
+                // Notify about the page change to update annotations
+                notifyPageChange(safeCurrentPage);
             }
         }
     }, [currentPage, totalViews, currentPageIndex]);
@@ -352,6 +378,22 @@ export default function ImageScoreRenderer({
     // Scale change handler from ZoomableDiv
     const handleScaleChange = (scale: number) => {
         setCurrentScale(scale);
+    };
+
+    // Image load handler
+    const handleImageLoad = (pageIndex: number) => {
+        // Notify when an image has loaded to trigger annotation redraw
+        setTimeout(() => {
+            log.debug(`Image loaded for page index ${pageIndex}, triggering redraw`);
+            const event = new CustomEvent('score:redrawAnnotations', {
+                detail: {
+                    scoreId,
+                    currentPage: pageIndex,
+                },
+                bubbles: true
+            });
+            document.dispatchEvent(event);
+        }, 200); // Increased delay to ensure DOM is fully ready
     };
 
     // Set up event listeners
@@ -472,11 +514,10 @@ export default function ImageScoreRenderer({
             >
                 <div 
                     ref={scoreContainerRef}
+                    className="score-container relative bg-white"
                     style={{
                         width: pagesPerView === 2 ? "1600px" : "800px", 
                         height: "1000px",
-                        position: "relative",
-                        backgroundColor: "#fff",
                     }}
                 >
                     {/* Current page */}
@@ -492,7 +533,7 @@ export default function ImageScoreRenderer({
                         {visiblePages.map((url, index) => (
                             <div
                                 key={`current-${currentPageIndex}-${index}`}
-                                className="bg-white"
+                                className="bg-white page-container"
                                 style={{
                                     flex: '0 0 auto',
                                     width: pagesPerView === 2 ? '800px' : '800px',
@@ -509,6 +550,7 @@ export default function ImageScoreRenderer({
                                     alt={`Score page ${startIndex + index + 1}`}
                                     style={{display: 'block'}}
                                     onError={() => refetchScoreFile()}
+                                    onLoad={() => handleImageLoad(startIndex + index)}
                                 />
                             </div>
                         ))}

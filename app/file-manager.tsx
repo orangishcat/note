@@ -44,7 +44,7 @@ export default function FileManager() {
         queryKey: ["scores"],
         queryFn: () => axios.get<MusicScore[]>("/api/score/list").then(resp => resp.data),
     });
-    const {data: folderList, error: folderError} = useQuery({
+    const {data: folderList, error: folderError, refetch: refetchFolders} = useQuery({
         queryKey: ["folders"],
         queryFn: () => axios.get<Folder[]>("/api/folder/list").then(resp => resp.data),
     });
@@ -77,6 +77,10 @@ export default function FileManager() {
     const invalidateScores = () => {
         qc.invalidateQueries({queryKey: ['scores']}).then(r => console.log("Scores query invalidated", r))
     };
+    
+    const invalidateFolders = () => {
+        qc.invalidateQueries({queryKey: ['folders']}).then(r => console.log("Folders query invalidated", r))
+    };
 
     const [lastStarTime, setLastStarTime] = useState(0);
     const toggleStar = (score: MusicScore) => {
@@ -87,8 +91,18 @@ export default function FileManager() {
         axios.post(`/api/score/star/${score.id}`, {starred: !score.starred}).catch(console.error)
     }
 
-    const newFolder = (folderName: string, content: string[]) => {
-        axios.post("/api/folder/create", {folderName, content}).then(console.log)
+    const newFolder = (folderName: string) => {
+        return axios.post("/api/folder/create", {name: folderName})
+            .then(response => {
+                console.log("Folder created:", response.data);
+                invalidateFolders();
+                return response.data;
+            })
+            .catch(error => {
+                console.error("Error creating folder:", error);
+                setErrorMessage(error.response?.data?.error || "Failed to create folder");
+                throw error;
+            });
     }
 
     const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -97,11 +111,16 @@ export default function FileManager() {
 
     const handleCreateFolder = () => {
         if (folderName.trim() === "") return setErrorMessage("Folder name empty")
-        const updatedFolders = {...folders, [folderName]: []}
-        setFolders(updatedFolders)
-        newFolder(folderName, [])
-        setFolderName("")
-        setIsDialogOpen(false)
+        
+        newFolder(folderName)
+            .then(() => {
+                setFolderName("")
+                setIsDialogOpen(false)
+                setErrorMessage(undefined)
+            })
+            .catch(() => {
+                // Error already handled in newFolder
+            });
     }
 
     const onDelete = (id: string) => {
@@ -130,12 +149,10 @@ export default function FileManager() {
                       </BasicTooltip>
                       <UploadDialog onUpload={invalidateScores}/>
                       {account ?
-                        <NotImplementedTooltip>
-                            <Button variant="outline" className="gap-2" disabled onClick={() => setIsDialogOpen(true)}>
-                                <FolderPlus className="h-4 w-4"/>
-                                Create folder
-                            </Button>
-                        </NotImplementedTooltip> :
+                        <Button variant="outline" className="gap-2" onClick={() => setIsDialogOpen(true)}>
+                            <FolderPlus className="h-4 w-4"/>
+                            Create folder
+                        </Button> :
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <span tabIndex={-1}>

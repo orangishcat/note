@@ -19,7 +19,7 @@ export function Layout({children}: LayoutProps) {
                 <Navbar onMenuClick={toggleSidebar} />
             </div>
             <div className="flex overflow-auto">
-                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                <Sidebar isOpen={isSidebarOpen} onCloseAction={() => setIsSidebarOpen(false)} />
                 <main className="flex-1 xl:ml-72 transition-all duration-200">
                     {children}
                 </main>

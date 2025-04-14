@@ -1,15 +1,23 @@
+"use client"
+
 import {cn} from "@/lib/utils";
 import {Button} from "@/components/ui/button";
 import {LayoutGrid, X} from "lucide-react";
 import React from "react";
 import {NavItem} from "@/components/navbar";
-import {Folder, FolderItem} from "@/components/folder";
+import {Folder, FolderDisplay} from "@/components/folder";
+import {useQuery} from "@tanstack/react-query";
+import axios from "axios";
 
 export function Sidebar({
                           isOpen,
-                          onClose,
-                        }: { isOpen: boolean; onClose: () => void }) {
-  const folders: Folder[] = []
+                          onCloseAction,
+                        }: { isOpen: boolean; onCloseAction: () => void }) {
+  const {data: folders = []} = useQuery({
+    queryKey: ["folders"],
+    queryFn: () => axios.get<Folder[]>("/api/folder/list").then(resp => resp.data),
+  });
+
   return (
     <div
       className={cn(
@@ -20,7 +28,7 @@ export function Sidebar({
     >
       <div className="flex items-center justify-between p-4">
         <h1 className="text-xl font-bold dark:text-white">Note</h1>
-        <Button variant="ghost" size="icon" onClick={onClose} className="xl:hidden">
+        <Button variant="ghost" size="icon" onClick={onCloseAction} className="xl:hidden">
           <X className="h-4 w-4"/>
         </Button>
       </div>
@@ -31,9 +39,13 @@ export function Sidebar({
         <div className="py-3">
           <div className="px-3 text-xs font-medium uppercase text-gray-500 dark:text-gray-400">Collections</div>
           <div className="mt-2">
-            {folders.map(folder => (
-              <FolderItem key={folder.name} name={folder.name} files={folder.files || []}/>
-            ))}
+            {folders.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-gray-500">No folders yet</div>
+            ) : (
+              folders.map(folder => (
+                <FolderDisplay key={folder.$id} name={folder.name} files={folder.files || []} file_ids={folder.file_ids || []}/>
+              ))
+            )}
           </div>
         </div>
       </nav>
