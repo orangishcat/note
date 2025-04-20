@@ -1,4 +1,6 @@
-import React, { RefObject, useEffect, useRef, useState } from 'react';
+import React, { RefObject, useEffect, useRef, useState, useContext } from 'react';
+import { ZoomContext } from '@/app/providers';
+import log from '@/lib/logger';
 
 export default function ZoomableDiv({
   children,
@@ -19,6 +21,23 @@ export default function ZoomableDiv({
   const zoomSensitivity = 0.0015;
   const minScale = 0.25;
   const maxScale = 4;
+  
+  // Get zoom context
+  const zoomContext = useContext(ZoomContext);
+  // Keep track of the score ID
+  const scoreIdRef = useRef<string>('');
+  
+  // Extract scoreId from parent element's ID
+  useEffect(() => {
+    if (outerRef.current) {
+      const parentElement = outerRef.current.closest('[id^="score-"]');
+      if (parentElement) {
+        const id = parentElement.id;
+        const scoreId = id.replace('score-', '');
+        scoreIdRef.current = scoreId;
+      }
+    }
+  }, []);
 
   // Update scale when defaultScale changes
   useEffect(() => {
@@ -54,7 +73,16 @@ export default function ZoomableDiv({
       }
     };
 
-    const handleRecenter = () => setScale(defaultScale);
+    const handleRecenter = () => {
+      // Always set to scale 1 when resetting (not defaultScale)
+      const resetScale = 1;
+      setScale(resetScale);
+      
+      // Update zoom context if we have a scoreId
+      if (zoomContext && scoreIdRef.current) {
+        zoomContext.setZoomLevel(scoreIdRef.current, resetScale);
+      }
+    };
 
     const outer = outerRef.current;
     if (outer) {
@@ -69,7 +97,7 @@ export default function ZoomableDiv({
       }
       recenter.current?.removeEventListener('click', handleRecenter);
     };
-  }, [recenter, scale, defaultScale]);
+  }, [recenter, scale, zoomContext]);
 
   // When scale changes, update the transform, recalc dimensions, and adjust scroll so that the center remains.
   useEffect(() => {
@@ -111,8 +139,12 @@ export default function ZoomableDiv({
   }, [scale, originalWidth, originalHeight, onScaleChange]);
 
   return (
-    <div ref={outerRef} className="relative h-full overflow-x-hidden overflow-y-auto">
-      <div ref={innerRef}>
+    <div 
+      ref={outerRef} 
+      className="relative h-full overflow-x-hidden overflow-y-auto zoomable-div"
+      data-scale={scale}
+    >
+      <div ref={innerRef} className="zoomable-content">
         {children}
       </div>
     </div>

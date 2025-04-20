@@ -1,7 +1,7 @@
 "use client"
 
-import {useParams} from "next/navigation"
-import {useEffect, useRef, useState} from "react"
+import {useParams, useRouter} from "next/navigation"
+import React, {useEffect, useRef, useState} from "react"
 import Link from "next/link"
 import {
     ArrowLeft,
@@ -29,34 +29,249 @@ import axios from "axios";
 import ImageScoreRenderer from "@/components/image-score-renderer";
 import protobuf, {Message, Type} from 'protobufjs';
 import log from '@/lib/logger';
-import { useEditDisplay, setupEditEventHandlers } from '@/lib/edit-display';
-import { useAudioRecorder } from '@/lib/audio-recorder';
+import {setupEditEventHandlers, useEditDisplay} from '@/lib/edit-display';
+import {useAudioRecorder} from '@/lib/audio-recorder';
 
-// Protobuf type references
-let NoteListType: Type | null = null;
-let EditListType: Type | null = null;
+// Define EditOperation enum here since modular files were deleted
+const initialDebug = typeof localStorage !== 'undefined' && !!localStorage.getItem("debug");
+
+// Protobuf type cache as a module-level variable
+let protobufTypeCache: {
+    EditListType: Type | null;
+    initialized: boolean;
+    initializing: boolean;
+    error: Error | null;
+} = {
+    EditListType: null,
+    initialized: false,
+    initializing: false,
+    error: null
+};
 
 // Initialize protobuf types
-const initProtobufTypes = async () => {
-    log.info('Initializing protobuf types');
-    const root = await protobuf.load('/static/notes.proto');
-    NoteListType = root.lookupType('NoteList');
-    EditListType = root.lookupType('EditList');
-    log.info('Protobuf types initialized');
-    return {NoteListType, EditListType};
+const initProtobufTypes = async (): Promise<Type | null> => {
+    // Return from cache if already initialized
+    if (protobufTypeCache.initialized && protobufTypeCache.EditListType) {
+        return protobufTypeCache.EditListType;
+    }
+
+    // Return null if currently initializing to prevent multiple simultaneous loads
+    if (protobufTypeCache.initializing) {
+        return null;
+    }
+
+    log.debug('Initializing protobuf types');
+    protobufTypeCache.initializing = true;
+    protobufTypeCache.error = null;
+
+    try {
+        // Force cache refresh by adding timestamp to URL
+        const timestamp = Date.now();
+        const protoUrl = `/static/notes.proto?t=${timestamp}`;
+        log.debug(`Loading proto definition from ${protoUrl}`);
+        
+        const root = await protobuf.load(protoUrl);
+        
+        // Verify the EditList type has the expected structure
+        const EditListType = root.lookupType('EditList');
+        
+        // Check if EditList has the expected fields
+        const fields = EditListType.fieldsArray.map(f => f.name);
+        log.debug(`EditList fields: ${fields.join(', ')}`);
+        
+        if (!fields.includes('edits')) {
+            log.warn('EditList type is missing the "edits" field');
+        }
+        
+        if (!fields.includes('size')) {
+            log.warn('EditList type is missing the "size" field');
+        }
+
+        // Update cache
+        protobufTypeCache = {
+            EditListType,
+            initialized: true,
+            initializing: false,
+            error: null
+        };
+
+        log.debug('Protobuf types initialized successfully');
+        return EditListType;
+    } catch (error) {
+        log.error('Error initializing protobuf types:', error);
+
+        // Update cache with error
+        protobufTypeCache = {
+            EditListType: null,
+            initialized: false,
+            initializing: false,
+            error: error instanceof Error ? error : new Error(String(error))
+        };
+
+        return null;
+    }
+};
+
+// Debug panel component
+const DebugPanel = ({scoreId, editList, setEditList, currentPage, editsOnPage}: {
+    scoreId: string,
+    editList: Message | null,
+    setEditList: (editList: Message | null) => void,
+    currentPage: number,
+    editsOnPage: number
+}) => {
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const dragStartPos = useRef({ x: 0, y: 0 });
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Load saved position from localStorage on mount
+    useEffect(() => {
+        try {
+            const savedPosition = localStorage.getItem('debugPanelPosition');
+            if (savedPosition) {
+                const parsedPosition = JSON.parse(savedPosition);
+                setPosition(parsedPosition);
+            } else {
+                // Default position if not saved
+                setPosition({ x: 20, y: 100 });
+            }
+        } catch (e) {
+            log.error('Error loading debug panel position:', e);
+            setPosition({ x: 20, y: 100 });
+        }
+    }, []);
+
+    // Save position to localStorage when it changes
+    useEffect(() => {
+        if (position.x !== 0 || position.y !== 0) {
+            localStorage.setItem('debugPanelPosition', JSON.stringify(position));
+        }
+    }, [position]);
+
+    // Handle mouse down to start dragging
+    const handleMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+
+        // Store current mouse position
+        dragStartPos.current = {
+            x: e.clientX - position.x,
+            y: e.clientY - position.y
+        };
+    };
+
+    // Handle mouse move while dragging
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDragging) return;
+
+            // Calculate new position
+            const newX = e.clientX - dragStartPos.current.x;
+            const newY = e.clientY - dragStartPos.current.y;
+
+            // Apply new position
+            setPosition({ x: newX, y: newY });
+        };
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+        };
+
+        if (isDragging) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging]);
+
+    const redrawAnnotations = () => {
+        if (!editList) {
+            log.warn("No annotations to redraw");
+            return;
+        }
+
+        log.debug("Manually triggering annotation redraw");
+
+        // Force a redraw by briefly setting editList to null then back
+        const tempEditList = editList;
+        setEditList(null);
+        setTimeout(() => {
+            setEditList(tempEditList);
+
+            // Dispatch redraw event
+            const event = new CustomEvent('score:redrawAnnotations', {
+                detail: {
+                    scoreId,
+                    currentPage,
+                },
+                bubbles: true
+            });
+            document.dispatchEvent(event);
+        }, 50);
+    };
+
+    const disableDebugMode = () => {
+        localStorage.removeItem("debug");
+        // Trigger storage event manually for same window
+        window.dispatchEvent(new Event('storage'));
+    };
+
+    return (
+        <div
+            ref={panelRef}
+            className="fixed z-50 bg-black/70 text-white p-3 rounded-md shadow-lg max-w-xs"
+            style={{
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                cursor: isDragging ? 'grabbing' : 'default'
+            }}
+        >
+            {/* Drag handle */}
+            <div
+                className="absolute top-0 left-0 right-0 h-7 bg-gray-700/80 rounded-t-md flex items-center px-2 cursor-grab"
+                onMouseDown={handleMouseDown}
+            >
+                <div className="grid grid-cols-3 gap-1 mr-2">
+                    <div className="w-1 h-1 rounded-full bg-gray-400"></div>
+                    <div className="w-1 h-1 rounded-full bg-gray-400"></div>
+                    <div className="w-1 h-1 rounded-full bg-gray-400"></div>
+                    <div className="w-1 h-1 rounded-full bg-gray-400"></div>
+                    <div className="w-1 h-1 rounded-full bg-gray-400"></div>
+                    <div className="w-1 h-1 rounded-full bg-gray-400"></div>
+                </div>
+                <span className="text-xs font-semibold">Debug Panel</span>
+            </div>
+
+            <div className="flex flex-col gap-2 mt-6">
+                <button
+                    onClick={redrawAnnotations}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
+                >
+                    Redraw Annotations
+                </button>
+                <button
+                    onClick={disableDebugMode}
+                    className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
+                >
+                    Disable Debug Mode
+                </button>
+                <div className="text-xs mt-2">
+                    <p>Page: {currentPage}</p>
+                    <p>Edits: {editsOnPage}/{editList ? (editList as any).edits?.length || 0 : 0}</p>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default function ScorePage() {
-    // Fetch protobuf types
-    const {data: protobufTypes, isSuccess: protobufReady, refetch: refetchTypes} = useQuery({
-        queryKey: ['protobufTypes'],
-        queryFn: initProtobufTypes,
-        staleTime: Infinity, // Cache forever unless explicitly invalidated
-    });
-
-    // Page state
-    const params = useParams();
-    const id = params.id as string;
+    useRouter();
+    const {id} = useParams<{id: string}>();
     const [score, setScore] = useState<MusicScore>({
         id: "",
         title: "loading",
@@ -64,52 +279,126 @@ export default function ScorePage() {
         upload_date: "now",
         total_pages: 1
     });
-    const [lastStarTime, setLastStarTime] = useState(0);
     const [editList, setEditList] = useState<Message | null>(null);
-    const [isFullscreen, setIsFullscreen] = useState(false);
-    const [showControls, setShowControls] = useState(true);
-    const [showDock, setShowDock] = useState(true);
-    const [showRecordingsModal, setShowRecordingsModal] = useState(false);
     const [currentPage, setCurrentPage] = useState(0);
-    const [totalPages, setTotalPages] = useState<number | null>(null);
-    const [notes, setNotes] = useState<Message | null>(null);
-    
-    // Refs
-    const mouseMoveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const dockRef = useRef<HTMLDivElement>(null);
-    const fetchedDataRef = useRef<boolean>(false); // Prevent duplicate API calls during React's double-render
-    const recenterButton = useRef<HTMLButtonElement>(null);
-    
-    // Recording state
     const [isRecording, setIsRecording] = useState(false);
+    const [isDebugMode, setIsDebugMode] = useState(initialDebug);
+    const [editsOnPage, setEditsOnPage] = useState(0);
 
-    // Initialize protobuf types
+    // Listen for storage changes to detect debug mode toggle
     useEffect(() => {
-        if (!protobufTypes) return;
-        NoteListType = protobufTypes.NoteListType;
-        EditListType = protobufTypes.EditListType;
-    }, [protobufTypes]);
+        const handleStorageChange = () => {
+            const debugEnabled = !!localStorage.getItem("debug");
+            setIsDebugMode(debugEnabled);
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+
+        // Also check on mount in case it changed in another tab
+        handleStorageChange();
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, []);
+
+    // State to track protobuf type initialization
+    const [editListType, setEditListType] = useState<Type | null>(protobufTypeCache.EditListType);
+
+    // Function to refetch protobuf types
+    const refetchTypes = async () => {
+        const result = await initProtobufTypes();
+        setEditListType(result);
+        return result;
+    };
+
+    // Initialize protobuf types on component mount if not already initialized
+    useEffect(() => {
+        if (!protobufTypeCache.initialized && !protobufTypeCache.initializing) {
+            refetchTypes();
+        }
+    }, []);
+
+    // Fetch the score data
+    useEffect(() => {
+        log.debug(`Fetching score data for ID: ${id}`);
+        async function fetchScore() {
+            try {
+                const response = await fetch(`/api/score/data/${id}`);
+                if (!response.ok) {
+                    log.error(`Failed to fetch score: ${response.status} ${response.statusText}`);
+                    return;
+                }
+                const score = await response.json();
+                log.debug(`Score data received:`, {id: score.id, title: score.title});
+                setScore(score);
+            } catch (error) {
+                log.error('Error fetching score:', error);
+            }
+        }
+
+        if (id) {
+            fetchScore();
+        }
+    }, [id]);
 
     // Use the edit display hook
-    useEditDisplay(editList, notes, currentPage, score.id);
+    useEditDisplay(editList, currentPage, id as string, setEditsOnPage);
 
-    // Setup event handlers for edit display
+    // Setup event handlers for page changes and annotation redraws
     setupEditEventHandlers(
-        id, 
-        setCurrentPage, 
+        id as string,
+        score?.file_id,
+        setCurrentPage,
         setEditList,
         editList,
         currentPage
     );
 
     // Use the audio recorder hook
-    const { recorder } = useAudioRecorder({
+    const {startRecording, stopRecording} = useAudioRecorder({
         isRecording,
-        notes,
-        EditListType,
+        EditListType: editListType,
         onEditListChange: setEditList,
-        refetchTypes
+        refetchTypes,
+        scoreId: id as string
     });
+
+    // Handle toggling recording
+    const toggleRecording = () => {
+        if (isRecording) {
+            log.debug('Stopping recording');
+            stopRecording();
+        } else {
+            log.debug('Starting recording');
+            startRecording();
+        }
+        setIsRecording(!isRecording);
+    };
+
+    // Page state
+    const [lastStarTime, setLastStarTime] = useState(0);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [showControls, setShowControls] = useState(true);
+    const [showDock, setShowDock] = useState(true);
+    const [showRecordingsModal, setShowRecordingsModal] = useState(false);
+    const [totalPages, setTotalPages] = useState<number | null>(null);
+
+    // Refs
+    const mouseMoveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const dockRef = useRef<HTMLDivElement>(null);
+    const fetchedDataRef = useRef<boolean>(false); // Prevent duplicate API calls during React's double-render
+    const recenterButton = useRef<HTMLButtonElement>(null);
+
+    // Log when protobuf types are initialized
+    useEffect(() => {
+        if (!editListType) {
+            log.warn("EditListType is not yet initialized");
+            return;
+        }
+
+        log.debug("EditListType is initialized and ready to use");
+    }, [editListType]);
 
     const onStarToggle = (score: MusicScore) => {
         setLastStarTime(Date.now());
@@ -123,7 +412,7 @@ export default function ScorePage() {
         queryFn: async () => {
             // Prevent duplicate API calls during StrictMode's double-render
             if (fetchedDataRef.current) {
-                log.info('Preventing duplicate score data fetch during development double-render');
+                log.debug('Preventing duplicate score data fetch during development double-render');
                 // Wait for the first render's fetch to complete
                 await new Promise(resolve => setTimeout(resolve, 100));
                 return null; // Let React Query handle the caching
@@ -277,34 +566,6 @@ export default function ScorePage() {
     const toggleDockVisibility = () => {
         setShowDock(!showDock);
     };
-
-    // Toggle recording state
-    const toggleRecording = async () => {
-        setIsRecording(!isRecording);
-    }
-
-    // Add query for fetching notes data
-    const {data: notesData} = useQuery({
-        queryKey: ["notes_" + id],
-        queryFn: async () => {
-            if (!score.notes_id) return null;
-            const response = await fetch(`/api/score/notes/${score.notes_id}`);
-            return await response.arrayBuffer();
-        },
-        enabled: !!score.notes_id
-    });
-
-    // Decode protobuf data when notesData is available
-    useEffect(() => {
-        if (!notesData || !NoteListType) return;
-
-        try {
-            const decoded = NoteListType.decode(new Uint8Array(notesData));
-            setNotes(decoded);
-        } catch (error) {
-            log.error('Error decoding protobuf:', error);
-        }
-    }, [notesData]);
 
     // Floating dock of controls for both fullscreen and normal mode
     const ControlDock = () => {
@@ -523,6 +784,17 @@ export default function ScorePage() {
                   {/* Control dock */}
                   <ControlDock/>
 
+                  {/* Debug panel */}
+                  {isDebugMode && (
+                    <DebugPanel
+                      scoreId={id as string}
+                      editList={editList}
+                      setEditList={setEditList}
+                      editsOnPage={editsOnPage}
+                      currentPage={currentPage}
+                    />
+                  )}
+
                   {/* Floating show button that appears when dock is hidden */}
                   {!showDock && (
                     <div
@@ -573,6 +845,17 @@ export default function ScorePage() {
 
                   {/* Control dock */}
                   <ControlDock/>
+
+                  {/* Debug panel */}
+                  {isDebugMode && (
+                    <DebugPanel
+                      scoreId={id as string}
+                      editList={editList}
+                      setEditList={setEditList}
+                      currentPage={currentPage}
+                      editsOnPage={editsOnPage}
+                    />
+                  )}
               </div>
           </div>
       </Layout>

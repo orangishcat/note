@@ -59,8 +59,8 @@ export function Navbar({onMenuClick}: { onMenuClick: () => void }) {
                 setAccount(null)
             }
         }),
-        staleTime: 60 * 1000,
-        gcTime: 60 * 1000
+        staleTime: 60 * 60 * 1000,
+        gcTime: 60 * 60 * 1000
     })
     useEffect(() => {
         if (data)

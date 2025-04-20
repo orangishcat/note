@@ -28,10 +28,11 @@ export interface MusicXMLRendererProps {
     currentPage: number;
 }
 
+const debug = !!localStorage.getItem("debug");
+
 export default function MusicXMLRenderer({ scoreId, recenter, retry, isFullscreen }: MusicXMLRendererProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
-    const debug = !!localStorage.getItem("debug");
     const [renderError, setRenderError] = useState<string | null>(null);
 
     const updateVisiblePages = () => {

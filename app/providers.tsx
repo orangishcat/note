@@ -20,12 +20,41 @@ interface AccountContextType {
     setJustLogin: (b: boolean) => void;
 }
 
+// Zoom context for storing and sharing zoom levels
+interface ZoomContextType {
+    zoomLevels: Record<string, number>;
+    setZoomLevel: (scoreId: string, scale: number) => void;
+    getZoomLevel: (scoreId: string) => number;
+}
+
 export const AccountContext = React.createContext<AccountContextType | null>(null)
+export const ZoomContext = React.createContext<ZoomContextType | null>(null)
 const cacheTime = 7 * 24 * 60 * 60 * 1000;
 
 export function Providers({children}: { children: React.ReactNode }) {
     const [account, setAccount] = React.useState<AccountView | null>(null)
     const [justLogin, setJustLogin] = useState(false)
+    const [zoomLevels, setZoomLevels] = useState<Record<string, number>>({})
+
+    // Zoom level context functions
+    const setZoomLevel = (scoreId: string, scale: number) => {
+        // Only update if the scale is different to prevent infinite loops
+        setZoomLevels(prev => {
+            // If scale is the same, return the previous state to prevent re-render
+            if (prev[scoreId] === scale) {
+                return prev;
+            }
+            
+            return {
+                ...prev,
+                [scoreId]: scale
+            };
+        });
+    };
+
+    const getZoomLevel = (scoreId: string) => {
+        return zoomLevels[scoreId] || 1; // Default to 1 if not set
+    };
 
     useEffect(() => {
         document.title = "Note";
@@ -58,13 +87,15 @@ export function Providers({children}: { children: React.ReactNode }) {
 
     return (
       <AccountContext.Provider value={{account, setAccount, justLogin, setJustLogin}}>
-          <QueryClientProvider client={client}>
-              <TooltipProvider delayDuration={500}>
-                  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-                      {children}
-                  </ThemeProvider>
-              </TooltipProvider>
-          </QueryClientProvider>
+          <ZoomContext.Provider value={{zoomLevels, setZoomLevel, getZoomLevel}}>
+              <QueryClientProvider client={client}>
+                  <TooltipProvider delayDuration={500}>
+                      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+                          {children}
+                      </ThemeProvider>
+                  </TooltipProvider>
+              </QueryClientProvider>
+          </ZoomContext.Provider>
       </AccountContext.Provider>
     )
 }

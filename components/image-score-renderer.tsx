@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useContext } from 'react';
 import axios from 'axios';
 import JSZip from 'jszip';
 import Image from 'next/image';
@@ -6,6 +6,7 @@ import ZoomableDiv from '@/components/ui-custom/zoomable-div';
 import { MusicXMLRendererProps } from '@/components/music-xml-renderer';
 import { useQuery } from '@tanstack/react-query';
 import log from '@/lib/logger';
+import { ZoomContext } from '@/app/providers';
 
 // Store blobs in memory cache
 const blobCache = new Map<string, string[]>();
@@ -37,6 +38,9 @@ export default function ImageScoreRenderer({
     const [isAnimating, setIsAnimating] = useState(false);
     const [animationDirection, setAnimationDirection] = useState<'prev' | 'next' | null>(null);
     const [transitionPage, setTransitionPage] = useState<number | null>(null);
+    
+    // Get zoom context
+    const zoomContext = useContext(ZoomContext);
     
     const containerRef = useRef<HTMLDivElement>(null);
     const scoreContainerRef = useRef<HTMLDivElement>(null);
@@ -167,7 +171,7 @@ export default function ImageScoreRenderer({
         }
     }, [isError]);
 
-    // Calculate initial scale to fit height
+    // Initialize scale from context or calculate initial scale to fit height
     useEffect(() => {
         const calculateScale = () => {
             if (scoreContainerRef.current && containerRef.current) {
@@ -183,6 +187,17 @@ export default function ImageScoreRenderer({
                 const scaleToFit = Math.min(scaleToFitHeight, scaleToFitWidth) * 0.95; // 5% margin
                 
                 setDefaultScale(scaleToFit);
+                
+                // Check if we have a stored scale in context first
+                if (zoomContext) {
+                    const storedScale = zoomContext.getZoomLevel(scoreId);
+                    if (storedScale !== 1) { // If not default value
+                        setCurrentScale(storedScale);
+                        return;
+                    }
+                }
+                
+                // Otherwise use calculated scale
                 setCurrentScale(scaleToFit);
             }
         };
@@ -193,7 +208,7 @@ export default function ImageScoreRenderer({
         return () => {
             window.removeEventListener('resize', calculateScale);
         };
-    }, [isFullscreen, pagesPerView]);
+    }, [isFullscreen, pagesPerView, scoreId, zoomContext]);
 
     // Calculate the total number of views based on page count and pagesPerView
     const totalViews = Math.ceil(imageUrls.length / pagesPerView);
@@ -377,7 +392,15 @@ export default function ImageScoreRenderer({
 
     // Scale change handler from ZoomableDiv
     const handleScaleChange = (scale: number) => {
-        setCurrentScale(scale);
+        // Only update if the scale has changed
+        if (scale !== currentScale) {
+            setCurrentScale(scale);
+            
+            // Store the scale in the zoom context
+            if (zoomContext) {
+                zoomContext.setZoomLevel(scoreId, scale);
+            }
+        }
     };
 
     // Image load handler
@@ -436,7 +459,7 @@ export default function ImageScoreRenderer({
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [currentPageIndex, totalViews, currentScale, isAnimating]);
+    }, [currentPageIndex, totalViews, currentScale, isAnimating, scoreId]);
 
     if (error) {
         return (
@@ -512,11 +535,11 @@ export default function ImageScoreRenderer({
                 onScaleChange={handleScaleChange}
                 defaultScale={defaultScale}
             >
-                <div 
+                <div
                     ref={scoreContainerRef}
                     className="score-container relative bg-white"
                     style={{
-                        width: pagesPerView === 2 ? "1600px" : "800px", 
+                        width: pagesPerView === 2 ? "1600px" : "800px",
                         height: "1000px",
                     }}
                 >
@@ -538,7 +561,6 @@ export default function ImageScoreRenderer({
                                     flex: '0 0 auto',
                                     width: pagesPerView === 2 ? '800px' : '800px',
                                     height: '1000px',
-                                    padding: '0.5rem',
                                     position: "relative"
                                 }}
                             >
