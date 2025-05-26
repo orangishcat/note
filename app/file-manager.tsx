@@ -5,12 +5,12 @@ import {Tabs, TabsList, TabsTrigger} from "@/components/ui/tabs"
 import {FolderPlus, RefreshCw, Star} from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import React, {useEffect, useState} from "react"
+import React, {useEffect, useState, useContext} from "react"
 import {Layout} from "@/components/layout"
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog"
 import {UploadDialog} from "@/components/upload-dialog"
 import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
-import {AccountContext} from "@/app/providers";
+import {AccountContext, AuthModalContext} from "@/app/providers";
 import {TooltipArrow} from "@radix-ui/react-tooltip";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {Folder} from "@/components/folder";
@@ -19,6 +19,8 @@ import FileOptionsDropdown from "@/components/ui-custom/file-options-dropdown";
 import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import axios from "axios";
+import {useSearchParams} from "next/navigation";
+import api from "@/lib/network";
 
 
 export default function FileManager() {
@@ -34,7 +36,9 @@ export default function FileManager() {
     const [filteredScores, setFilteredScores] = useState<MusicScore[]>([]);
     const [refetchDisabled, setRefetchDisabled] = useState(false);
     const context = React.useContext(AccountContext);
+    const authModalContext = useContext(AuthModalContext);
     const account = context?.account;
+    const searchParams = useSearchParams();
 
     const loadError = (reason: string) => {
         setLoadSuccess(false);
@@ -42,11 +46,11 @@ export default function FileManager() {
     }
     const {data: scoreList, error: scoreError, refetch: refetchScores} = useQuery({
         queryKey: ["scores"],
-        queryFn: () => axios.get<MusicScore[]>("/api/score/list").then(resp => resp.data),
+        queryFn: () => api.get<MusicScore[]>("/score/list").then(resp => resp.data),
     });
-    const {data: folderList, error: folderError, refetch: refetchFolders} = useQuery({
+    const {data: folderList, error: folderError} = useQuery({
         queryKey: ["folders"],
-        queryFn: () => axios.get<Folder[]>("/api/folder/list").then(resp => resp.data),
+        queryFn: () => api.get<Folder[]>("/folder/list").then(resp => resp.data),
     });
     useEffect(
       () => setFilteredScores(scores.filter((score) => (activeTab === "recent" ? true : score.starred))),
@@ -56,6 +60,14 @@ export default function FileManager() {
         if (context?.justLogin)
             refetchScores()
     }, [context?.justLogin, refetchScores]);
+
+    // Check for login parameter in URL and open login modal if present
+    useEffect(() => {
+        const loginParam = searchParams.get('login');
+        if (loginParam === 'true' && authModalContext) {
+            authModalContext.openAuthModal('login');
+        }
+    }, [searchParams, authModalContext]);
 
     useEffect(() => {
         if (scoreList) setScores(scoreList);
@@ -75,11 +87,11 @@ export default function FileManager() {
 
     const qc = useQueryClient();
     const invalidateScores = () => {
-        qc.invalidateQueries({queryKey: ['scores']}).then(r => console.log("Scores query invalidated", r))
+        qc.invalidateQueries({queryKey: ['scores']})
     };
-    
+
     const invalidateFolders = () => {
-        qc.invalidateQueries({queryKey: ['folders']}).then(r => console.log("Folders query invalidated", r))
+        qc.invalidateQueries({queryKey: ['folders']})
     };
 
     const [lastStarTime, setLastStarTime] = useState(0);
@@ -88,18 +100,21 @@ export default function FileManager() {
         if (Date.now() - lastStarTime < 700) return
 
         setScores(scores.map((s) => (s.id === score.id ? {...s, starred: !s.starred} : s)))
-        axios.post(`/api/score/star/${score.id}`, {starred: !score.starred}).catch(console.error)
+        api.post(`/score/star/${score.id}`, {starred: !score.starred}).catch(error => {
+            // Revert the star state if the API call fails
+            setScores(scores.map((s) => (s.id === score.id ? {...s, starred: score.starred} : s)))
+            // Show error message
+            setErrorMessage("Failed to update star status")
+        })
     }
 
     const newFolder = (folderName: string) => {
-        return axios.post("/api/folder/create", {name: folderName})
+        return api.post("/folder/create", {name: folderName})
             .then(response => {
-                console.log("Folder created:", response.data);
                 invalidateFolders();
                 return response.data;
             })
             .catch(error => {
-                console.error("Error creating folder:", error);
                 setErrorMessage(error.response?.data?.error || "Failed to create folder");
                 throw error;
             });
@@ -111,7 +126,7 @@ export default function FileManager() {
 
     const handleCreateFolder = () => {
         if (folderName.trim() === "") return setErrorMessage("Folder name empty")
-        
+
         newFolder(folderName)
             .then(() => {
                 setFolderName("")
@@ -285,4 +300,3 @@ function ScoreCard({
       </div>
     )
 }
-

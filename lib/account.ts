@@ -1,5 +1,5 @@
-import axios from "axios";
+import api from "@/lib/network";
 
 export async function logOut() {
-  return axios.post("api/account/logout", {})
+  return api.post("/account/logout", {})
 }

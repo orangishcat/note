@@ -13,8 +13,9 @@ import {
 import {Check, CheckCircle, FileIcon, FileImage, FileMusic, FileText, Text, Upload, X} from "lucide-react"
 import {cn} from "@/lib/utils"
 import {AUDIO_FILE_TYPES, AUDIO_FILE_TYPES_TEXT, SCORE_FILE_TYPES} from "@/lib/constants"
-import axios, {type CancelTokenSource} from "axios"
+import axios, {type CancelTokenSource, AxiosProgressEvent} from "axios"
 import {Input} from "@/components/ui/input"
+import api from "@/lib/network"
 
 // Define file type selection options
 type FileTypeOption = "mxl" | "image" | "not-selected"
@@ -126,12 +127,12 @@ export function UploadDialog({onUpload}: { onUpload: () => void }) {
 
         try {
             // noinspection JSUnusedGlobalSymbols
-            await axios.post("/api/score/upload", formData, {
+            await api.post("/score/upload", formData, {
                 headers: {
                     "Content-Type": "multipart/form-data",
                 },
                 cancelToken: cancelToken.token,
-                onUploadProgress: (progressEvent) => {
+                onUploadProgress: (progressEvent: AxiosProgressEvent) => {
                     if (progressEvent.total) {
                         const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
                         if (isAudio) {
@@ -280,7 +281,7 @@ export function UploadDialog({onUpload}: { onUpload: () => void }) {
         // Make API call to cancel on server
         if (fileToCancel) {
             try {
-                await axios.post("/api/score/cancel-upload", {
+                await api.post("/score/cancel-upload", {
                     file_name: fileToCancel.file.name,
                 })
 
@@ -450,7 +451,7 @@ export function UploadDialog({onUpload}: { onUpload: () => void }) {
                     newSet.delete(file.file.name)
                     return newSet
                 })
-                axios.post("/api/score/cancel-upload", {file_name: file.file.name})
+                api.post("/score/cancel-upload", {file_name: file.file.name})
             }
 
             // Remove from list
@@ -536,7 +537,7 @@ export function UploadDialog({onUpload}: { onUpload: () => void }) {
 
             try {
                 setIsSubmitting(true)
-                await axios.post("/api/score/confirm-upload", {
+                await api.post("/score/confirm-upload", {
                     title: metadata.title,
                     subtitle: metadata.subtitle,
                     fileType: selectedFileType,
@@ -1104,4 +1105,3 @@ export function UploadDialog({onUpload}: { onUpload: () => void }) {
       </Dialog>
     )
 }
-

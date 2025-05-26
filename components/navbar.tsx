@@ -7,10 +7,11 @@ import AccountDropdown from "@/components/ui-custom/account-dropdown";
 import {AuthModal} from "@/components/auth-modals";
 import Link from "next/link";
 import {cn} from "@/lib/utils";
-import {AccountContext, AccountView} from "@/app/providers";
+import {AccountContext, AccountView, AuthModalContext} from "@/app/providers";
 import {useQuery} from "@tanstack/react-query";
 import {toast} from "react-toastify";
-import axios from "axios";
+import { AxiosResponse, AxiosError } from "axios";
+import api from "@/lib/network";
 
 interface NavItemProps {
     href: string
@@ -36,26 +37,28 @@ export function NavItem({href, icon, children, active}: NavItemProps) {
 export function Navbar({onMenuClick}: { onMenuClick: () => void }) {
     const {setTheme, resolvedTheme} = useTheme()
     const [mounted, setMounted] = useState(false)
-    const [authType, setAuthType] = useState<"login" | "signup">("login")
-    const [authOpen, setAuthOpen] = React.useState(false);
+
+    // Use the AuthModalContext instead of local state
+    const authModalContext = React.useContext(AuthModalContext);
+    if (!authModalContext) throw new Error("Auth modal context not found");
+    const { openAuthModal, authType } = authModalContext;
 
     useEffect(() => setMounted(true), [])
 
     const handleAuthClick = () => {
-        setAuthType("login")
-        setAuthOpen(true)
+        openAuthModal("login");
     }
 
     const handleAuthSwitch = () => {
-        setAuthType(authType === "login" ? "signup" : "login")
+        openAuthModal(authType === "login" ? "signup" : "login");
     }
 
     const setAccount = React.useContext(AccountContext)?.setAccount;
     if (!setAccount) throw new Error("Account not found");
     const {data, error} = useQuery({
         queryKey: ["user-data"],
-        queryFn: () => axios.get<AccountView>("/api/account/user-data").then(resp => resp.data).catch(e => {
-            if (e.response.data.error.error.include("try clearing cookies")) {
+        queryFn: () => api.get<AccountView>("/account/user-data").then((resp: AxiosResponse<AccountView>) => resp.data).catch((e: AxiosError) => {
+            if (e.response?.data?.error?.includes("try clearing cookies")) {
                 setAccount(null)
             }
         }),
@@ -113,8 +116,8 @@ export function Navbar({onMenuClick}: { onMenuClick: () => void }) {
               </div>
           </header>
           <AuthModal
-            isOpen={authOpen}
-            onClose={() => setAuthOpen(false)}
+            isOpen={authModalContext.isOpen}
+            onClose={authModalContext.closeAuthModal}
             onSwitch={handleAuthSwitch}
             type={authType}
           />

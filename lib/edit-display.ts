@@ -10,6 +10,20 @@ export enum EditOperation {
     DELETE = 2
 }
 
+// Global state for showing note names
+let showNoteNames = false;
+
+// Function to convert MIDI pitch to note name
+export function midiPitchToNoteName(midiPitch: number): string {
+    if (midiPitch === undefined || midiPitch === null) return '';
+    
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const octave = Math.floor(midiPitch / 12) - 1;
+    const noteIndex = midiPitch % 12;
+    
+    return `${noteNames[noteIndex]}${octave}`;
+}
+
 /**
  * Helper function to check if two edit lists are equal
  */
@@ -36,7 +50,11 @@ export function drawAnnotation(
   color: string,
   editList: any,
   currentPage: number,
-  zoomLevel?: number
+  zoomLevel?: number,
+  isTarget: boolean = false,
+  targetNote?: any, // Pass the target note for substitutions
+  editOperation?: EditOperation,
+  position?: number  // Add position parameter
 ) {
     // Constants for logging
     const MAX_INVALID_BBOX_LOGS = 10;
@@ -50,7 +68,7 @@ export function drawAnnotation(
     }
 
     // Get page index from note
-    const pageIndex = note.page;
+    let pageIndex = note.page;
 
     // Get container dimensions and adjust for zoom level
     const containerRect = scoreContainer.getBoundingClientRect();
@@ -75,6 +93,8 @@ export function drawAnnotation(
     }
 
     // Get page dimensions
+    // If pageSizes has length 2 (1 page), use the first page index (0,1) for all pages
+    pageIndex = pageSizes.length === 2 ? 0 : pageIndex;
     const pageWidth = pageSizes[pageIndex * 2];
     const pageHeight = pageSizes[pageIndex * 2 + 1];
 
@@ -165,11 +185,36 @@ export function drawAnnotation(
         background-color: ${color};
         border: 1px solid ${color.replace('0.5', '1')};
         border-radius: 50%;
-        pointer-events: none;
         z-index: 40;
     `;
+    
+    // Make the oval clickable
+    oval.style.pointerEvents = 'auto';
+    oval.style.cursor = 'pointer';
+    
+    // Store note data for comparison dialog
+    oval.dataset.noteId = note.id?.toString() || '';
+    oval.dataset.notePitch = note.pitch?.toString() || '';
+    
+    // Add click event to trigger comparison dialog
+    oval.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Dispatch custom event for comparison dialog
+        const event = new CustomEvent('edit:showComparison', {
+            detail: {
+                note,
+                targetNote,
+                editOperation: editOperation !== undefined ? EditOperation[editOperation] : undefined,
+                isTarget,
+                position
+            },
+            bubbles: true
+        });
+        document.dispatchEvent(event);
+    });
 
     scoreContainer.appendChild(oval);
+    
     return {success: true, invalidBboxLogged, element: oval};
 }
 
@@ -202,12 +247,50 @@ export function useEditDisplay(
     const prevEditListRef = useRef<Message | null>(null);
     const prevPageRef = useRef<number>(currentPage);
     const renderRequestedRef = useRef<boolean>(false);
+    
+    // Listen for note name display toggle events
+    useEffect(() => {
+        const handleToggleNoteNames = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            showNoteNames = customEvent.detail.showNoteNames;
+            
+            // Request a redraw when the setting changes
+            if (editList) {
+                if (!renderRequestedRef.current) {
+                    renderRequestedRef.current = true;
+                    requestAnimationFrame(() => {
+                        renderEditAnnotations();
+                        renderRequestedRef.current = false;
+                    });
+                }
+            }
+        };
+        
+        document.addEventListener('debug:toggleNoteNames', handleToggleNoteNames);
+        
+        return () => {
+            document.removeEventListener('debug:toggleNoteNames', handleToggleNoteNames);
+        };
+    }, [editList]);
+
+    // Type definition for label position tracking
+    type LabelPosition = {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
 
     // Function to render edit annotations
     const renderEditAnnotations = useCallback(() => {
-        log.debug('Edit display rendering annotations');
         const currentTime = Date.now();
         if (currentTime - lastRenderTimeRef.current < MIN_RENDER_INTERVAL) {
+            // Schedule another attempt after the interval
+            setTimeout(() => {
+                if (renderRequestedRef.current) {
+                    renderEditAnnotations();
+                }
+            }, MIN_RENDER_INTERVAL);
             return;
         }
         lastRenderTimeRef.current = currentTime;
@@ -219,7 +302,9 @@ export function useEditDisplay(
         // Check if page is transitioning - don't draw annotations during transitions
         const isTransitioning = document.querySelector('.animate-slide-in-right, .animate-slide-in-left, .animate-slide-out-right, .animate-slide-out-left');
         if (isTransitioning) {
-            log.debug('Page is transitioning, skipping annotation rendering');
+            log.debug('Page is transitioning, scheduling redraw after transition');
+            // Schedule a redraw after transition completes
+            setTimeout(() => renderEditAnnotations(), 350);
             return;
         }
 
@@ -249,12 +334,67 @@ export function useEditDisplay(
 
         // Log zoom level for debugging
         const currentScale = currentScaleRef.current;
-        log.debug(`Using zoom level ${currentScale} for score ${scoreId}`);
 
-        // Clear existing rectangles
-        const existingRects = document.querySelectorAll('.note-rectangle');
-        log.debug(`Removing ${existingRects.length} existing rectangles`);
+        // Clear existing rectangles and note labels
+        const existingRects = document.querySelectorAll('.note-rectangle, .note-label');
         existingRects.forEach(el => el.remove());
+
+        // Create an array to track label positions
+        const labelPositions: LabelPosition[] = [];
+
+        // Function to find a non-overlapping position for a label
+        const findNonOverlappingPosition = (
+            x: number, 
+            y: number, 
+            width: number, 
+            height: number
+        ): { x: number, y: number } => {
+            // Initial position
+            let posX = x;
+            let posY = y;
+            
+            // Set standard offset amount
+            const OFFSET_Y = 16; // Vertical offset amount
+            const OFFSET_X = 10; // Horizontal offset amount
+            
+            // Function to check if a position overlaps with any existing label
+            const hasOverlap = (x: number, y: number, width: number, height: number): boolean => {
+                for (const pos of labelPositions) {
+                    // Simple box collision detection
+                    if (
+                        x < pos.x + pos.width &&
+                        x + width > pos.x &&
+                        y < pos.y + pos.height &&
+                        y + height > pos.y
+                    ) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            
+            // Try different offsets to find a non-overlapping position
+            // Start with no offset, then try moving up, then diagonally
+            const maxAttempts = 10;
+            
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                if (!hasOverlap(posX, posY, width, height)) {
+                    break;
+                }
+                
+                // First try increasing vertical offset
+                if (attempt < 5) {
+                    posY -= OFFSET_Y;
+                } 
+                // Then try horizontal offset as well
+                else {
+                    posX += (attempt % 2 === 0) ? OFFSET_X : -OFFSET_X; // Alternate left and right
+                    posY -= OFFSET_Y / 2; // Still move up but less
+                }
+            }
+            
+            return { x: posX, y: posY };
+        };
 
         try {
             // Check if editList has necessary properties
@@ -271,8 +411,6 @@ export function useEditDisplay(
                 return Number(edit.sChar.page) === Number(currentPage);
             });
 
-            log.debug(`Drawing ${filteredEdits.length} edits for page ${currentPage}`);
-
             // Track logged page dimensions to avoid repeating
             const loggedPageDimensions = new Set<number>();
 
@@ -282,6 +420,34 @@ export function useEditDisplay(
 
             setEditCount(filteredEdits.length);
 
+            // First, collect all notes that need labels for position planning
+            const notesWithLabels: any[] = [];
+
+            // Process each edit operation and collect target notes that need labels
+            for (const edit of filteredEdits) {
+                // Only collect substitute operations' target notes
+                if (edit.operation === EditOperation.SUBSTITUTE && edit.tChar && edit.tChar.bbox) {
+                    const targetNote = edit.tChar;
+                    const targetPageIndex = edit.sChar.page;
+                    
+                    // Skip if page index is invalid
+                    if (targetPageIndex === undefined || targetPageIndex < 0 ||
+                      (pageSizes.length !== 2 &&
+                        (targetPageIndex * 2 >= pageSizes.length ||
+                          targetPageIndex * 2 + 1 >= pageSizes.length))) {
+                        continue;
+                    }
+                    
+                    // Only include if target is on the current page
+                    if (Number(targetPageIndex) === Number(currentPage)) {
+                        notesWithLabels.push({
+                            note: targetNote,
+                            sourceNote: edit.sChar
+                        });
+                    }
+                }
+            }
+
             // Process each edit operation
             for (const edit of filteredEdits) {
                 const note = edit.sChar;
@@ -289,8 +455,9 @@ export function useEditDisplay(
 
                 // Ensure pageSize exists and is valid
                 if (pageIndex === undefined || pageIndex < 0 ||
-                  pageIndex * 2 >= pageSizes.length ||
-                  pageIndex * 2 + 1 >= pageSizes.length) {
+                  (pageSizes.length !== 2 &&
+                    (pageIndex * 2 >= pageSizes.length ||
+                      pageIndex * 2 + 1 >= pageSizes.length))) {
                     // Only log first N invalid page indices
                     if (invalidBboxLogged < MAX_INVALID_BBOX_LOGS) {
                         log.warn(`Invalid page index for note`, {
@@ -306,8 +473,11 @@ export function useEditDisplay(
 
                 // Log page dimensions only once per page number
                 if (!loggedPageDimensions.has(pageIndex)) {
-                    const pageWidth = pageSizes[pageIndex * 2];
-                    const pageHeight = pageSizes[pageIndex * 2 + 1];
+                    // If pageSizes has length 4 (2 pages), use the first page index (0,1) for all pages
+                    const useFirstPageIndex = pageSizes.length === 4;
+                    const effectivePageIndex = useFirstPageIndex ? 0 : pageIndex;
+                    const pageWidth = pageSizes[effectivePageIndex * 2];
+                    const pageHeight = pageSizes[effectivePageIndex * 2 + 1];
                     log.debug(`Page dimensions for page ${pageIndex}: ${pageWidth} x ${pageHeight}`);
                     loggedPageDimensions.add(pageIndex);
                 }
@@ -317,6 +487,19 @@ export function useEditDisplay(
                 switch (edit.operation) {
                     case EditOperation.INSERT:
                         color = 'rgba(0, 255, 0, 0.5)'; // Green for insert
+                        // Handle invalid bbox for INSERT operations
+                        if (edit.tChar && (!edit.tChar.bbox || !edit.tChar.bbox.length)) {
+                            // Get the source note for reference
+                            log.debug("Invalid bbox for INSERT operation")
+                            if (edit.sChar && edit.sChar.bbox && edit.sChar.bbox.length) {
+                                const diff = edit.tChar.pitch - edit.sChar.pitch;
+                                const size = edit.sChar.bbox[3] - edit.sChar.bbox[1];
+                                // Create a new bbox using the source note's bbox with vertical adjustment
+                                edit.tChar.bbox = [...edit.sChar.bbox]; // Create a copy to avoid modifying the original
+                                edit.tChar.bbox[1] = edit.sChar.bbox[1] + size * Math.floor(diff / 2) / 2;
+                                edit.tChar.bbox[3] = edit.sChar.bbox[3] + size * Math.floor(diff / 2) / 2;
+                            }
+                        }
                         break;
                     case EditOperation.DELETE:
                         color = 'rgba(255, 0, 0, 0.5)'; // Red for delete
@@ -333,37 +516,382 @@ export function useEditDisplay(
                   color,
                   editList,
                   currentPage,
-                  currentScale
+                  currentScale,
+                  false,
+                  edit.tChar,
+                  edit.operation,
+                  edit.pos
                 );
 
                 // Skip to next edit if this one failed
                 if (!result.success) continue;
 
                 // For substitute operations, also draw the target character
-                if (edit.operation === EditOperation.SUBSTITUTE && edit.tChar && edit.tChar.bbox) {
+                if (edit.operation === EditOperation.SUBSTITUTE && edit.tChar) {
                     // Get the target note's bbox
                     const targetNote = edit.tChar;
-                    const targetPageIndex = targetNote.page;
+                    const targetPageIndex = edit.sChar.page;
 
                     // Skip if page index is invalid
                     if (targetPageIndex === undefined || targetPageIndex < 0 ||
-                      targetPageIndex * 2 >= pageSizes.length ||
-                      targetPageIndex * 2 + 1 >= pageSizes.length) {
+                        (pageSizes.length !== 2 &&
+                        (targetPageIndex * 2 >= pageSizes.length ||
+                            targetPageIndex * 2 + 1 >= pageSizes.length))) {
+                        log.warn(`Invalid page index for target note in substitute operation`, {
+                            note: targetNote,
+                            pageIndex: targetPageIndex,
+                            pageSizes: pageSizes
+                        });
                         continue;
+                    }
+
+                    // Create bbox for target note if it doesn't exist
+                    if (!targetNote.bbox || !targetNote.bbox.length) {
+                        const diff = edit.sChar.pitch - targetNote.pitch;
+                        const size = edit.sChar.bbox[3] - edit.sChar.bbox[1];
+                        // Create a new bbox using the source note's bbox with vertical adjustment
+                        targetNote.bbox = [...edit.sChar.bbox]; // Create a copy to avoid modifying the original
+                        targetNote.bbox[1] = edit.sChar.bbox[1] + size * Math.floor(diff / 2) / 2;
+                        targetNote.bbox[3] = edit.sChar.bbox[3] + size * Math.floor(diff / 2) / 2;
                     }
 
                     // Only process if target is on the current page
                     if (Number(targetPageIndex) === Number(currentPage)) {
                         // Draw the target character with a different shade
                         const targetColor = 'rgba(0, 100, 255, 0.5)'; // Blue for target
-                        drawAnnotation(
-                          scoreContainer,
-                          targetNote,
-                          targetColor,
-                          editList,
-                          currentPage,
-                          currentScale
+                        
+                        // Draw the annotation
+                        const targetResult = drawAnnotation(
+                            scoreContainer,
+                            targetNote,
+                            targetColor,
+                            editList,
+                            currentPage,
+                            currentScale,
+                            true, // This is a target note
+                            note, // Pass the source note for comparison
+                            edit.operation,
+                            edit.pos
                         );
+                        
+                        // Add note name label if enabled and target has pitch info
+                        if (showNoteNames && targetNote.pitch !== undefined && targetResult.success) {
+                            const [x1, y1, x2, y2] = targetNote.bbox;
+                            
+                            // Calculate a position for the label
+                            const centerX = (x1 + x2) / 2;
+                            
+                            // Scale coordinates
+                            const containerRect = scoreContainer.getBoundingClientRect();
+                            const containerWidth = containerRect.width / currentScale;
+                            const containerHeight = containerRect.height / currentScale;
+                            
+                            // Get page dimensions with proper index
+                            const pageIndex = pageSizes.length === 2 ? 0 : targetNote.page;
+                            const pageWidth = pageSizes[pageIndex * 2];
+                            const pageHeight = pageSizes[pageIndex * 2 + 1];
+                            
+                            const scale = Math.min(
+                                containerWidth / pageWidth, 
+                                containerHeight / pageHeight
+                            );
+                            const offsetX = (containerWidth - pageWidth * scale) / 2;
+                            const offsetY = (containerHeight - pageHeight * scale) / 2;
+                            
+                            const scaledCenterX = centerX * scale + offsetX;
+                            const scaledTopY = y1 * scale + offsetY;
+                            
+                            // Get note name from pitch
+                            const noteName = midiPitchToNoteName(targetNote.pitch);
+                            
+                            // Get the source note name for comparison if available
+                            let sourceNoteName = '';
+                            if (note && note.pitch !== undefined) {
+                                sourceNoteName = midiPitchToNoteName(note.pitch);
+                            }
+                            
+                            // Prepare label text
+                            let labelText;
+                            if (sourceNoteName) {
+                                // Calculate semitone difference
+                                const semitonesDiff = targetNote.pitch - note.pitch;
+                                const direction = semitonesDiff > 0 ? '▲' : '▼'; // Up or down arrow
+                                labelText = `${noteName} (${direction}${Math.abs(semitonesDiff)})`;
+                            } else {
+                                labelText = noteName;
+                            }
+                            
+                            // Estimate label dimensions based on text length
+                            const labelWidth = 10 + labelText.length * 6; // Approximate width
+                            const labelHeight = 18; // Approximate height
+                            
+                            // Position 20px above the note by default
+                            const initialX = scaledCenterX - (labelWidth / 2);
+                            const initialY = scaledTopY - 20;
+                            
+                            // Find a non-overlapping position
+                            const { x: adjustedX, y: adjustedY } = findNonOverlappingPosition(
+                                initialX, 
+                                initialY, 
+                                labelWidth, 
+                                labelHeight
+                            );
+                            
+                            // Create the label element
+                            const noteLabel = document.createElement('div');
+                            noteLabel.className = 'note-label';
+                            
+                            // Apply styling to the label
+                            noteLabel.style.cssText = `
+                                position: absolute;
+                                left: ${adjustedX}px;
+                                top: ${adjustedY}px;
+                                padding: 2px 4px;
+                                background-color: rgba(0, 0, 0, 0.7);
+                                color: ${targetColor.replace('0.5', '1')};
+                                border-radius: 3px;
+                                font-size: 10px;
+                                font-family: monospace;
+                                text-align: center;
+                                min-width: ${labelWidth}px;
+                                height: ${labelHeight}px;
+                                white-space: nowrap;
+                                pointer-events: none;
+                                z-index: 50;
+                            `;
+                            
+                            // Set the label text
+                            noteLabel.innerHTML = labelText;
+                            
+                            // Add to DOM
+                            scoreContainer.appendChild(noteLabel);
+                            
+                            // Add to tracking array to avoid future overlaps
+                            labelPositions.push({
+                                x: adjustedX,
+                                y: adjustedY,
+                                width: labelWidth,
+                                height: labelHeight
+                            });
+                            
+                            // Draw connector line from label to note
+                            if (showNoteNames && (Math.abs(adjustedY - initialY) > 5 || Math.abs(adjustedX - initialX) > 5)) {
+                                const connector = document.createElement('div');
+                                connector.className = 'note-connector';
+                                
+                                // Calculate connector position and length
+                                const connectorStartX = adjustedX + (labelWidth / 2);
+                                const connectorStartY = adjustedY + labelHeight;
+                                
+                                const connectorEndX = scaledCenterX;
+                                const connectorEndY = scaledTopY;
+                                
+                                // Calculate angle and length
+                                const angle = Math.atan2(
+                                    connectorEndY - connectorStartY, 
+                                    connectorEndX - connectorStartX
+                                );
+                                const length = Math.sqrt(
+                                    Math.pow(connectorEndX - connectorStartX, 2) + 
+                                    Math.pow(connectorEndY - connectorStartY, 2)
+                                );
+                                
+                                // Apply styling to create angled line
+                                connector.style.cssText = `
+                                    position: absolute;
+                                    left: ${connectorStartX}px;
+                                    top: ${connectorStartY}px;
+                                    width: ${length}px;
+                                    height: 1px;
+                                    background-color: ${targetColor.replace('0.5', '0.7')};
+                                    transform: rotate(${angle}rad);
+                                    transform-origin: 0 0;
+                                    pointer-events: none;
+                                    z-index: 49;
+                                `;
+                                
+                                scoreContainer.appendChild(connector);
+                            }
+                        }
+                    }
+                }
+                // For insert operations, also draw the target character
+                else if (edit.operation === EditOperation.INSERT && edit.tChar) {
+                    // Get the target note's bbox
+                    const targetNote = edit.tChar;
+                    const targetPageIndex = edit.sChar.page;
+
+                    // Skip if page index is invalid
+                    if (targetPageIndex === undefined || targetPageIndex < 0 ||
+                        (pageSizes.length !== 2 &&
+                        (targetPageIndex * 2 >= pageSizes.length ||
+                            targetPageIndex * 2 + 1 >= pageSizes.length))) {
+                        log.warn(`Invalid page index for target note in insert operation`, {
+                            note: targetNote,
+                            pageIndex: targetPageIndex,
+                            pageSizes: pageSizes
+                        });
+                        continue;
+                    }
+
+                    // Only process if target is on the current page
+                    if (Number(targetPageIndex) === Number(currentPage)) {
+                        // Draw the target character with a different shade
+                        const targetColor = 'rgba(0, 200, 100, 0.5)'; // Lighter green for target
+                        
+                        // Draw the annotation
+                        const targetResult = drawAnnotation(
+                            scoreContainer,
+                            targetNote,
+                            targetColor,
+                            editList,
+                            currentPage,
+                            currentScale,
+                            true, // This is a target note
+                            note, // Pass the source note for comparison
+                            edit.operation,
+                            edit.pos
+                        );
+                        
+                        // Add note name label if enabled and target has pitch info (same as substitute)
+                        if (showNoteNames && targetNote.pitch !== undefined && targetResult.success) {
+                            const [x1, y1, x2, y2] = targetNote.bbox;
+                            
+                            // Calculate a position for the label
+                            const centerX = (x1 + x2) / 2;
+                            
+                            // Scale coordinates
+                            const containerRect = scoreContainer.getBoundingClientRect();
+                            const containerWidth = containerRect.width / currentScale;
+                            const containerHeight = containerRect.height / currentScale;
+                            
+                            // Get page dimensions with proper index
+                            const pageIndex = pageSizes.length === 2 ? 0 : targetNote.page;
+                            const pageWidth = pageSizes[pageIndex * 2];
+                            const pageHeight = pageSizes[pageIndex * 2 + 1];
+                            
+                            const scale = Math.min(
+                                containerWidth / pageWidth, 
+                                containerHeight / pageHeight
+                            );
+                            const offsetX = (containerWidth - pageWidth * scale) / 2;
+                            const offsetY = (containerHeight - pageHeight * scale) / 2;
+                            
+                            const scaledCenterX = centerX * scale + offsetX;
+                            const scaledTopY = y1 * scale + offsetY;
+                            
+                            // Get note name from pitch
+                            const noteName = midiPitchToNoteName(targetNote.pitch);
+                            
+                            // Get the source note name for comparison if available
+                            let sourceNoteName = '';
+                            if (note && note.pitch !== undefined) {
+                                sourceNoteName = midiPitchToNoteName(note.pitch);
+                            }
+                            
+                            // Prepare label text
+                            let labelText;
+                            if (sourceNoteName) {
+                                // Calculate semitone difference
+                                const semitonesDiff = targetNote.pitch - note.pitch;
+                                const direction = semitonesDiff > 0 ? '▲' : '▼'; // Up or down arrow
+                                labelText = `${noteName} (${direction}${Math.abs(semitonesDiff)})`;
+                            } else {
+                                labelText = noteName;
+                            }
+                            
+                            // Estimate label dimensions based on text length
+                            const labelWidth = 10 + labelText.length * 6; // Approximate width
+                            const labelHeight = 18; // Approximate height
+                            
+                            // Position 20px above the note by default
+                            const initialX = scaledCenterX - (labelWidth / 2);
+                            const initialY = scaledTopY - 20;
+                            
+                            // Find a non-overlapping position
+                            const { x: adjustedX, y: adjustedY } = findNonOverlappingPosition(
+                                initialX, 
+                                initialY, 
+                                labelWidth, 
+                                labelHeight
+                            );
+                            
+                            // Create the label element
+                            const noteLabel = document.createElement('div');
+                            noteLabel.className = 'note-label';
+                            
+                            // Apply styling to the label
+                            noteLabel.style.cssText = `
+                                position: absolute;
+                                left: ${adjustedX}px;
+                                top: ${adjustedY}px;
+                                padding: 2px 4px;
+                                background-color: rgba(0, 0, 0, 0.7);
+                                color: ${targetColor.replace('0.5', '1')};
+                                border-radius: 3px;
+                                font-size: 10px;
+                                font-family: monospace;
+                                text-align: center;
+                                min-width: ${labelWidth}px;
+                                height: ${labelHeight}px;
+                                white-space: nowrap;
+                                pointer-events: none;
+                                z-index: 50;
+                            `;
+                            
+                            // Set the label text
+                            noteLabel.innerHTML = labelText;
+                            
+                            // Add to DOM
+                            scoreContainer.appendChild(noteLabel);
+                            
+                            // Add to tracking array to avoid future overlaps
+                            labelPositions.push({
+                                x: adjustedX,
+                                y: adjustedY,
+                                width: labelWidth,
+                                height: labelHeight
+                            });
+                            
+                            // Draw connector line from label to note
+                            if (showNoteNames && (Math.abs(adjustedY - initialY) > 5 || Math.abs(adjustedX - initialX) > 5)) {
+                                const connector = document.createElement('div');
+                                connector.className = 'note-connector';
+                                
+                                // Calculate connector position and length
+                                const connectorStartX = adjustedX + (labelWidth / 2);
+                                const connectorStartY = adjustedY + labelHeight;
+                                
+                                const connectorEndX = scaledCenterX;
+                                const connectorEndY = scaledTopY;
+                                
+                                // Calculate angle and length
+                                const angle = Math.atan2(
+                                    connectorEndY - connectorStartY, 
+                                    connectorEndX - connectorStartX
+                                );
+                                const length = Math.sqrt(
+                                    Math.pow(connectorEndX - connectorStartX, 2) + 
+                                    Math.pow(connectorEndY - connectorStartY, 2)
+                                );
+                                
+                                // Apply styling to create angled line
+                                connector.style.cssText = `
+                                    position: absolute;
+                                    left: ${connectorStartX}px;
+                                    top: ${connectorStartY}px;
+                                    width: ${length}px;
+                                    height: 1px;
+                                    background-color: ${targetColor.replace('0.5', '0.7')};
+                                    transform: rotate(${angle}rad);
+                                    transform-origin: 0 0;
+                                    pointer-events: none;
+                                    z-index: 49;
+                                `;
+                                
+                                scoreContainer.appendChild(connector);
+                            }
+                        }
                     }
                 }
                 // Don't log individual rectangles anymore to reduce console spam
@@ -459,6 +987,17 @@ export function setupEditEventHandlers(
             if (eventScoreId === scoreId || eventScoreId === fileId) {
                 log.debug(`Page change accepted for our score. Setting page to ${eventPage}`);
                 setCurrentPage(eventPage);
+                
+                // Force redraw after a short delay to ensure page has rendered
+                setTimeout(() => {
+                    if (editList) {
+                        log.debug('Forcing redraw after page change');
+                        // Force redraw by removing and re-adding the editList
+                        const tempEditList = editList;
+                        setEditList(null);
+                        setTimeout(() => setEditList(tempEditList), 50);
+                    }
+                }, 150);
             }
         };
 
@@ -477,6 +1016,14 @@ export function setupEditEventHandlers(
                 if (eventPage !== undefined && Number(eventPage) !== Number(currentPage)) {
                     log.debug(`Setting current page to ${eventPage} (was ${currentPage})`);
                     setCurrentPage(eventPage);
+                    
+                    // Force redraw after a short delay to ensure page has rendered
+                    setTimeout(() => {
+                        log.debug('Forcing redraw after page change from redraw event');
+                        const tempEditList = editList;
+                        setEditList(null);
+                        setTimeout(() => setEditList(tempEditList), 50);
+                    }, 150);
                 } else {
                     log.debug(`Already on correct page ${currentPage}, forcing redraw`);
                     const tempEditList = editList;
@@ -491,7 +1038,6 @@ export function setupEditEventHandlers(
         document.addEventListener('score:redrawAnnotations', handleRedrawAnnotations);
 
         return () => {
-            log.debug(`Removing page change and redraw event listeners for scoreId ${scoreId}`);
             document.removeEventListener('score:pageChange', handlePageChange);
             document.removeEventListener('score:redrawAnnotations', handleRedrawAnnotations);
         };

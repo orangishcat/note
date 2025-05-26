@@ -20,12 +20,11 @@ const FileOptionsDropdown: React.FC<FileOptionsProps> = ({score, onDelete}) => {
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
-      const response = await axios.delete(`/api/score/delete/${score.id}`);
-      console.log("Deleted successfully:", response.data);
+      await axios.delete(`/score/delete/${score.id}`);
       setIsConfirmOpen(false); // Close confirmation modal
       onDelete(score.id); // Trigger callback
     } catch (error) {
-      console.error("Error deleting:", error);
+      // Handle error silently or show a toast notification
     } finally {
       setIsDeleting(false);
     }

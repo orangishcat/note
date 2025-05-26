@@ -7,7 +7,8 @@ import React from "react";
 import {NavItem} from "@/components/navbar";
 import {Folder, FolderDisplay} from "@/components/folder";
 import {useQuery} from "@tanstack/react-query";
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
+import api from "@/lib/network";
 
 export function Sidebar({
                           isOpen,
@@ -15,7 +16,7 @@ export function Sidebar({
                         }: { isOpen: boolean; onCloseAction: () => void }) {
   const {data: folders = []} = useQuery({
     queryKey: ["folders"],
-    queryFn: () => axios.get<Folder[]>("/api/folder/list").then(resp => resp.data),
+    queryFn: () => api.get<Folder[]>("/folder/list").then((resp: AxiosResponse<Folder[]>) => resp.data),
   });
 
   return (
@@ -42,7 +43,7 @@ export function Sidebar({
             {folders.length === 0 ? (
               <div className="px-3 py-2 text-sm text-gray-500">No folders yet</div>
             ) : (
-              folders.map(folder => (
+              folders.map((folder: Folder) => (
                 <FolderDisplay key={folder.$id} name={folder.name} files={folder.files || []} file_ids={folder.file_ids || []}/>
               ))
             )}

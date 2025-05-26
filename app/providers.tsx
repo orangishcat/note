@@ -6,6 +6,7 @@ import {TooltipProvider} from "@/components/ui/tooltip";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {persistQueryClient} from "@tanstack/query-persist-client-core";
 import {createSyncStoragePersister} from "@tanstack/query-sync-storage-persister";
+import {ToastProvider} from "@/components/ui/toast";
 
 export interface AccountView {
     user_id: string
@@ -20,6 +21,14 @@ interface AccountContextType {
     setJustLogin: (b: boolean) => void;
 }
 
+// Auth modal context for opening the login modal from anywhere
+interface AuthModalContextType {
+    isOpen: boolean;
+    openAuthModal: (type: "login" | "signup") => void;
+    closeAuthModal: () => void;
+    authType: "login" | "signup";
+}
+
 // Zoom context for storing and sharing zoom levels
 interface ZoomContextType {
     zoomLevels: Record<string, number>;
@@ -29,12 +38,27 @@ interface ZoomContextType {
 
 export const AccountContext = React.createContext<AccountContextType | null>(null)
 export const ZoomContext = React.createContext<ZoomContextType | null>(null)
+export const AuthModalContext = React.createContext<AuthModalContextType | null>(null)
 const cacheTime = 7 * 24 * 60 * 60 * 1000;
 
 export function Providers({children}: { children: React.ReactNode }) {
     const [account, setAccount] = React.useState<AccountView | null>(null)
     const [justLogin, setJustLogin] = useState(false)
     const [zoomLevels, setZoomLevels] = useState<Record<string, number>>({})
+
+    // Auth modal state
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+    const [authModalType, setAuthModalType] = useState<"login" | "signup">("login")
+
+    // Auth modal functions
+    const openAuthModal = (type: "login" | "signup") => {
+        setAuthModalType(type)
+        setIsAuthModalOpen(true)
+    }
+
+    const closeAuthModal = () => {
+        setIsAuthModalOpen(false)
+    }
 
     // Zoom level context functions
     const setZoomLevel = (scoreId: string, scale: number) => {
@@ -44,7 +68,7 @@ export function Providers({children}: { children: React.ReactNode }) {
             if (prev[scoreId] === scale) {
                 return prev;
             }
-            
+
             return {
                 ...prev,
                 [scoreId]: scale
@@ -88,13 +112,22 @@ export function Providers({children}: { children: React.ReactNode }) {
     return (
       <AccountContext.Provider value={{account, setAccount, justLogin, setJustLogin}}>
           <ZoomContext.Provider value={{zoomLevels, setZoomLevel, getZoomLevel}}>
-              <QueryClientProvider client={client}>
-                  <TooltipProvider delayDuration={500}>
-                      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-                          {children}
-                      </ThemeProvider>
-                  </TooltipProvider>
-              </QueryClientProvider>
+              <AuthModalContext.Provider value={{
+                  isOpen: isAuthModalOpen,
+                  openAuthModal,
+                  closeAuthModal,
+                  authType: authModalType
+              }}>
+                  <QueryClientProvider client={client}>
+                      <TooltipProvider delayDuration={500}>
+                          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+                              <ToastProvider>
+                                  {children}
+                              </ToastProvider>
+                          </ThemeProvider>
+                      </TooltipProvider>
+                  </QueryClientProvider>
+              </AuthModalContext.Provider>
           </ZoomContext.Provider>
       </AccountContext.Provider>
     )

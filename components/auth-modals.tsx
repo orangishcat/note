@@ -5,7 +5,8 @@ import {Modal, ModalContent, ModalDescription, ModalFooter, ModalHeader, ModalTi
 import {Lock, Mail, User} from "lucide-react"
 import HCaptcha from "@hcaptcha/react-hcaptcha"
 import {AccountContext, AccountView} from "@/app/providers";
-import axios from "axios";
+import axios, { AxiosResponse, AxiosError } from "axios";
+import api from "@/lib/network";
 
 interface AuthModalProps {
   isOpen: boolean
@@ -78,14 +79,21 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
     if (context?.account) return;
     try {
       setStatus(type === "login" ? "Logging in..." : "Loading...");
-      axios.post<AccountView>("/api/account/login", {email: email, password: password}).then(resp => {
-        console.log("Auth successful:");
+      api.post<AccountView>("/account/login", {email: email, password: password}).then((resp: AxiosResponse<AccountView>) => {
         if (!context) throw new Error("Auth failed: Account not found.");
-        context.setAccount(resp.data)
+        context.setAccount(resp.data);
+        // Set justLogin to true to trigger file manager refresh
+        context.setJustLogin(true);
+        // Reset justLogin after a short delay
+        setTimeout(() => {
+          if (context) context.setJustLogin(false);
+        }, 1000);
         onClose();
-      }).catch(console.error);
+      }).catch((error: AxiosError) => {
+        console.error("Authentication failed:", error);
+        setError("Authentication failed. Please try again.");
+      });
     } catch (error) {
-      console.error("Authentication failed:", error);
       setError("Authentication failed. Please try again.");
     }
   };
@@ -181,4 +189,3 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
     </Modal>
   )
 }
-

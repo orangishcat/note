@@ -1,21 +1,73 @@
 import { useRef, useState, useEffect } from 'react';
 import { Message, Type } from 'protobufjs';
 import log from './logger';
+import axios from 'axios';
+import api from "@/lib/network";
+
+// Utility function to split combined protocol buffer response
+export function splitCombinedResponse(
+  buffer: ArrayBuffer,
+  EditListType: Type,
+  NoteListType: Type
+): { editList: Message | null, playedNotes: Message | null } {
+  try {
+    const dataView = new Uint8Array(buffer);
+
+    // Extract the size prefix (first 4 bytes)
+    const editListSizeBytes = dataView.slice(0, 4);
+    const editListSize = new DataView(editListSizeBytes.buffer).getUint32(0, false); // Big-endian
+
+    log.debug(`EditList size: ${editListSize} bytes`);
+
+    // Extract EditList data
+    const editListData = dataView.slice(4, 4 + editListSize);
+
+    // Extract NoteList data (everything after EditList)
+    const playedNotesData = dataView.slice(4 + editListSize);
+
+    // Decode both messages
+    const editList = EditListType.decode(editListData);
+    const playedNotes = NoteListType.decode(playedNotesData);
+
+    log.debug(`Successfully decoded: EditList with ${(editList as any).edits?.length || 0} edits, ` +
+              `NoteList with ${(playedNotes as any).notes?.length || 0} notes`);
+
+    return { editList, playedNotes };
+  } catch (error) {
+    log.error("Error splitting combined response:", error);
+    return { editList: null, playedNotes: null };
+  }
+}
+
+// Error type for exposing recording errors to the UI
+export interface RecordingError {
+  message: string;
+  code?: string;
+  details?: any;
+}
 
 export interface AudioRecorderHookProps {
     isRecording: boolean;
     EditListType: Type | null;
+    NoteListType: Type | null;
     onEditListChange: (editList: Message | null) => void;
-    refetchTypes: () => Promise<Type | null>;
+    onPlayedNotesChange: (playedNotes: Message | null) => void;
+    refetchTypes: () => Promise<{ EditListType: Type | null, NoteListType: Type | null }>;
     scoreId: string;
+    notesId: string
+    onError?: (error: RecordingError) => void;
 }
 
 export function useAudioRecorder({
     isRecording,
     EditListType,
+    NoteListType,
     onEditListChange,
+    onPlayedNotesChange,
     refetchTypes,
-    scoreId
+    scoreId,
+    notesId,
+    onError
 }: AudioRecorderHookProps) {
     const isRecordingRef = useRef<boolean>(false);
     const streamRef = useRef<MediaStream | null>(null);
@@ -23,6 +75,45 @@ export function useAudioRecorder({
     const setupInProgressRef = useRef<boolean>(false);
     const lastRequestTimeRef = useRef<number>(0);
     const MIN_REQUEST_INTERVAL = 2000; // Minimum 2 seconds between requests
+    const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+
+    // Handle the error and propagate it to the UI if callback is provided
+    const handleError = (error: any, context: string) => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        log.error(`${context}: ${errorMessage}`, error);
+
+        const recordingError: RecordingError = {
+            message: `Recording failed: ${errorMessage}`,
+            details: error
+        };
+
+        // Add error code for permission errors
+        if (errorMessage.includes('Permission') || 
+            errorMessage.includes('permission') || 
+            errorMessage.includes('denied')) {
+            recordingError.code = 'permission_denied';
+            recordingError.message = 'Microphone access was denied. Please allow microphone access to record.';
+        }
+
+        // Add error code for not supported errors (specific to iOS Safari limitations)
+        if (errorMessage.includes('NotSupported') || 
+            errorMessage.includes('not supported') || 
+            errorMessage.includes('not implemented') ||
+            errorMessage.includes('undefined is not an object') ||
+            errorMessage.includes('mediaDevices')) {
+            recordingError.code = 'not_supported';
+            recordingError.message = 'Recording is not supported in this browser or requires permission. Make sure to use Safari on iOS and grant microphone access.';
+        }
+
+        if (onError) {
+            onError(recordingError);
+        }
+
+        // Reset recording state
+        setRecorder(null);
+        setupInProgressRef.current = false;
+        isRecordingRef.current = false;
+    };
 
     // Update ref whenever isRecording changes
     useEffect(() => {
@@ -36,6 +127,85 @@ export function useAudioRecorder({
             }
         };
     }, [isRecording]);
+
+    // Function to check browser compatibility
+    const checkBrowserCompatibility = (): { supported: boolean; message?: string } => {
+        // Check if navigator.mediaDevices is available
+        if (!navigator.mediaDevices) {
+            return { 
+                supported: false, 
+                message: 'Audio recording is not supported in this browser. For iOS devices, please use Safari and ensure the site has microphone permissions.'
+            };
+        }
+
+        // Check if getUserMedia is available
+        if (typeof navigator.mediaDevices.getUserMedia !== 'function') {
+            return {
+                supported: false,
+                message: 'getUserMedia is not supported in this browser. For iOS devices, please use Safari and ensure the site has microphone permissions.'
+            };
+        }
+
+        // Check if MediaRecorder is available
+        if (typeof MediaRecorder === 'undefined') {
+            return { 
+                supported: false, 
+                message: 'MediaRecorder is not supported in this browser.'
+            };
+        }
+
+        // Additional iOS checks
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+
+        if (isIOS) {
+            // iOS requires HTTPS for microphone access
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                return {
+                    supported: false,
+                    message: 'On iOS devices, recording requires HTTPS. Please access this site via a secure connection.'
+                };
+            }
+
+            // Check if we're on iOS Chrome or iOS Firefox (which have limitations)
+            if (navigator.userAgent.includes('CriOS') || navigator.userAgent.includes('FxiOS')) {
+                return {
+                    supported: false,
+                    message: 'Recording in Chrome or Firefox on iOS is not supported. Please use Safari instead.'
+                };
+            }
+        }
+
+        // WebM with opus might not be supported in all browsers, especially Safari
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        if (isSafari) {
+            // Safari has limited MediaRecorder support
+            try {
+                // Check if the MediaRecorder API supports any audio MIME type
+                const supportedTypes = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'];
+                const isSupported = supportedTypes.some(type => {
+                    try {
+                        return MediaRecorder.isTypeSupported(type);
+                    } catch (e) {
+                        return false;
+                    }
+                });
+
+                if (!isSupported) {
+                    return {
+                        supported: false,
+                        message: 'Your browser does not support any of the required audio formats.'
+                    };
+                }
+            } catch (error) {
+                return {
+                    supported: false,
+                    message: 'Error checking MediaRecorder support in your browser.'
+                };
+            }
+        }
+
+        return { supported: true };
+    };
 
     // Handle recorder setup only when isRecording changes from false to true
     useEffect(() => {
@@ -96,9 +266,34 @@ export function useAudioRecorder({
             log.debug("Setting up recorder");
 
             try {
-                // Request microphone access only once
+                // Check browser compatibility first
+                const compatibility = checkBrowserCompatibility();
+                if (!compatibility.supported) {
+                    throw new Error(compatibility.message);
+                }
+
+                // Request microphone access with proper error handling for iOS Safari
                 if (!streamRef.current) {
-                    streamRef.current = await navigator.mediaDevices.getUserMedia({audio: true});
+                    try {
+                        // Check explicitly for iOS Safari getUserMedia availability
+                        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+                            throw new Error('Media devices or getUserMedia not available. On iOS, ensure you are using Safari and have granted microphone permissions.');
+                        }
+
+                        streamRef.current = await navigator.mediaDevices.getUserMedia({audio: true});
+                        setHasPermission(true);
+                    } catch (error) {
+                        setHasPermission(false);
+
+                        // Log specific details about the error
+                        if (!navigator.mediaDevices) {
+                            log.error('navigator.mediaDevices is undefined');
+                        } else if (typeof navigator.mediaDevices.getUserMedia !== 'function') {
+                            log.error('navigator.mediaDevices.getUserMedia is not a function');
+                        }
+
+                        throw error;
+                    }
                 }
 
                 const stream = streamRef.current;
@@ -116,10 +311,44 @@ export function useAudioRecorder({
                 sourceNode.connect(processorNode);
                 processorNode.connect(audioContext.destination);
 
-                // Create media recorder
-                mediaRecorder = new MediaRecorder(stream, {
-                    mimeType: 'audio/webm;codecs=opus'
-                });
+                // When creating media recorder with the supported mime type
+                try {
+                    let mimeType = 'audio/webm;codecs=opus';
+
+                    // On iOS Safari, prefer MP4
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+                    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+                    if (isIOS || isSafari) {
+                        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                            mimeType = 'audio/mp4';
+                        } else if (MediaRecorder.isTypeSupported('audio/aac')) {
+                            mimeType = 'audio/aac';
+                        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+                            mimeType = 'audio/webm';
+                        }
+                    } else if (!MediaRecorder.isTypeSupported(mimeType)) {
+                        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                            mimeType = 'audio/mp4';
+                        } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+                            mimeType = 'audio/ogg;codecs=opus';
+                        }
+                    }
+
+                    try {
+                        mediaRecorder = new MediaRecorder(stream, {
+                            mimeType: mimeType
+                        });
+                        log.debug(`Created MediaRecorder with mimeType: ${mimeType}`);
+                    } catch (e) {
+                        // Fallback to default options if the specified mime type isn't supported
+                        log.warn(`Failed to create MediaRecorder with mimeType ${mimeType}, falling back to default`);
+                        mediaRecorder = new MediaRecorder(stream);
+                    }
+                } catch (e) {
+                    log.error('Error creating MediaRecorder:', e);
+                    throw e;
+                }
 
                 const chunks: BlobPart[] = [];
                 mediaRecorder.ondataavailable = (e) => {
@@ -180,91 +409,146 @@ export function useAudioRecorder({
 
                     lastRequestTimeRef.current = currentTime;
 
-                    // Process the recorded audio
-                    try {
-                        const response = await fetch("/api/audio/receive", {
-                            method: "POST",
-                            body: new Blob(chunks),
-                            headers: {
-                                "Content-Type": "audio/webm;codecs=opus",
-                                "X-Score-ID": scoreId
-                            }
-                        });
+                    // Check if we have any audio data
+                    if (chunks.length === 0 || chunks.every(chunk => (chunk as Blob).size === 0)) {
+                        log.warn("No audio data captured in recording");
+                        setupInProgressRef.current = false;
 
-                        if (!response.ok) {
-                            log.error(`Error from server: ${response.status} ${response.statusText}`);
-                            setupInProgressRef.current = false;
-                            
-                            // Only start a new recording session if still recording
-                            if (isRecordingRef.current) {
-                                setTimeout(() => setupRecorder(), 100);
-                            }
-                            return;
+                        // Notify error if callback exists
+                        if (onError) {
+                            onError({
+                                message: "No audio was captured. Please try again.",
+                                code: "no_audio_data"
+                            });
                         }
 
-                        const buffer = await response.arrayBuffer();
+                        // Only start a new recording session if still recording
+                        if (isRecordingRef.current) {
+                            setTimeout(() => setupRecorder(), 100);
+                        }
+                        return;
+                    }
+
+                    // Process the recorded audio
+                    try {
+                        if (!mediaRecorder) throw new Error("MediaRecorder is null");
+                        const blob = new Blob(chunks, { type: mediaRecorder.mimeType });
+                        log.debug(`Created audio blob of type ${mediaRecorder.mimeType} and size ${blob.size} bytes`);
+
+                        const response = await api.post("/audio/receive", blob, {
+                            headers: {
+                                "Content-Type": mediaRecorder.mimeType,
+                                "X-Score-ID": scoreId,
+                                "X-Notes-ID": notesId
+                            },
+                            responseType: 'arraybuffer'
+                        });
+
+                        const buffer = response.data;
                         log.debug(`Received buffer of size: ${buffer.byteLength} bytes`);
 
                         // Check if EditListType is initialized before decoding
                         let currentEditListType = EditListType;
-                        if (!currentEditListType) {
-                            log.warn("EditListType not initialized, attempting to refetch protobuf types");
-                            currentEditListType = await refetchTypes();
+                        let currentNoteListType = NoteListType;
+
+                        if (!currentEditListType || !currentNoteListType) {
+                            log.warn("Protocol buffer types not initialized, attempting to refetch");
+                            const result = await refetchTypes();
+                            currentEditListType = result.EditListType;
+                            currentNoteListType = result.NoteListType;
 
                             // If still not initialized after refetch, throw error
-                            if (!currentEditListType) {
-                                throw new Error("EditListType still not initialized after refetch");
+                            if (!currentEditListType || !currentNoteListType) {
+                                throw new Error("Protocol buffer types still not initialized after refetch");
                             }
 
-                            log.debug("EditListType successfully initialized after refetch");
+                            log.debug("Protocol buffer types successfully initialized after refetch");
                         }
 
                         try {
-                            log.debug("Using EditListType:", currentEditListType);
-                            
-                            // Safely decode the protobuf data
-                            try {
-                                // Create a proper Uint8Array from the buffer
-                                const dataView = new Uint8Array(buffer);
-                                
-                                // Log first few bytes for debugging
-                                const firstBytes = Array.from(dataView.slice(0, 20))
-                                    .map(b => b.toString(16).padStart(2, '0'))
-                                    .join(' ');
-                                log.debug(`First bytes of buffer: ${firstBytes}`);
-                                
-                                // Decode using the type
-                                const decoded = currentEditListType.decode(dataView);
-                                log.debug("Successfully decoded protobuf data");
-                                
-                                // Pass the decoded message to state
-                                onEditListChange(decoded);
-                            } catch (decodeError) {
-                                log.error("Error decoding protobuf data:", decodeError);
-                                
-                                // Try to recover by refetching types
-                                const updatedType = await refetchTypes();
-                                if (updatedType) {
-                                    try {
-                                        log.debug("Attempting decode with refreshed types");
-                                        const dataView = new Uint8Array(buffer);
-                                        const decoded = updatedType.decode(dataView);
-                                        onEditListChange(decoded);
-                                        log.debug("Successfully decoded with refreshed types");
-                                    } catch (retryError) {
-                                        log.error("Failed to decode even with refreshed types:", retryError);
-                                        throw retryError;
-                                    }
+                            log.debug("Using protocol buffer types for decoding");
+
+                            // Check for new combined format
+                            const responseFormat = response.headers['x-response-format'];
+                            if (responseFormat === 'combined') {
+                                log.debug("Detected combined response format");
+
+                                const { editList, playedNotes } = splitCombinedResponse(
+                                    buffer,
+                                    currentEditListType,
+                                    currentNoteListType
+                                );
+
+                                if (editList) {
+                                    onEditListChange(editList);
                                 } else {
-                                    throw decodeError;
+                                    log.error("Failed to decode EditList from combined response");
                                 }
+
+                                if (playedNotes) {
+                                    onPlayedNotesChange(playedNotes);
+                                } else {
+                                    log.error("Failed to decode PlayedNotes from combined response");
+                                }
+                            } else {
+                                // Legacy format - just EditList
+                                const dataView = new Uint8Array(buffer);
+                                const decoded = currentEditListType.decode(dataView);
+                                log.debug("Successfully decoded legacy format (EditList only)");
+                                onEditListChange(decoded);
                             }
-                        } catch (e) {
-                            log.error("Error decoding edit list:", e);
-                            // Error already handled, just ensure we move on
+                        } catch (decodeError) {
+                            log.error("Error decoding protobuf data:", decodeError);
+
+                            // Try to recover by refetching types
+                            const updatedType = await refetchTypes();
+                            if (updatedType && updatedType.EditListType) {
+                                try {
+                                    log.debug("Attempting decode with refreshed types");
+                                    const dataView = new Uint8Array(buffer);
+                                    const decoded = updatedType.EditListType.decode(dataView);
+                                    onEditListChange(decoded || null);
+                                    log.debug("Successfully decoded with refreshed types");
+                                } catch (retryError) {
+                                    log.error("Failed to decode even with refreshed types:", retryError);
+                                    throw retryError;
+                                }
+                            } else {
+                                throw decodeError;
+                            }
                         }
                     } catch (error) {
-                        log.error("Error processing recorded audio:", error);
+                        if (axios.isAxiosError(error)) {
+                            const statusCode = error.response?.status;
+                            const statusText = error.response?.statusText;
+                            const errorData = error.response?.data;
+
+                            let errorMessage = `Error from server: ${statusCode} ${statusText}`;
+                            if (errorData && typeof errorData === 'string') {
+                                errorMessage += ` - ${errorData}`;
+                            }
+
+                            log.error(errorMessage, error);
+
+                            if (onError) {
+                                onError({
+                                    message: errorMessage,
+                                    code: "server_error",
+                                    details: error
+                                });
+                            }
+                        } else {
+                            log.error("Error processing recorded audio:", error);
+
+                            // Notify error if callback exists
+                            if (onError) {
+                                onError({
+                                    message: error instanceof Error ? error.message : "Error processing recording",
+                                    code: "processing_error",
+                                    details: error
+                                });
+                            }
+                        }
                     } finally {
                         setupInProgressRef.current = false;
 
@@ -277,13 +561,17 @@ export function useAudioRecorder({
                     }
                 };
 
+                // Error handler for MediaRecorder
+                mediaRecorder.onerror = (event) => {
+                    handleError(event, "MediaRecorder error");
+                };
+
                 // Store recorder in state and start recording
                 setRecorder(mediaRecorder);
                 mediaRecorder.start();
                 log.debug("Recording started");
             } catch (error) {
-                log.error("Error setting up recorder:", error);
-                setupInProgressRef.current = false;
+                handleError(error, "Error setting up recorder");
 
                 // Clean up resources on error
                 await cleanupAudioResources();
@@ -301,6 +589,13 @@ export function useAudioRecorder({
                 recorder.stop();
             } catch (e) {
                 log.error("Error stopping recorder:", e);
+                if (onError) {
+                    onError({
+                        message: "Error stopping recording",
+                        code: "stop_error",
+                        details: e
+                    });
+                }
             }
             setRecorder(null);
             setupInProgressRef.current = false;
@@ -311,11 +606,12 @@ export function useAudioRecorder({
             cleanupAudioResources();
             setupInProgressRef.current = false;
         };
-    }, [isRecording, refetchTypes, recorder, EditListType, onEditListChange, scoreId]);
+    }, [isRecording, refetchTypes, recorder, EditListType, NoteListType, onEditListChange, onPlayedNotesChange, scoreId, onError]);
 
     return {
         recorder,
         isRecordingRef,
+        hasPermission,
         startRecording: () => {
             log.debug("startRecording called");
         },
@@ -326,6 +622,13 @@ export function useAudioRecorder({
                     recorder.stop();
                 } catch (e) {
                     log.error("Error stopping recorder:", e);
+                    if (onError) {
+                        onError({
+                            message: "Error stopping recording",
+                            code: "stop_error",
+                            details: e
+                        });
+                    }
                 }
             }
         }
