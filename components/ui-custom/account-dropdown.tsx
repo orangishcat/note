@@ -1,9 +1,9 @@
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import {Button} from "@/components/ui/button";
 import React from "react";
@@ -31,7 +31,7 @@ export default function AccountDropdown() {
           </div>
         </DropdownMenuItem>
         <DropdownMenuSeparator/>
-        <DropdownMenuItem onClick={() => logOut()}>
+        <DropdownMenuItem onClick={() => logOut()} className="hover:bg-gray-300/30 cursor-pointer">
           <span className="text-primary-foreground text-md">Logout</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

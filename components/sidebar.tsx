@@ -7,7 +7,7 @@ import React from "react";
 import {NavItem} from "@/components/navbar";
 import {Folder, FolderDisplay} from "@/components/folder";
 import {useQuery} from "@tanstack/react-query";
-import axios, { AxiosResponse } from "axios";
+import {AxiosResponse} from "axios";
 import api from "@/lib/network";
 
 export function Sidebar({
@@ -44,7 +44,8 @@ export function Sidebar({
               <div className="px-3 py-2 text-sm text-gray-500">No folders yet</div>
             ) : (
               folders.map((folder: Folder) => (
-                <FolderDisplay key={folder.$id} name={folder.name} files={folder.files || []} file_ids={folder.file_ids || []}/>
+                <FolderDisplay key={folder.$id} name={folder.name} files={folder.files || []}
+                               file_ids={folder.file_ids || []}/>
               ))
             )}
           </div>

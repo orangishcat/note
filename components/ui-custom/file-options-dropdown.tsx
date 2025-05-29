@@ -59,11 +59,13 @@ const FileOptionsDropdown: React.FC<FileOptionsProps> = ({score, onDelete}) => {
             <DialogTitle>Confirm Deletion</DialogTitle>
           </DialogHeader>
           <DialogDescription asChild>
-            <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-900/30 border border-gray-300 dark:border-gray-600 p-4 rounded-lg">
+            <div
+              className="flex items-center gap-4 bg-gray-50 dark:bg-gray-900/30 border border-gray-300 dark:border-gray-600 p-4 rounded-lg">
               <FileIcon className="h-8 w-8 text-gray-500"/>
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-white text-sm">{score.title}</h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{score.subtitle} • {new Date(score.upload_date).toLocaleDateString()}</p>
+                <p
+                  className="text-xs text-gray-500 dark:text-gray-400 mt-1">{score.subtitle} • {new Date(score.upload_date).toLocaleDateString()}</p>
               </div>
             </div>
           </DialogDescription>

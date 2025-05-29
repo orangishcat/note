@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Message } from 'protobufjs';
-import { midiPitchToNoteName } from '@/lib/edit-display';
+import React, {useEffect, useRef, useState} from 'react';
+import {Message} from 'protobufjs';
+import {midiPitchToNoteName} from '@/lib/edit-display';
 import log from '@/lib/logger';
 
 // Types for the comparison dialog props
@@ -9,7 +9,7 @@ interface ComparisonDialogProps {
   onClose: () => void;
   note: any; // Source note
   targetNote?: any; // Target note (for substitutions)
-  editOperation?: string; // Operation type as string (INSERT, DELETE, SUBSTITUTE) 
+  editOperation?: string; // Operation type as string (INSERT, DELETE, SUBSTITUTE)
   position?: number; // Position of the edit in the sequence
   playedNotes?: Message | null; // The played notes from recording
   scoreNotes?: Message | null; // The original score notes
@@ -25,8 +25,8 @@ type Position = {
 
 // Helper function to get notes around a position
 function getNotesAroundPosition(
-  notes: any[] | null, 
-  position: number | undefined, 
+  notes: any[] | null,
+  position: number | undefined,
   count: number = 10,
   isTarget: boolean = false
 ): any[] {
@@ -34,26 +34,26 @@ function getNotesAroundPosition(
     log.debug('getNotesAroundPosition: No notes provided or empty array');
     return [];
   }
-  
+
   if (position === undefined) {
     log.debug('getNotesAroundPosition: Position is undefined');
     // If position is undefined, return the first few notes as a fallback
     return notes.slice(0, count).map((note, idx) => ({
       ...note,
       relativePosition: idx,
-      absolutePosition: idx // Add absolute position 
+      absolutePosition: idx // Add absolute position
     }));
   }
-  
+
   // Handle position being out of range
   const validPosition = Math.max(0, Math.min(notes.length - 1, position));
   if (validPosition !== position) {
     log.debug(`Position ${position} adjusted to valid position ${validPosition}`);
   }
-  
+
   const startIdx = Math.max(0, validPosition - count);
   const endIdx = Math.min(notes.length - 1, validPosition + count);
-  
+
   return notes.slice(startIdx, endIdx + 1).map((note, idx) => ({
     ...note,
     relativePosition: idx - (validPosition - startIdx), // Relative to the edit position
@@ -72,55 +72,55 @@ function roundDuration(duration: number | undefined): string {
 // Function to deeply inspect object to find t_pos
 const inspectForTargetPos = (obj: any, path = ''): string[] => {
   if (!obj || typeof obj !== 'object') return [];
-  
+
   const results: string[] = [];
-  
+
   // Check this level for fields that might be target position
   for (const key of Object.keys(obj)) {
     const val = obj[key];
-    
+
     // If the field contains "pos" and has a numeric value, or is just named t_pos
     if ((key.toLowerCase().includes('pos') || key === 't_pos') && typeof val === 'number') {
       results.push(`${path}${key}: ${val}`);
     }
-    
+
     // Recurse if the value is an object (and not too deep)
     if (typeof val === 'object' && val !== null && path.split('.').length < 3) {
       const childResults = inspectForTargetPos(val, `${path}${key}.`);
       results.push(...childResults);
     }
   }
-  
+
   return results;
 };
 
 const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
-  isOpen,
-  onClose,
-  note,
-  targetNote,
-  editOperation,
-  position: editPosition,
-  playedNotes,
-  scoreNotes
-}) => {
-  const [dialogPosition, setDialogPosition] = useState<Position>({ x: 0, y: 0 });
+                                                             isOpen,
+                                                             onClose,
+                                                             note,
+                                                             targetNote,
+                                                             editOperation,
+                                                             position: editPosition,
+                                                             playedNotes,
+                                                             scoreNotes
+                                                           }) => {
+  const [dialogPosition, setDialogPosition] = useState<Position>({x: 0, y: 0});
   const [isDragging, setIsDragging] = useState(false);
   const [displayCount, setDisplayCount] = useState<number>(15); // Default to 15 notes on each side
-  const dragStart = useRef<Position>({ x: 0, y: 0 });
+  const dragStart = useRef<Position>({x: 0, y: 0});
   const dialogRef = useRef<HTMLDivElement>(null);
   const scoreNotesContainerRef = useRef<HTMLDivElement>(null);
   const playedNotesContainerRef = useRef<HTMLDivElement>(null);
   const activeScoreNoteRef = useRef<HTMLDivElement>(null);
   const activePlayedNoteRef = useRef<HTMLDivElement>(null);
-  
+
   log.debug('ComparisonDialog props:', {
     note,
     targetNote,
     editOperation,
     position: editPosition
   });
-  
+
   // Add detailed props debug on open
   useEffect(() => {
     if (isOpen) {
@@ -133,7 +133,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
       });
     }
   }, [isOpen, note, targetNote, editOperation, editPosition]);
-  
+
   // Listen for display count updates from debug panel
   useEffect(() => {
     // Load the initial count from localStorage if available
@@ -148,55 +148,55 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
     } catch (e) {
       log.error('Error loading comparison note count from localStorage:', e);
     }
-    
+
     const handleUpdateComparisonNoteCount = (event: Event) => {
       const customEvent = event as CustomEvent;
-      const { comparisonNoteCount } = customEvent.detail;
+      const {comparisonNoteCount} = customEvent.detail;
       if (typeof comparisonNoteCount === 'number') {
         setDisplayCount(comparisonNoteCount);
       }
     };
-    
+
     document.addEventListener('debug:updateComparisonNoteCount', handleUpdateComparisonNoteCount);
-    
+
     return () => {
       document.removeEventListener('debug:updateComparisonNoteCount', handleUpdateComparisonNoteCount);
     };
   }, []);
-  
+
   // Extract notes from protobuf messages safely
   const extractNotes = (messageObj: Message | null | undefined): any[] => {
     if (!messageObj) return [];
-    
+
     // Try different ways to access notes
     try {
       // First try direct access as any
       const directNotes = (messageObj as any).notes;
       if (Array.isArray(directNotes)) {
-        log.debug('Found notes via direct access', { count: directNotes.length });
+        log.debug('Found notes via direct access', {count: directNotes.length});
         return directNotes;
       }
-      
+
       // Try using toJSON if available
       if (typeof messageObj.toJSON === 'function') {
         const jsonObj = messageObj.toJSON();
         log.debug('Message converted to JSON:', jsonObj);
-        
+
         if (jsonObj && Array.isArray(jsonObj.notes)) {
-          log.debug('Found notes via toJSON', { count: jsonObj.notes.length });
+          log.debug('Found notes via toJSON', {count: jsonObj.notes.length});
           return jsonObj.notes;
         }
       }
-      
+
       // Try accessing as object with get method
       if (typeof (messageObj as any).get === 'function') {
         const notesViaGet = (messageObj as any).get('notes');
         if (Array.isArray(notesViaGet)) {
-          log.debug('Found notes via get method', { count: notesViaGet.length });
+          log.debug('Found notes via get method', {count: notesViaGet.length});
           return notesViaGet;
         }
       }
-      
+
       // Log the structure to help debug
       log.warn('Could not extract notes from message object:', messageObj);
       return [];
@@ -205,7 +205,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
       return [];
     }
   };
-  
+
   // Log the structure of message objects
   if (scoreNotes) {
     log.debug('scoreNotes structure:', {
@@ -214,7 +214,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
       keys: Object.keys(scoreNotes)
     });
   }
-  
+
   if (playedNotes) {
     log.debug('playedNotes structure:', {
       isMessage: playedNotes instanceof Message,
@@ -222,11 +222,11 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
       keys: Object.keys(playedNotes)
     });
   }
-  
+
   // Extract the notes
   const scoreNotesArray = extractNotes(scoreNotes);
   const playedNotesArray = extractNotes(playedNotes);
-  
+
   // Debug prints for source note and target note
   log.debug('Source note details:', {
     note,
@@ -238,7 +238,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
     fields: note ? Object.keys(note) : [],
     editOperation
   });
-  
+
   log.debug('Target note details:', {
     targetNote,
     tPos: targetNote?.tPos,
@@ -246,7 +246,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
     hasTargetNote: !!targetNote,
     fields: targetNote ? Object.keys(targetNote) : []
   });
-  
+
   // Log all potential target positions in the note object
   if (editOperation === 'DELETE') {
     const posFields = inspectForTargetPos(note);
@@ -255,7 +255,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
       noteJSON: JSON.stringify(note).substring(0, 200) + '...'  // Truncated for readability
     });
   }
-  
+
   // Function to safely find target position
   const findTargetPosition = (): number | undefined => {
     if (editOperation === 'DELETE') {
@@ -265,18 +265,18 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
       if (note?.tPos !== undefined) return note.tPos;
       if (note?.pos !== undefined && note?.pos !== editPosition) return note.pos;
       if (note?.position !== undefined && note?.position !== editPosition) return note.position;
-      
+
       // Check numeric fields
       const posFields = inspectForTargetPos(note);
       if (posFields.length > 0) {
-        log.debug('Found potential target position fields:', { posFields });
-        
+        log.debug('Found potential target position fields:', {posFields});
+
         // Get the first field that contains "t_pos" or "tpos"
-        const tPosField = posFields.find(field => 
-          field.toLowerCase().includes('t_pos') || 
+        const tPosField = posFields.find(field =>
+          field.toLowerCase().includes('t_pos') ||
           field.toLowerCase().includes('tpos') ||
           field.toLowerCase().includes('target'));
-        
+
         if (tPosField) {
           const value = Number(tPosField.split(':')[1].trim());
           if (!isNaN(value)) {
@@ -285,37 +285,37 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
           }
         }
       }
-      
+
       // Log that we couldn't find the target position
       log.warn('Could not find target position for DELETE operation', {
         editOperation,
         noteKeys: note ? Object.keys(note) : [],
         hasNote: !!note,
       });
-      
+
       // Default to same as edit position for DELETE
       return editPosition;
     } else if (editOperation === 'SUBSTITUTE' || editOperation === 'INSERT') {
       // For SUBSTITUTE/INSERT, prefer target note's position
       if (targetNote?.t_pos !== undefined) return targetNote.t_pos;
       if (targetNote?.tPos !== undefined) return targetNote.tPos;
-      
+
       // Fallback to source note's target positions
       if (note?.t_pos !== undefined) return note.t_pos;
       if (note?.tPos !== undefined) return note.tPos;
-      
+
       // Default to same as edit position for these operations
       return editPosition;
     }
-    
+
     // Default case, just use edit position
     return editPosition;
   };
-  
+
   // Calculate positions
   const sourcePosition = editPosition;
   const targetPosition = findTargetPosition();
-  
+
   // Debug the found positions
   log.debug('Position detection result:', {
     sourcePosition,
@@ -324,25 +324,25 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
     hasNote: !!note,
     hasTargetNote: !!targetNote
   });
-  
+
   // Get notes around the position - use displayCount notes on each side
   const scoreNotesContext = getNotesAroundPosition(scoreNotesArray, editPosition, displayCount, false);
   const playedNotesContext = getNotesAroundPosition(playedNotesArray, targetPosition, displayCount, true);
-  
+
   // Log note contexts for debugging
   useEffect(() => {
     if (isOpen) {
-      log.debug('Score notes extracted:', { count: scoreNotesArray.length });
-      log.debug('Played notes extracted:', { count: playedNotesArray.length });
-      log.debug('Score notes context:', { 
-        count: scoreNotesContext.length, 
+      log.debug('Score notes extracted:', {count: scoreNotesArray.length});
+      log.debug('Played notes extracted:', {count: playedNotesArray.length});
+      log.debug('Score notes context:', {
+        count: scoreNotesContext.length,
         requestedCount: displayCount,
-        data: scoreNotesContext 
+        data: scoreNotesContext
       });
-      log.debug('Played notes context:', { 
-        count: playedNotesContext.length, 
+      log.debug('Played notes context:', {
+        count: playedNotesContext.length,
         requestedCount: displayCount,
-        data: playedNotesContext 
+        data: playedNotesContext
       });
     }
   }, [isOpen, scoreNotesArray, playedNotesArray, scoreNotesContext, playedNotesContext]);
@@ -354,7 +354,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
       const viewportHeight = window.innerHeight;
       const dialogWidth = dialogRef.current.offsetWidth;
       const dialogHeight = dialogRef.current.offsetHeight;
-      
+
       setDialogPosition({
         x: (viewportWidth - dialogWidth) / 2,
         y: (viewportHeight - dialogHeight) / 2
@@ -373,7 +373,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -399,16 +399,16 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
         });
       }
     };
-    
+
     const handleMouseUp = () => {
       setIsDragging(false);
     };
-    
+
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     }
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -427,7 +427,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
             inline: 'center'
           });
         }
-        
+
         if (activePlayedNoteRef.current) {
           activePlayedNoteRef.current.scrollIntoView({
             behavior: 'auto',
@@ -436,7 +436,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
           });
         }
       }, 100);
-      
+
       return () => clearTimeout(timer);
     }
   }, [isOpen, scoreNotesContext, playedNotesContext]);
@@ -447,11 +447,11 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
   // Get note information
   const sourceNoteName = note?.pitch !== undefined ? midiPitchToNoteName(note.pitch) : 'Unknown';
   const targetNoteName = targetNote?.pitch !== undefined ? midiPitchToNoteName(targetNote.pitch) : 'Unknown';
-  
+
   // Get semitone difference for substitutions
   let semitonesDiff = 0;
   let diffDirection = '';
-  
+
   if (editOperation === 'SUBSTITUTE' && targetNote?.pitch !== undefined && note?.pitch !== undefined) {
     semitonesDiff = targetNote.pitch - note.pitch;
     diffDirection = semitonesDiff > 0 ? '▲' : '▼'; // Up or down arrow
@@ -462,15 +462,15 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
     const noteName = note?.pitch !== undefined ? midiPitchToNoteName(note.pitch) : 'N/A';
     const position = note.relativePosition;
     const isCurrentPosition = position === 0;
-    
+
     return (
-      <div 
+      <div
         key={index}
         className={`p-2 rounded flex items-center justify-between border ${
-          isHighlighted 
-            ? 'bg-blue-900/70 border-blue-700' 
-            : isCurrentPosition 
-              ? 'bg-gray-800/90 border-gray-700' 
+          isHighlighted
+            ? 'bg-blue-900/70 border-blue-700'
+            : isCurrentPosition
+              ? 'bg-gray-800/90 border-gray-700'
               : 'bg-gray-900/70 border-gray-800'
         } ${isCurrentPosition ? 'font-bold' : ''}`}
       >
@@ -513,10 +513,10 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
           <div className="w-1 h-1 rounded-full bg-gray-300"></div>
         </div>
         <span className="text-sm font-semibold text-white">Note Comparison</span>
-        
+
         {/* Close button */}
-        <button 
-          onClick={onClose} 
+        <button
+          onClick={onClose}
           className="absolute right-2 top-1 text-gray-300 hover:text-white"
           aria-label="Close dialog"
         >
@@ -530,9 +530,9 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
           <span className="text-gray-300">Operation:</span>
           <span className={`ml-2 font-bold px-2 py-1 rounded ${
             editOperation === 'INSERT' ? 'bg-green-800 text-green-100' :
-            editOperation === 'DELETE' ? 'bg-red-800 text-red-100' :
-            editOperation === 'SUBSTITUTE' ? 'bg-orange-800 text-orange-100' :
-            'bg-gray-700'
+              editOperation === 'DELETE' ? 'bg-red-800 text-red-100' :
+                editOperation === 'SUBSTITUTE' ? 'bg-orange-800 text-orange-100' :
+                  'bg-gray-700'
           }`}>
             {editOperation || 'Unknown'}
           </span>
@@ -542,7 +542,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
             </span>
           )}
         </div>
-        
+
         {/* Source note details */}
         <div className="mb-3 p-3 bg-gray-800/80 rounded border border-gray-700">
           <h3 className="font-bold text-sm mb-1 text-white">Source Note</h3>
@@ -577,7 +577,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
             )}
           </div>
         </div>
-        
+
         {/* Target position info for DELETE operations */}
         {editOperation === 'DELETE' && (
           <div className="mb-3 p-3 rounded border bg-red-900/60 border-red-800">
@@ -589,27 +589,30 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
               </div>
               <div>
                 <span className="text-gray-300">Target Position:</span>
-                <span className="ml-2 text-white">{targetPosition !== undefined ? targetPosition : 'N/A'}</span>
+                <span
+                  className="ml-2 text-white">{targetPosition !== undefined ? targetPosition : 'N/A'}</span>
               </div>
               <div className="col-span-2 mt-1">
-                <span className="text-gray-300">Note missing from performance at position {targetPosition}</span>
+                            <span
+                              className="text-gray-300">Note missing from performance at position {targetPosition}</span>
               </div>
             </div>
           </div>
         )}
-        
+
         {/* Target note details (for substitutions and inserts) */}
         {(editOperation === 'SUBSTITUTE' || editOperation === 'INSERT') && targetNote && (
           <div className={`mb-3 p-3 rounded border ${
-            editOperation === 'SUBSTITUTE' ? 'bg-blue-900/60 border-blue-800' : 
-            editOperation === 'INSERT' ? 'bg-green-900/60 border-green-800' : 
-            'bg-gray-800/80 border-gray-700'
+            editOperation === 'SUBSTITUTE' ? 'bg-blue-900/60 border-blue-800' :
+              editOperation === 'INSERT' ? 'bg-green-900/60 border-green-800' :
+                'bg-gray-800/80 border-gray-700'
           }`}>
             <h3 className="font-bold text-sm mb-1 text-white">Target Note</h3>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <span className="text-gray-300">Pitch:</span>
-                <span className="ml-2 text-white">{targetNote?.pitch !== undefined ? targetNote.pitch : 'N/A'}</span>
+                <span
+                  className="ml-2 text-white">{targetNote?.pitch !== undefined ? targetNote.pitch : 'N/A'}</span>
               </div>
               <div>
                 <span className="text-gray-300">Note:</span>
@@ -628,7 +631,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
                 </span>
               </div>
             </div>
-            
+
             {/* Difference information */}
             <div className="mt-2 p-2 bg-gray-900/90 rounded text-sm border border-gray-700">
               <span className="text-gray-300">Pitch Difference:</span>
@@ -641,7 +644,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
             </div>
           </div>
         )}
-        
+
         {/* Note sequence comparison */}
         {(scoreNotesContext.length > 0 || playedNotesContext.length > 0) && (
           <div className="mb-3 mt-5">
@@ -650,20 +653,23 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
                 {/* Score notes context - top row */}
                 {scoreNotesContext.length > 0 && (
                   <div className="mb-2">
-                    <h4 className="text-xs uppercase tracking-wider text-gray-300 mb-2 text-center">Original Score</h4>
+                    <h4
+                      className="text-xs uppercase tracking-wider text-gray-300 mb-2 text-center">Original
+                      Score</h4>
                     <div ref={scoreNotesContainerRef} className="flex space-x-1 overflow-x-auto pb-2">
                       <div className="flex-1"></div>
                       {scoreNotesContext.map((note, index) => (
-                        <div 
+                        <div
                           key={index}
                           ref={note.relativePosition === 0 ? activeScoreNoteRef : null}
                           className={`p-2 rounded flex flex-col items-center justify-center border min-w-[50px] ${
-                            note.relativePosition === 0 
-                              ? 'bg-gray-800/90 border-gray-700 font-bold' 
+                            note.relativePosition === 0
+                              ? 'bg-gray-800/90 border-gray-700 font-bold'
                               : 'bg-gray-900/70 border-gray-800'
                           }`}
                         >
-                          <span className={`text-center ${note.relativePosition === 0 ? 'text-white' : 'text-gray-400'}`}>
+                          <span
+                            className={`text-center ${note.relativePosition === 0 ? 'text-white' : 'text-gray-400'}`}>
                             {note.absolutePosition !== undefined ? note.absolutePosition : index}
                           </span>
                           <span className="font-mono text-xs mt-1">
@@ -675,8 +681,8 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
                           {/* Visual indicator for alignment - if this is the source note of an edit */}
                           {note.relativePosition === 0 && (
                             <div className={`w-4 h-4 mt-1 rounded-full ${
-                              editOperation === 'DELETE' ? 'bg-red-600' : 
-                              editOperation === 'SUBSTITUTE' ? 'bg-orange-600' : 'bg-gray-600'
+                              editOperation === 'DELETE' ? 'bg-red-600' :
+                                editOperation === 'SUBSTITUTE' ? 'bg-orange-600' : 'bg-gray-600'
                             }`}></div>
                           )}
                         </div>
@@ -685,11 +691,11 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
                     </div>
                   </div>
                 )}
-                
+
                 {/* Visual connector between score and played notes */}
                 {editOperation && (
                   <div className="h-10 relative my-2">
-                    <div className="absolute left-1/2 top-0 bottom-0 w-0.5 -ml-0.5 
+                    <div className="absolute left-1/2 top-0 bottom-0 w-0.5 -ml-0.5
                       bg-gradient-to-b from-gray-600 to-gray-500"></div>
                     {editOperation === 'SUBSTITUTE' && (
                       <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2
@@ -711,17 +717,18 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
                     )}
                   </div>
                 )}
-                
+
                 {/* Played notes context - bottom row */}
                 {(playedNotesContext.length > 0 || editOperation === 'DELETE') && (
                   <div>
-                    <h4 className="text-xs uppercase tracking-wider text-gray-300 mb-2 text-center">Played Notes</h4>
+                    <h4 className="text-xs uppercase tracking-wider text-gray-300 mb-2 text-center">Played
+                      Notes</h4>
                     <div ref={playedNotesContainerRef} className="flex space-x-1 overflow-x-auto pb-2">
                       <div className="flex-1"></div>
-                      
+
                       {/* Handle delete operation with no played notes */}
                       {editOperation === 'DELETE' && playedNotesContext.length === 0 && (
-                        <div 
+                        <div
                           ref={activePlayedNoteRef}
                           className="p-2 rounded flex flex-col items-center justify-center border min-w-[50px] bg-red-900/70 border-red-700"
                         >
@@ -737,9 +744,9 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
                           <div className="w-4 h-4 mt-1 rounded-full bg-red-600"></div>
                         </div>
                       )}
-                      
+
                       {playedNotesContext.map((note, index) => (
-                        <div 
+                        <div
                           key={index}
                           ref={note.relativePosition === 0 ? activePlayedNoteRef : null}
                           className={`p-2 rounded flex flex-col items-center justify-center border min-w-[50px] ${
@@ -749,12 +756,13 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
                                 ? 'bg-green-900/70 border-green-700'
                                 : editOperation === 'DELETE' && note.relativePosition === 0
                                   ? 'bg-red-900/70 border-red-700'
-                                  : note.relativePosition === 0 
-                                    ? 'bg-gray-800/90 border-gray-700 font-bold' 
+                                  : note.relativePosition === 0
+                                    ? 'bg-gray-800/90 border-gray-700 font-bold'
                                     : 'bg-gray-900/70 border-gray-800'
                           }`}
                         >
-                          <span className={`text-center ${note.relativePosition === 0 ? 'text-white' : 'text-gray-400'}`}>
+                          <span
+                            className={`text-center ${note.relativePosition === 0 ? 'text-white' : 'text-gray-400'}`}>
                             {note.absolutePosition !== undefined ? note.absolutePosition : index}
                           </span>
                           <span className="font-mono text-xs mt-1">
@@ -766,10 +774,10 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
                           {/* Visual indicator for alignment - if this is the target note of an edit */}
                           {note.relativePosition === 0 && (
                             <div className={`w-4 h-4 mt-1 rounded-full ${
-                              editOperation === 'INSERT' ? 'bg-green-600' : 
-                              editOperation === 'SUBSTITUTE' ? 'bg-blue-600' :
-                              editOperation === 'DELETE' ? 'bg-red-600' :
-                              'bg-gray-600'
+                              editOperation === 'INSERT' ? 'bg-green-600' :
+                                editOperation === 'SUBSTITUTE' ? 'bg-blue-600' :
+                                  editOperation === 'DELETE' ? 'bg-red-600' :
+                                    'bg-gray-600'
                             }`}></div>
                           )}
                         </div>

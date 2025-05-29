@@ -1,13 +1,12 @@
-import React, { RefObject, useEffect, useRef, useState, useContext } from 'react';
-import { ZoomContext } from '@/app/providers';
-import log from '@/lib/logger';
+import React, {RefObject, useContext, useEffect, useRef, useState} from 'react';
+import {ZoomContext} from '@/app/providers';
 
 export default function ZoomableDiv({
-  children,
-  recenter,
-  onScaleChange,
-  defaultScale = 1,
-}: {
+                                      children,
+                                      recenter,
+                                      onScaleChange,
+                                      defaultScale = 1,
+                                    }: {
   children: React.ReactNode;
   recenter: RefObject<HTMLButtonElement>;
   onScaleChange?: (scale: number) => void;
@@ -21,12 +20,12 @@ export default function ZoomableDiv({
   const zoomSensitivity = 0.0015;
   const minScale = 0.25;
   const maxScale = 4;
-  
+
   // Get zoom context
   const zoomContext = useContext(ZoomContext);
   // Keep track of the score ID
   const scoreIdRef = useRef<string>('');
-  
+
   // Extract scoreId from parent element's ID
   useEffect(() => {
     if (outerRef.current) {
@@ -77,7 +76,7 @@ export default function ZoomableDiv({
       // Always set to scale 1 when resetting (not defaultScale)
       const resetScale = 1;
       setScale(resetScale);
-      
+
       // Update zoom context if we have a scoreId
       if (zoomContext && scoreIdRef.current) {
         zoomContext.setZoomLevel(scoreIdRef.current, resetScale);
@@ -86,11 +85,11 @@ export default function ZoomableDiv({
 
     const outer = outerRef.current;
     if (outer) {
-      outer.addEventListener('wheel', handleWheel, { passive: false });
+      outer.addEventListener('wheel', handleWheel, {passive: false});
     }
-    
+
     recenter.current?.addEventListener('click', handleRecenter);
-    
+
     return () => {
       if (outer) {
         outer.removeEventListener('wheel', handleWheel);
@@ -131,7 +130,7 @@ export default function ZoomableDiv({
 
     // Update previous scale.
     prevScaleRef.current = scale;
-    
+
     // Notify parent component about scale change if the callback is provided
     if (onScaleChange) {
       onScaleChange(scale);
@@ -139,8 +138,8 @@ export default function ZoomableDiv({
   }, [scale, originalWidth, originalHeight, onScaleChange]);
 
   return (
-    <div 
-      ref={outerRef} 
+    <div
+      ref={outerRef}
       className="relative h-full overflow-x-hidden overflow-y-auto zoomable-div"
       data-scale={scale}
     >

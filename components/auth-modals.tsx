@@ -5,7 +5,7 @@ import {Modal, ModalContent, ModalDescription, ModalFooter, ModalHeader, ModalTi
 import {Lock, Mail, User} from "lucide-react"
 import HCaptcha from "@hcaptcha/react-hcaptcha"
 import {AccountContext, AccountView} from "@/app/providers";
-import axios, { AxiosResponse, AxiosError } from "axios";
+import {AxiosError, AxiosResponse} from "axios";
 import api from "@/lib/network";
 
 interface AuthModalProps {
@@ -79,7 +79,10 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
     if (context?.account) return;
     try {
       setStatus(type === "login" ? "Logging in..." : "Loading...");
-      api.post<AccountView>("/account/login", {email: email, password: password}).then((resp: AxiosResponse<AccountView>) => {
+      api.post<AccountView>("/account/login", {
+        email: email,
+        password: password
+      }).then((resp: AxiosResponse<AccountView>) => {
         if (!context) throw new Error("Auth failed: Account not found.");
         context.setAccount(resp.data);
         // Set justLogin to true to trigger file manager refresh
@@ -117,7 +120,8 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
             <form onSubmit={handleSubmit}>
               <div className="space-y-4 my-4">
                 {type === "signup" ? <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18}/>
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                        size={18}/>
                   <Input
                     autoComplete="off"
                     placeholder="Username"
@@ -127,7 +131,8 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
                     className="w-full p-5 pl-10 dark:bg-gray-900"/>
                 </div> : ""}
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18}/>
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                        size={18}/>
                   <Input
                     type="email"
                     autoComplete="email"
@@ -138,7 +143,8 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
                     className="w-full p-5 pl-10 dark:bg-gray-900"/>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18}/>
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                        size={18}/>
                   <Input
                     type="password"
                     autoComplete={type === "login" ? "current-password" : "new-password"}
@@ -150,7 +156,8 @@ export function AuthModal({isOpen, onClose, onSwitch, type}: AuthModalProps) {
                 </div>
                 {type === "signup" ? <>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18}/>
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                          size={18}/>
                     <Input
                       type="password"
                       autoComplete="off"
