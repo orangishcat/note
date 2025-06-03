@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+message Note {
+    int32 pitch = 1;
+    float start_time = 2;
+    float duration = 3;
+    float velocity = 4;
+
+    int32 page = 5;
+    int32 track = 6;
+    repeated int32 bbox = 7;
+}
+
+message NoteList {
+    repeated Note notes = 1;
+    repeated int32 size = 2;
+}
+
+enum EditOperation {
+    INSERT = 0;
+    SUBSTITUTE = 1;
+    DELETE = 2;
+}
+
+message Edit {
+    EditOperation operation = 1;
+    int32 pos = 2;
+    Note s_char = 3;  // Source character (for DELETE and SUBSTITUTE)
+    Note t_char = 4;  // Target character (for INSERT and SUBSTITUTE)
+    int32 t_pos = 5;  // Target position (for SUBSTITUTE)
+}
+
+message EditList {
+    repeated Edit edits = 1;
+    repeated int32 size = 2;
+}

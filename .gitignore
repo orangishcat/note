@@ -1,20 +1,30 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ---Project--- #
+.idea
+!.idea/runConfigurations/
+
+# ---Backend--- #
+backend/*/app
+backend/*/api
+.env
+
+# ---Frontend--- #
 
 # dependencies
-/node_modules
-/.pnp
+node_modules
+.pnp
 .pnp.js
 .yarn/install-state.gz
 
 # testing
-/coverage
+coverage
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
 # production
-/build
+build
 
 # misc
 .DS_Store
@@ -27,7 +37,6 @@ yarn-error.log*
 
 # local env files
 .env*.local
-.env
 
 # vercel
 .vercel
