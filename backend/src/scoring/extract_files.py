@@ -29,7 +29,13 @@ def extract_mxl_notes(mxl_bytes):
     notes_info = []
     for note in score.flatten().notes:
         for pitch in note.pitches:
-            notes_info.append(Note(pitch=pitch.midi, start_time=float(note.offset), duration=note.duration.quarterLength))
+            notes_info.append(
+                Note(
+                    pitch=pitch.midi,
+                    start_time=float(note.offset),
+                    duration=note.duration.quarterLength,
+                )
+            )
     notes_info.sort(key=key)
     return notes_info
 
@@ -53,6 +59,7 @@ def extract_midi_notes(midi_file: str) -> NoteList:
 
     notes_info.notes.sort(key=key)
     return notes_info
+
 
 def extract_pb_notes(pb_bytes):
     (note_list := NoteList()).ParseFromString(pb_bytes)

@@ -52,14 +52,14 @@ def note_equals(self, other) -> bool:
 
 
 def note_str(self):
-    note_list = [' C', 'Db', ' D', 'Eb', ' E', ' F', 'F#', ' G', 'Ab', ' A', 'Bb', ' B']
+    note_list = [" C", "Db", " D", "Eb", " E", " F", "F#", " G", "Ab", " A", "Bb", " B"]
     return f"{note_list[self.pitch % 12]}{self.pitch // 12 - 1}|{self.start_time:.2f}|{self.page}"
 
 
 def edit_str(self):
     operations = {0: "INSERT", 1: "SUBSTITUTE", 2: "DELETE"}
     op_name = operations.get(self.operation, f"UNKNOWN({self.operation})")
-    
+
     if self.operation == 0:  # INSERT
         return f"{op_name} {self.t_char} at {self.pos}"
     elif self.operation == 1:  # SUBSTITUTE

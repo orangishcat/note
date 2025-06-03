@@ -36,7 +36,7 @@ def score_preview(file_bytes, filename):
 
     Returns a tuple of (preview_bytes, preview_filename).
     """
-    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+    ext = filename.rsplit(".", 1)[1].lower() if "." in filename else ""
 
     if ext in ["mxl", "musicxml", "xml", "mxmls"]:
         # Write the XML-based score bytes to a temporary file for MuseScore processing.
@@ -48,8 +48,13 @@ def score_preview(file_bytes, filename):
             pdf_tempfile = os.path.join(local_temp_dir, f"{uuid.uuid4().hex}.pdf")
             try:
                 subprocess.run(
-                    [os.getenv("MSCORE_COMMAND", "mscore"), temp_input_path, "-o", pdf_tempfile],
-                    check=True
+                    [
+                        os.getenv("MSCORE_COMMAND", "mscore"),
+                        temp_input_path,
+                        "-o",
+                        pdf_tempfile,
+                    ],
+                    check=True,
                 )
             except Exception as e:
                 logger.info("Error running MuseScore command:", e)
@@ -81,6 +86,7 @@ def score_preview(file_bytes, filename):
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
+
     load_dotenv()
     # Ensure output directory exists.
     output_dir = "preview-test"
@@ -98,9 +104,13 @@ if __name__ == "__main__":
             continue
         preview, preview_name = score_preview(file_bytes, fp)
         if preview:
-            output_path = os.path.join(output_dir, f"liebestraum-{file_type}-preview.png")
+            output_path = os.path.join(
+                output_dir, f"liebestraum-{file_type}-preview.png"
+            )
             with open(output_path, "wb") as out:
                 out.write(preview)
-            logger.info(f"Preview for {fp} saved as {output_path}. Preview name: {preview_name}")
+            logger.info(
+                f"Preview for {fp} saved as {output_path}. Preview name: {preview_name}"
+            )
         else:
             logger.error(f"Failed to generate preview for {fp}")
