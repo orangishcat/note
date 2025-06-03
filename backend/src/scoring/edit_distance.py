@@ -201,7 +201,7 @@ def find_operations(
             Edit(
                 operation=EditOperation.INSERT,
                 pos=0,
-                s_char=s[j - 1],
+                s_char=Note(),
                 t_char=t[j - 1],
                 t_pos=j - 1,
             )
