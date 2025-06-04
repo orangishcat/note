@@ -16,7 +16,7 @@ MOVE_SWAP_COST = 1
 OP_COST = 5
 
 
-def run_timer():
+def timeit():
     def decorator(func):
         def wrapper(*args, **kwargs):
             start = time()
@@ -29,6 +29,16 @@ def run_timer():
 
 def key(note):
     return round(note.start_time / ROUND_TO) * ROUND_TO, note.pitch
+
+
+@timeit()
+def preprocess(s: list[Note], t: list[Note]):
+    """Sort notes and extract pitch arrays."""
+    s.sort(key=key)
+    t.sort(key=key)
+    s_pitches = np.fromiter((n.pitch for n in s), dtype=np.int64)
+    t_pitches = np.fromiter((n.pitch for n in t), dtype=np.int64)
+    return s_pitches, t_pitches
 
 
 # noinspection PyTypeChecker
@@ -156,7 +166,7 @@ def backtrack(dp, s_pitches, t_pitches):
     return edits, aligned_indices
 
 
-@run_timer()
+@timeit()
 def postprocess(edits, s):
     times = np.fromiter((note.start_time for note in s), dtype=np.float32)
     pitches = np.fromiter((note.pitch for note in s), dtype=np.int16)
@@ -209,29 +219,15 @@ def find_operations(
     Now accelerated with Numba and supports move/swap ops up to 5 positions away.
     """
     n, m = len(s), len(t)
-    start_time = time()
 
     assert n + m < 10000, "Too big"
 
-    # 1) sort by (rounded time, pitch)
-    s.sort(key=key)
-    t.sort(key=key)
-
-    # 2) extract pitch arrays
-    s_pitches = np.fromiter((note.pitch for note in s), dtype=np.int64)
-    t_pitches = np.fromiter((note.pitch for note in t), dtype=np.int64)
-    s_times = np.fromiter((note.start_time for note in s), dtype=np.float32)
-    t_times = np.fromiter((note.start_time for note in t), dtype=np.float32)
-
-    logger.info(f"Preprocessing: {(time() - start_time) * 1e3:.1f} ms")
-    start_time = time()
+    # preprocess
+    s_pitches, t_pitches = preprocess(s, t)
 
     dp = compute_dp(s_pitches, t_pitches)
-    logger.info(f"DP: {(time() - start_time) * 1e3:.3f}ms")
-    start_time = time()
 
     edits_raw, aligned_indices = backtrack(dp, s_pitches, t_pitches)
-    logger.info(f"Backtrack: {(time() - start_time) * 1e3:.3f}ms")
     edits = tuples_to_dicts(edits_raw, s, t)
     edits = postprocess(edits, s)
     edit_list = to_proto(edits)

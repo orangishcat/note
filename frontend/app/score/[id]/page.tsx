@@ -932,13 +932,15 @@ export default function ScorePage() {
           {isClient && isDebugMode && (
             <DebugPanel
               scoreId={id as string}
-              editList={editList}
+              editList={filteredEditList}
               setEditList={setEditList}
               playedNotes={playedNotes}
               scoreNotes={scoreNotes}
               currentPage={currentPage}
               editsOnPage={editsOnPage}
               setPlayedNotes={setPlayedNotes}
+              confidenceFilter={confidenceThreshold}
+              setConfidenceFilter={setConfidenceThreshold}
             />
           )}
         </div>
