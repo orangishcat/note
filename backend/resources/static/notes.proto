@@ -9,6 +9,7 @@ message Note {
     int32 page = 5;
     int32 track = 6;
     repeated int32 bbox = 7;
+    int32 confidence = 8; // default value 5
 }
 
 message NoteList {

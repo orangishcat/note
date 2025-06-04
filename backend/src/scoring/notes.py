@@ -3,6 +3,7 @@
 # plugin: python-betterproto
 from dataclasses import dataclass
 from typing import List
+import dataclasses
 
 import betterproto
 
@@ -22,6 +23,10 @@ class Note(betterproto.Message):
     page: int = betterproto.int32_field(5)
     track: int = betterproto.int32_field(6)
     bbox: List[int] = betterproto.int32_field(7)
+    confidence: int = dataclasses.field(
+        default=5,
+        metadata={"betterproto": betterproto.FieldMetadata(8, betterproto.TYPE_INT32)},
+    )
 
 
 @dataclass

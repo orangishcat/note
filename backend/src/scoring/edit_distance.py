@@ -8,10 +8,23 @@ from scoring import extract_midi_notes, extract_pb_notes
 
 from .notes_patch import *
 
+OCTAVE_CHECK_SECS = 0.1
+
 ROUND_TO = 0.1
 MAX_MOVE_SWAP = 5
 MOVE_SWAP_COST = 1
 OP_COST = 5
+
+
+def run_timer():
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            start = time()
+            result = func(*args, **kwargs)
+            logger.info(f"{func.__name__}: {(time() - start) * 1e3:.3f}ms")
+            return result
+        return wrapper
+    return decorator
 
 
 def key(note):
@@ -69,6 +82,121 @@ def compute_dp(s_pitches, t_pitches):
     return dp
 
 
+@njit
+def backtrack(dp, s_pitches, t_pitches):
+    from numba.typed import List
+
+    edits = List()
+    aligned_indices = List()
+    n, m = s_pitches.shape[0], t_pitches.shape[0]
+    i = int(np.argmin(dp[:, m]))
+    j = m
+    while i > 0 and j > 0:
+        sub_cost = 0 if s_pitches[i - 1] == t_pitches[j - 1] else OP_COST
+        if dp[i, j] == dp[i - 1, j - 1] + sub_cost:
+            aligned_indices.append((i - 1, j - 1))
+            if sub_cost:
+                edits.append((EditOperation.SUBSTITUTE, i - 1, i - 1, j - 1, j - 1))
+            i -= 1
+            j -= 1
+            continue
+        if dp[i, j] == dp[i - 1, j] + OP_COST:
+            edits.append((EditOperation.DELETE, i - 1, i - 1, -1, j))
+            i -= 1
+            continue
+        if dp[i, j] == dp[i, j - 1] + OP_COST:
+            edits.append((EditOperation.INSERT, i, i - 1, j - 1, j - 1))
+            j -= 1
+            continue
+        moved_backward = False
+        for k in range(1, MAX_MOVE_SWAP + 1):
+            if j - 1 - k >= 0 and dp[i, j] == dp[i - 1, j - 1 - k] + MOVE_SWAP_COST:
+                aligned_indices.append((i - 1, j - 1 - k))
+                i -= 1
+                j -= 1 + k
+                moved_backward = True
+                break
+        if moved_backward:
+            continue
+        moved_forward = False
+        for k in range(1, MAX_MOVE_SWAP + 1):
+            if j + k <= m and dp[i, j] == dp[i - 1, j + k] + MOVE_SWAP_COST:
+                aligned_indices.append((i - 1, j + k))
+                i -= 1
+                j += k
+                moved_forward = True
+                break
+        if moved_forward:
+            continue
+        swapped = False
+        for k in range(1, MAX_MOVE_SWAP + 1):
+            if (
+                i - 1 - k >= 0
+                and j - 1 - k >= 0
+                and dp[i, j] == dp[i - 1 - k, j - 1 - k] + MOVE_SWAP_COST
+                and s_pitches[i - 1] == t_pitches[j - 1 - k]
+                and s_pitches[i - 1 - k] == t_pitches[j - 1]
+            ):
+                aligned_indices.append((i - 1, j - 1 - k))
+                aligned_indices.append((i - 1 - k, j - 1))
+                i -= 1 + k
+                j -= 1 + k
+                swapped = True
+                break
+        if swapped:
+            continue
+        raise RuntimeError(f"Backtrack stuck at dp[{i},{j}]")
+
+    while j > 0:
+        edits.append((EditOperation.INSERT, 0, -1, j - 1, j - 1))
+        j -= 1
+
+    edits.reverse()
+    aligned_indices.reverse()
+    return edits, aligned_indices
+
+
+@run_timer()
+def postprocess(edits, s):
+    times = np.fromiter((note.start_time for note in s), dtype=np.float32)
+    pitches = np.fromiter((note.pitch for note in s), dtype=np.int16)
+    order = np.argsort(times)
+    times = times[order]
+    pitches = pitches[order]
+    filtered = []
+    for edit in edits:
+        if edit["operation"] == EditOperation.DELETE:
+            note = edit["s_char"]
+            start = note.start_time - OCTAVE_CHECK_SECS
+            end = note.start_time + OCTAVE_CHECK_SECS
+            lo = np.searchsorted(times, start, side="left")
+            hi = np.searchsorted(times, end, side="right")
+            local = pitches[lo:hi]
+            if np.any(local == note.pitch + 12) or np.any(local == note.pitch - 12):
+                note.confidence = 3
+        filtered.append(edit)
+    return filtered
+
+
+def to_proto(edits):
+    edit_list = EditList()
+    for e in edits:
+        edit_list.edits.append(Edit(**e))
+    return edit_list
+
+
+def tuples_to_dicts(edits, s, t):
+    result = []
+    for op, pos, s_idx, t_idx, t_pos in edits:
+        d = {"operation": EditOperation(op), "pos": pos, "t_pos": t_pos}
+        if s_idx >= 0:
+            d["s_char"] = s[s_idx]
+        if t_idx >= 0:
+            d["t_char"] = t[t_idx]
+        result.append(d)
+    return result
+
+
 # noinspection PyTypeChecker
 def find_operations(
     s: list[Note], t: list[Note]
@@ -92,6 +220,8 @@ def find_operations(
     # 2) extract pitch arrays
     s_pitches = np.fromiter((note.pitch for note in s), dtype=np.int64)
     t_pitches = np.fromiter((note.pitch for note in t), dtype=np.int64)
+    s_times = np.fromiter((note.start_time for note in s), dtype=np.float32)
+    t_times = np.fromiter((note.start_time for note in t), dtype=np.float32)
 
     logger.info(f"Preprocessing: {(time() - start_time) * 1e3:.1f} ms")
     start_time = time()
@@ -100,117 +230,11 @@ def find_operations(
     logger.info(f"DP: {(time() - start_time) * 1e3:.3f}ms")
     start_time = time()
 
-    best_i = int(np.argmin(dp[:, m]))
-
-    edit_list = EditList()
-    aligned_indices = []  # List to store aligned note indices (s_index, t_index)
-    i, j = best_i, m
-    while i > 0 and j > 0:
-        sub_cost = 0 if s_pitches[i - 1] == t_pitches[j - 1] else OP_COST
-
-        # 1) substitute/match
-        if dp[i, j] == dp[i - 1, j - 1] + sub_cost:
-            # Record aligned indices for both matches and substitutions
-            aligned_indices.append((i - 1, j - 1))
-            if sub_cost:
-                edit_list.edits.append(
-                    Edit(
-                        operation=EditOperation.SUBSTITUTE,
-                        pos=i - 1,
-                        s_char=s[i - 1],
-                        t_char=t[j - 1],
-                        t_pos=j - 1,
-                    )
-                )
-            i, j = i - 1, j - 1
-            continue
-
-        # 2) deletion
-        if dp[i, j] == dp[i - 1, j] + OP_COST:
-            edit_list.edits.append(
-                Edit(
-                    operation=EditOperation.DELETE, pos=i - 1, s_char=s[i - 1], t_pos=j
-                )
-            )
-            i -= 1
-            continue
-
-        # 3) insertion
-        if dp[i, j] == dp[i, j - 1] + OP_COST:
-            edit_list.edits.append(
-                Edit(
-                    operation=EditOperation.INSERT,
-                    pos=i,
-                    s_char=s[i - 1],
-                    t_char=t[j - 1],
-                    t_pos=j - 1,
-                )
-            )
-            j -= 1
-            continue
-
-        # 4) move backward (find if note was moved earlier in target)
-        moved_backward = False
-        for k in range(1, MAX_MOVE_SWAP + 1):
-            if j - 1 - k >= 0 and dp[i, j] == dp[i - 1, j - 1 - k] + MOVE_SWAP_COST:
-                # Record aligned indices for moved notes
-                aligned_indices.append((i - 1, j - 1 - k))
-                i, j = i - 1, j - 1 - k
-                moved_backward = True
-                break
-        if moved_backward:
-            continue
-
-        # 5) move forward (find if note was moved later in target)
-        moved_forward = False
-        for k in range(1, MAX_MOVE_SWAP + 1):
-            if j + k <= m and dp[i, j] == dp[i - 1, j + k] + MOVE_SWAP_COST:
-                # Record aligned indices for moved notes
-                aligned_indices.append((i - 1, j + k))
-                i, j = i - 1, j + k
-                moved_forward = True
-                break
-        if moved_forward:
-            continue
-
-        # 6) swap (no record)
-        swapped = False
-        for k in range(1, MAX_MOVE_SWAP + 1):
-            if (
-                i - 1 - k >= 0
-                and j - 1 - k >= 0
-                and dp[i, j] == dp[i - 1 - k, j - 1 - k] + MOVE_SWAP_COST
-                and s_pitches[i - 1] == t_pitches[j - 1 - k]
-                and s_pitches[i - 1 - k] == t_pitches[j - 1]
-            ):
-                # Record aligned indices for swapped notes
-                aligned_indices.append((i - 1, j - 1 - k))
-                aligned_indices.append((i - 1 - k, j - 1))
-                i, j = i - 1 - k, j - 1 - k
-                swapped = True
-                break
-        if swapped:
-            continue
-
-        # Should never get here
-        raise RuntimeError(f"Backtrack stuck at dp[{i},{j}]")
-
-    # leftover insertions at start of t
-    while j > 0:
-        edit_list.edits.append(
-            Edit(
-                operation=EditOperation.INSERT,
-                pos=0,
-                s_char=s[j - 1],
-                t_char=t[j - 1],
-                t_pos=j - 1,
-            )
-        )
-        j -= 1
-
-    edit_list.edits.reverse()
-    aligned_indices.reverse()  # Reverse to match the order of edits
+    edits_raw, aligned_indices = backtrack(dp, s_pitches, t_pitches)
     logger.info(f"Backtrack: {(time() - start_time) * 1e3:.3f}ms")
+    edits = tuples_to_dicts(edits_raw, s, t)
+    edits = postprocess(edits, s)
+    edit_list = to_proto(edits)
     return edit_list, aligned_indices
 
 
