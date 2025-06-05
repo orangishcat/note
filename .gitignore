@@ -6,6 +6,7 @@
 # ---Backend--- #
 backend/*/app
 backend/*/api
+backend/resources/debug_info
 .env
 
 # ---Frontend--- #
