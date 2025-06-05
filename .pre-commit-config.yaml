@@ -29,13 +29,6 @@ repos:
         args: ["--fix"]
         files: \.(md|markdown|mdown|myst)$
 
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.5
-    hooks:
-      - id: codespell
-        args: ["--skip"]
-        files: \.(py|js|jsx|ts|tsx|css|scss|html|md|markdown|yaml|yml)$
-
   - repo: https://github.com/pre-commit/mirrors-eslint
     rev: v9.28.0
     hooks:

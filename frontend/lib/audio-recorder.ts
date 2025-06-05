@@ -1,8 +1,8 @@
 // lib/audio-recorder.ts
-import {useEffect, useRef} from 'react';
-import {Message, Type} from 'protobufjs';
-import api from '@/lib/network';
-import log from './logger';
+import { useEffect, useRef } from "react";
+import { Message, Type } from "protobufjs";
+import api from "@/lib/network";
+import log from "./logger";
 
 export interface RecordingError {
   message: string;
@@ -16,7 +16,10 @@ export interface AudioRecorderHookProps {
   NoteListType: Type | null;
   scoreId: string;
   notesId: string;
-  refetchTypes: () => Promise<{ EditListType: Type | null; NoteListType: Type | null }>;
+  refetchTypes: () => Promise<{
+    EditListType: Type | null;
+    NoteListType: Type | null;
+  }>;
   onEditListChange: (editList: Message | null) => void;
   onPlayedNotesChange: (playedNotes: Message | null) => void;
   onError?: (error: RecordingError) => void;
@@ -25,11 +28,14 @@ export interface AudioRecorderHookProps {
 export function splitCombinedResponse(
   buffer: ArrayBuffer,
   EditListType: Type,
-  NoteListType: Type
+  NoteListType: Type,
 ): { editList: Message | null; playedNotes: Message | null } {
   try {
     const dataView = new Uint8Array(buffer);
-    const editListSize = new DataView(dataView.slice(0, 4).buffer).getUint32(0, false);
+    const editListSize = new DataView(dataView.slice(0, 4).buffer).getUint32(
+      0,
+      false,
+    );
     log.debug(`EditList size: ${editListSize} bytes`);
 
     const editListData = dataView.slice(4, 4 + editListSize);
@@ -38,24 +44,28 @@ export function splitCombinedResponse(
     const editList = EditListType.decode(editListData);
     const playedNotes = NoteListType.decode(playedNotesData);
 
-    log.debug(`Decoded EditList (${(editList as any).edits?.length} edits), NoteList (${(playedNotes as any).notes?.length} notes)`);
-    return {editList, playedNotes};
+    log.debug(
+      `Decoded EditList (${(editList as any).edits
+        ?.length} edits), NoteList (${(playedNotes as any).notes
+        ?.length} notes)`,
+    );
+    return { editList, playedNotes };
   } catch (error) {
     log.error("Error splitting combined response:", error);
-    return {editList: null, playedNotes: null};
+    return { editList: null, playedNotes: null };
   }
 }
 
 export function useAudioRecorder({
-                                   isRecording,
-                                   EditListType,
-                                   NoteListType,
-                                   scoreId,
-                                   notesId,
-                                   onEditListChange,
-                                   onPlayedNotesChange,
-                                   onError
-                                 }: AudioRecorderHookProps) {
+  isRecording,
+  EditListType,
+  NoteListType,
+  scoreId,
+  notesId,
+  onEditListChange,
+  onPlayedNotesChange,
+  onError,
+}: AudioRecorderHookProps) {
   const recorderRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lastRequestTime = useRef(0);
@@ -63,8 +73,8 @@ export function useAudioRecorder({
 
   const handleError = (error: any) => {
     const msg = error?.message ?? String(error);
-    log.error('AudioRecorder Error:', error);
-    onError?.({message: msg, details: error});
+    log.error("AudioRecorder Error:", error);
+    onError?.({ message: msg, details: error });
     recorderRef.current = null;
   };
 
@@ -72,32 +82,35 @@ export function useAudioRecorder({
     if (recorderRef.current) {
       try {
         await recorderRef.current.stopRecording();
-      } catch {
-      }
+      } catch {}
     }
-    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     recorderRef.current = null;
   };
 
   async function startRecording() {
-    if (typeof window === 'undefined') return;          // no-op on server
+    if (typeof window === "undefined") return; // no-op on server
     if (Date.now() - lastRequestTime.current < MIN_INTERVAL) return;
     lastRequestTime.current = Date.now();
 
     try {
       // get mic
       if (!streamRef.current) {
-        streamRef.current = await navigator.mediaDevices.getUserMedia({audio: true});
+        streamRef.current = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
       }
 
       // dynamically import RecordRTC and only in browser
-      const {RecordRTCPromisesHandler, StereoAudioRecorder} = await import('recordrtc');
+      const { RecordRTCPromisesHandler, StereoAudioRecorder } = await import(
+        "recordrtc"
+      );
       recorderRef.current = new RecordRTCPromisesHandler(streamRef.current, {
-        type: 'audio',
-        mimeType: 'audio/webm',
+        type: "audio",
+        mimeType: "audio/webm",
         disableLogs: true,
-        recorderType: StereoAudioRecorder
+        recorderType: StereoAudioRecorder,
       });
 
       await recorderRef.current.startRecording();
@@ -109,7 +122,7 @@ export function useAudioRecorder({
   async function stopRecording() {
     const recorder = recorderRef.current;
     if (!recorder) {
-      log.warn('No recorder instance found on stop');
+      log.warn("No recorder instance found on stop");
       return;
     }
 
@@ -118,36 +131,40 @@ export function useAudioRecorder({
       const blob = await recorder.getBlob();
       log.debug(`Recorded blob size: ${blob.size}, type: ${blob.type}`);
 
-      const response = await api.post('/audio/receive', blob, {
+      const response = await api.post("/audio/receive", blob, {
         headers: {
-          'Content-Type': blob.type,
-          'X-Score-ID': scoreId,
-          'X-Notes-ID': notesId
+          "Content-Type": blob.type,
+          "X-Score-ID": scoreId,
+          "X-Notes-ID": notesId,
         },
-        responseType: 'arraybuffer'
+        responseType: "arraybuffer",
       });
 
       const buffer = response.data as ArrayBuffer;
-      const fmt = response.headers['x-response-format'];
-      let editList: Message | null, playedNotes: Message | null = null;
+      const fmt = response.headers["x-response-format"];
+      let editList: Message | null,
+        playedNotes: Message | null = null;
 
-      if (fmt === 'combined') {
-        ({editList, playedNotes} = splitCombinedResponse(buffer, EditListType!, NoteListType!));
+      if (fmt === "combined") {
+        ({ editList, playedNotes } = splitCombinedResponse(
+          buffer,
+          EditListType!,
+          NoteListType!,
+        ));
       } else {
         editList = EditListType!.decode(new Uint8Array(buffer));
       }
 
       onEditListChange(editList);
       if (playedNotes) onPlayedNotesChange(playedNotes);
-
     } catch (err) {
-      log.error('Error stopping/processing recording:', err);
+      log.error("Error stopping/processing recording:", err);
       onError?.({
         message: err instanceof Error ? err.message : String(err),
-        details: err
+        details: err,
       });
     } finally {
-      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       recorderRef.current = null;
     }
@@ -161,5 +178,5 @@ export function useAudioRecorder({
     };
   }, [isRecording, scoreId, notesId]);
 
-  return {hasPermission: !!streamRef.current};
+  return { hasPermission: !!streamRef.current };
 }

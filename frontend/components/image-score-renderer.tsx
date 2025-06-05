@@ -1,35 +1,35 @@
-import React, {useContext, useEffect, useRef, useState} from 'react';
-import {AxiosProgressEvent} from 'axios';
-import JSZip from 'jszip';
-import Image from 'next/image';
-import ZoomableDiv from '@/components/ui-custom/zoomable-div';
-import {MusicXMLRendererProps} from '@/components/music-xml-renderer';
-import {useQuery} from '@tanstack/react-query';
-import log from '@/lib/logger';
-import api from '@/lib/network';
-import {ZoomContext} from '@/app/providers';
+import React, { useContext, useEffect, useRef, useState } from "react";
+import { AxiosProgressEvent } from "axios";
+import JSZip from "jszip";
+import Image from "next/image";
+import ZoomableDiv from "@/components/ui-custom/zoomable-div";
+import { MusicXMLRendererProps } from "@/components/music-xml-renderer";
+import { useQuery } from "@tanstack/react-query";
+import log from "@/lib/logger";
+import api from "@/lib/network";
+import { ZoomContext } from "@/app/providers";
 
 // Store blobs in memory cache
 const blobCache = new Map<string, string[]>();
 
 // Clear blob cache on page reload
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => {
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", () => {
     // Revoke all blob URLs before page unload
     blobCache.forEach((urls) => {
-      urls.forEach(url => URL.revokeObjectURL(url));
+      urls.forEach((url) => URL.revokeObjectURL(url));
     });
     blobCache.clear();
   });
 }
 
 export default function ImageScoreRenderer({
-                                             scoreId,
-                                             recenter,
-                                             currentPage,
-                                             pagesPerView = 1,
-                                             isFullscreen,
-                                           }: MusicXMLRendererProps) {
+  scoreId,
+  recenter,
+  currentPage,
+  pagesPerView = 1,
+  isFullscreen,
+}: MusicXMLRendererProps) {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -37,7 +37,9 @@ export default function ImageScoreRenderer({
   const [currentScale, setCurrentScale] = useState(1);
   const [defaultScale, setDefaultScale] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [animationDirection, setAnimationDirection] = useState<'prev' | 'next' | null>(null);
+  const [animationDirection, setAnimationDirection] = useState<
+    "prev" | "next" | null
+  >(null);
   const [transitionPage, setTransitionPage] = useState<number | null>(null);
 
   // New state for dynamic height calculation
@@ -84,7 +86,7 @@ export default function ImageScoreRenderer({
         log.debug(`Image score container height: ${newHeight}px`, {
           windowHeight: window.innerHeight,
           wrapperTop: wrapperRect.top,
-          availableHeight
+          availableHeight,
         });
       }
     };
@@ -93,13 +95,13 @@ export default function ImageScoreRenderer({
     calculateHeight();
 
     // Recalculate on window resize
-    window.addEventListener('resize', calculateHeight);
+    window.addEventListener("resize", calculateHeight);
 
     // Recalculate after a short delay to ensure all layouts are completed
     const timeout = setTimeout(calculateHeight, 100);
 
     return () => {
-      window.removeEventListener('resize', calculateHeight);
+      window.removeEventListener("resize", calculateHeight);
       clearTimeout(timeout);
     };
   }, [isFullscreen, debug]);
@@ -112,7 +114,7 @@ export default function ImageScoreRenderer({
 
         // For very small screens (<500px), adjust the scaling
         if (containerWidth < 500) {
-          const smallScreenScale = containerWidth / 800 * 0.95; // 5% margin
+          const smallScreenScale = (containerWidth / 800) * 0.95; // 5% margin
 
           // Only update if significantly different to avoid constant updates
           if (Math.abs(smallScreenScale - defaultScale) > 0.05) {
@@ -126,35 +128,40 @@ export default function ImageScoreRenderer({
     };
 
     adjustForSmallScreens();
-    window.addEventListener('resize', adjustForSmallScreens);
+    window.addEventListener("resize", adjustForSmallScreens);
 
     return () => {
-      window.removeEventListener('resize', adjustForSmallScreens);
+      window.removeEventListener("resize", adjustForSmallScreens);
     };
   }, [scoreId, zoomContext]);
 
   // Fetch score file using React Query
-  const {data, isLoading, isError, refetch: refetchScoreFile} = useQuery({
-    queryKey: ['scoreFile', scoreId],
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch: refetchScoreFile,
+  } = useQuery({
+    queryKey: ["scoreFile", scoreId],
     queryFn: async () => {
       // Use cache if available
       if (blobCache.has(scoreId)) {
         log.debug(`Using cached score data for ${scoreId}`);
         return {
           urls: blobCache.get(scoreId) || [],
-          fromCache: true
+          fromCache: true,
         };
       }
 
       // Prevent duplicate fetches during React's double-render
       if (fetchedRef.current) {
         // Wait for the first render's fetch to complete
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
         if (blobCache.has(scoreId)) {
           log.debug(`Using cached score data after waiting for ${scoreId}`);
           return {
             urls: blobCache.get(scoreId) || [],
-            fromCache: true
+            fromCache: true,
           };
         }
       }
@@ -167,13 +174,15 @@ export default function ImageScoreRenderer({
 
       try {
         const response = await api.get(`/score/download/${scoreId}`, {
-          responseType: 'blob',
+          responseType: "blob",
           onDownloadProgress: (progressEvent: AxiosProgressEvent) => {
             if (progressEvent.total) {
-              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              const percentCompleted = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total,
+              );
               setLoadingProgress(percentCompleted);
             }
-          }
+          },
         });
 
         const fileBlob = response.data as Blob;
@@ -181,28 +190,30 @@ export default function ImageScoreRenderer({
 
         setLoadingProgress(90);
 
-        if (fileBlob.type === 'application/zip') {
+        if (fileBlob.type === "application/zip") {
           log.debug(`Processing zip file for ${scoreId}`);
           const zip = await JSZip.loadAsync(fileBlob);
-          const imageFiles = Object.keys(zip.files).filter(filename =>
-            !zip.files[filename].dir && /\.(png|jpe?g|gif)$/i.test(filename)
+          const imageFiles = Object.keys(zip.files).filter(
+            (filename) =>
+              !zip.files[filename].dir && /\.(png|jpe?g|gif)$/i.test(filename),
           );
 
           let processedEntries = 0;
 
           for (const filename of imageFiles) {
             const zipEntry = zip.files[filename];
-            const entryBlob = await zipEntry.async('blob');
+            const entryBlob = await zipEntry.async("blob");
             const url = URL.createObjectURL(entryBlob);
             urls.push(url);
 
             processedEntries++;
-            const extractionProgress = 90 + Math.round((processedEntries / imageFiles.length) * 10);
+            const extractionProgress =
+              90 + Math.round((processedEntries / imageFiles.length) * 10);
             setLoadingProgress(Math.min(extractionProgress, 100));
           }
 
           log.info(`Extracted ${urls.length} images from zip for ${scoreId}`);
-        } else if (fileBlob.type.startsWith('image/')) {
+        } else if (fileBlob.type.startsWith("image/")) {
           log.debug(`Processing single image for ${scoreId}`);
           const url = URL.createObjectURL(fileBlob);
           urls.push(url);
@@ -214,14 +225,14 @@ export default function ImageScoreRenderer({
         // Cache the blobs
         blobCache.set(scoreId, urls);
 
-        return {urls, fromCache: false};
+        return { urls, fromCache: false };
       } catch (error) {
         log.error(`Error fetching score file ${scoreId}:`, error);
         throw error;
       }
     },
     staleTime: 7 * 24 * 60 * 60 * 1000, // 1 week
-    gcTime: 7 * 24 * 60 * 60 * 1000,    // 1 week
+    gcTime: 7 * 24 * 60 * 60 * 1000, // 1 week
     retry: 1, // Only retry once to avoid excessive requests
   });
 
@@ -249,13 +260,13 @@ export default function ImageScoreRenderer({
 
       // Report total pages on successful load
       if (data.urls.length > 0) {
-        const event = new CustomEvent('score:pageInfo', {
+        const event = new CustomEvent("score:pageInfo", {
           detail: {
             scoreId,
             totalPages: data.urls.length,
             currentPage: currentPageIndex,
           },
-          bubbles: true
+          bubbles: true,
         });
         document.dispatchEvent(event);
       }
@@ -265,7 +276,7 @@ export default function ImageScoreRenderer({
   // Handle query errors
   useEffect(() => {
     if (isError) {
-      setError('Failed to load score. Please try again.');
+      setError("Failed to load score. Please try again.");
     }
   }, [isError]);
 
@@ -289,7 +300,8 @@ export default function ImageScoreRenderer({
         // Check if we have a stored scale in context first
         if (zoomContext) {
           const storedScale = zoomContext.getZoomLevel(scoreId);
-          if (storedScale !== 1) { // If not default value
+          if (storedScale !== 1) {
+            // If not default value
             setCurrentScale(storedScale);
             return;
           }
@@ -301,10 +313,10 @@ export default function ImageScoreRenderer({
     };
 
     calculateScale();
-    window.addEventListener('resize', calculateScale);
+    window.addEventListener("resize", calculateScale);
 
     return () => {
-      window.removeEventListener('resize', calculateScale);
+      window.removeEventListener("resize", calculateScale);
     };
   }, [isFullscreen, pagesPerView, scoreId, zoomContext]);
 
@@ -312,16 +324,16 @@ export default function ImageScoreRenderer({
   const totalViews = Math.ceil(imageUrls.length / pagesPerView);
 
   // Navigation function for page turning
-  const navigatePages = (direction: 'prev' | 'next') => {
+  const navigatePages = (direction: "prev" | "next") => {
     if (isAnimating) return;
 
     setAnimationDirection(direction);
     setIsAnimating(true);
 
     let newPageIndex;
-    if (direction === 'prev' && currentPageIndex > 0) {
+    if (direction === "prev" && currentPageIndex > 0) {
       newPageIndex = currentPageIndex - 1;
-    } else if (direction === 'next' && currentPageIndex < totalViews - 1) {
+    } else if (direction === "next" && currentPageIndex < totalViews - 1) {
       newPageIndex = currentPageIndex + 1;
     } else {
       setIsAnimating(false);
@@ -344,26 +356,26 @@ export default function ImageScoreRenderer({
 
   // Function to notify parent about page changes
   const notifyPageChange = (pageIndex: number) => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       log.debug(`Notifying page change to ${pageIndex}`);
-      const event = new CustomEvent('score:pageChange', {
+      const event = new CustomEvent("score:pageChange", {
         detail: {
           scoreId,
           currentPage: pageIndex,
         },
-        bubbles: true
+        bubbles: true,
       });
       document.dispatchEvent(event);
 
       // Force redraw of any page-specific annotations
       setTimeout(() => {
         log.debug(`Requesting redraw for page ${pageIndex}`);
-        const redrawEvent = new CustomEvent('score:redrawAnnotations', {
+        const redrawEvent = new CustomEvent("score:redrawAnnotations", {
           detail: {
             scoreId,
             currentPage: pageIndex,
           },
-          bubbles: true
+          bubbles: true,
         });
         document.dispatchEvent(redrawEvent);
       }, 500); // Increased delay to ensure page render is complete
@@ -398,12 +410,12 @@ export default function ImageScoreRenderer({
   const handleKeyDown = (e: KeyboardEvent) => {
     if (isAnimating) return;
 
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
       // Prevent default behavior (like scrolling)
       e.preventDefault();
 
       // Navigate to previous or next page
-      navigatePages(e.key === 'ArrowLeft' ? 'prev' : 'next');
+      navigatePages(e.key === "ArrowLeft" ? "prev" : "next");
     }
   };
 
@@ -420,7 +432,7 @@ export default function ImageScoreRenderer({
         isProcessingScroll.current = true;
 
         // Determine direction and navigate
-        navigatePages(e.deltaX > 0 ? 'next' : 'prev');
+        navigatePages(e.deltaX > 0 ? "next" : "prev");
 
         // Debounce to prevent multiple triggers during momentum scrolling
         // The 500ms timeout helps ensure we catch the entire momentum scroll sequence
@@ -452,7 +464,7 @@ export default function ImageScoreRenderer({
     const diff = touchEndX.current - touchStartX.current;
 
     if (Math.abs(diff) > swipeThreshold) {
-      navigatePages(diff > 0 ? 'prev' : 'next');
+      navigatePages(diff > 0 ? "prev" : "next");
       e.preventDefault();
     }
   };
@@ -464,8 +476,8 @@ export default function ImageScoreRenderer({
     isDragging.current = true;
     mouseStartX.current = e.clientX;
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
   };
 
   const handleMouseMove = (e: MouseEvent) => {
@@ -480,11 +492,11 @@ export default function ImageScoreRenderer({
     const diff = mouseCurrentX.current - mouseStartX.current;
 
     if (Math.abs(diff) > dragThreshold) {
-      navigatePages(diff > 0 ? 'prev' : 'next');
+      navigatePages(diff > 0 ? "prev" : "next");
     }
 
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
     isDragging.current = false;
   };
 
@@ -506,12 +518,12 @@ export default function ImageScoreRenderer({
     // Notify when an image has loaded to trigger annotation redraw
     setTimeout(() => {
       log.debug(`Image loaded for page index ${pageIndex}, triggering redraw`);
-      const event = new CustomEvent('score:redrawAnnotations', {
+      const event = new CustomEvent("score:redrawAnnotations", {
         detail: {
           scoreId,
           currentPage: pageIndex,
         },
-        bubbles: true
+        bubbles: true,
       });
       document.dispatchEvent(event);
     }, 200); // Increased delay to ensure DOM is fully ready
@@ -530,32 +542,46 @@ export default function ImageScoreRenderer({
     };
 
     // Add keyboard event listener for arrow key navigation
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('touchstart', preventDefaultNavigation, {passive: false});
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("touchstart", preventDefaultNavigation, {
+      passive: false,
+    });
 
     const container = containerRef.current;
     if (container) {
-      container.addEventListener('wheel', handleWheel, {passive: false});
-      container.addEventListener('touchstart', handleTouchStart, {passive: false});
-      container.addEventListener('touchmove', handleTouchMove, {passive: false});
-      container.addEventListener('touchend', handleTouchEnd as EventListener, {passive: false});
-      container.addEventListener('mousedown', handleMouseDown as EventListener);
+      container.addEventListener("wheel", handleWheel, { passive: false });
+      container.addEventListener("touchstart", handleTouchStart, {
+        passive: false,
+      });
+      container.addEventListener("touchmove", handleTouchMove, {
+        passive: false,
+      });
+      container.addEventListener("touchend", handleTouchEnd as EventListener, {
+        passive: false,
+      });
+      container.addEventListener("mousedown", handleMouseDown as EventListener);
     }
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('touchstart', preventDefaultNavigation);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("touchstart", preventDefaultNavigation);
 
       if (container) {
-        container.removeEventListener('wheel', handleWheel);
-        container.removeEventListener('touchstart', handleTouchStart);
-        container.removeEventListener('touchmove', handleTouchMove);
-        container.removeEventListener('touchend', handleTouchEnd as EventListener);
-        container.removeEventListener('mousedown', handleMouseDown as EventListener);
+        container.removeEventListener("wheel", handleWheel);
+        container.removeEventListener("touchstart", handleTouchStart);
+        container.removeEventListener("touchmove", handleTouchMove);
+        container.removeEventListener(
+          "touchend",
+          handleTouchEnd as EventListener,
+        );
+        container.removeEventListener(
+          "mousedown",
+          handleMouseDown as EventListener,
+        );
       }
 
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [currentPageIndex, totalViews, currentScale, isAnimating, scoreId]);
 
@@ -564,8 +590,10 @@ export default function ImageScoreRenderer({
       <div className="flex flex-col items-center justify-center text-center p-4 h-full">
         <h1 className="text-xl my-4">Loading score...</h1>
         <div className="w-64 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 my-4">
-          <div className="bg-primary h-2.5 rounded-full transition-all duration-300"
-               style={{width: `20%`}}></div>
+          <div
+            className="bg-primary h-2.5 rounded-full transition-all duration-300"
+            style={{ width: `20%` }}
+          ></div>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Error loading score. Please try again.
@@ -585,14 +613,15 @@ export default function ImageScoreRenderer({
       <div className="flex flex-col items-center justify-center text-center p-4 h-full">
         <h1 className="text-xl my-4">Loading score...</h1>
         <div className="w-64 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 my-4">
-          <div className="bg-primary h-2.5 rounded-full transition-all duration-300"
-               style={{width: `${loadingProgress}%`}}></div>
+          <div
+            className="bg-primary h-2.5 rounded-full transition-all duration-300"
+            style={{ width: `${loadingProgress}%` }}
+          ></div>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {loadingProgress < 90
             ? `Downloading score data... ${loadingProgress}%`
-            : `Processing images... ${loadingProgress}%`
-          }
+            : `Processing images... ${loadingProgress}%`}
         </p>
       </div>
     );
@@ -607,30 +636,35 @@ export default function ImageScoreRenderer({
   let transitionPages = null;
   if (isAnimating && transitionPage !== null) {
     transitionStartIndex = transitionPage * pagesPerView;
-    transitionPages = imageUrls.slice(transitionStartIndex, transitionStartIndex + pagesPerView);
+    transitionPages = imageUrls.slice(
+      transitionStartIndex,
+      transitionStartIndex + pagesPerView,
+    );
   }
 
   // Calculate animation classes
   const currentPageAnimClass = isAnimating
-    ? animationDirection === 'next'
-      ? 'animate-slide-out-left'
-      : 'animate-slide-out-right'
-    : '';
+    ? animationDirection === "next"
+      ? "animate-slide-out-left"
+      : "animate-slide-out-right"
+    : "";
 
   const transitionPageAnimClass = isAnimating
-    ? animationDirection === 'next'
-      ? 'animate-slide-in-right'
-      : 'animate-slide-in-left'
-    : '';
+    ? animationDirection === "next"
+      ? "animate-slide-in-right"
+      : "animate-slide-in-left"
+    : "";
 
   return (
     <div
       ref={wrapperRef}
       id={`score-${scoreId}`}
-      className={`overflow-x-hidden flex flex-col place-items-center relative ${isFullscreen ? 'pt-16' : ''}`}
+      className={`overflow-x-hidden flex flex-col place-items-center relative ${
+        isFullscreen ? "pt-16" : ""
+      }`}
       style={{
         height: containerHeight,
-        transition: 'height 0.3s ease'
+        transition: "height 0.3s ease",
       }}
       tabIndex={0} // Make div focusable for keyboard events
     >
@@ -651,8 +685,8 @@ export default function ImageScoreRenderer({
           <div
             className={currentPageAnimClass}
             style={{
-              display: 'flex',
-              flexDirection: 'row',
+              display: "flex",
+              flexDirection: "row",
               width: "100%",
               height: "100%",
             }}
@@ -662,10 +696,10 @@ export default function ImageScoreRenderer({
                 key={`current-${currentPageIndex}-${index}`}
                 className="bg-white page-container"
                 style={{
-                  flex: '0 0 auto',
-                  width: pagesPerView === 2 ? '800px' : '800px',
-                  height: '1000px',
-                  position: "relative"
+                  flex: "0 0 auto",
+                  width: pagesPerView === 2 ? "800px" : "800px",
+                  height: "1000px",
+                  position: "relative",
                 }}
               >
                 <Image
@@ -674,7 +708,7 @@ export default function ImageScoreRenderer({
                   layout="fill"
                   objectFit="contain"
                   alt={`Score page ${startIndex + index + 1}`}
-                  style={{display: 'block'}}
+                  style={{ display: "block" }}
                   onError={() => safeRefetchScoreFile()}
                   onLoad={() => handleImageLoad(startIndex + index)}
                 />
@@ -687,8 +721,8 @@ export default function ImageScoreRenderer({
             <div
               className={transitionPageAnimClass}
               style={{
-                display: 'flex',
-                flexDirection: 'row',
+                display: "flex",
+                flexDirection: "row",
                 width: "100%",
                 height: "100%",
               }}
@@ -698,11 +732,11 @@ export default function ImageScoreRenderer({
                   key={`transition-${transitionPage}-${index}`}
                   className="bg-white"
                   style={{
-                    flex: '0 0 auto',
-                    width: pagesPerView === 2 ? '800px' : '800px',
-                    height: '1000px',
-                    padding: '0.5rem',
-                    position: "relative"
+                    flex: "0 0 auto",
+                    width: pagesPerView === 2 ? "800px" : "800px",
+                    height: "1000px",
+                    padding: "0.5rem",
+                    position: "relative",
                   }}
                 >
                   <Image
@@ -710,8 +744,12 @@ export default function ImageScoreRenderer({
                     draggable={false}
                     layout="fill"
                     objectFit="contain"
-                    alt={`Score page ${transitionStartIndex !== null ? transitionStartIndex + index + 1 : ''}`}
-                    style={{display: 'block'}}
+                    alt={`Score page ${
+                      transitionStartIndex !== null
+                        ? transitionStartIndex + index + 1
+                        : ""
+                    }`}
+                    style={{ display: "block" }}
                     onError={() => safeRefetchScoreFile()}
                   />
                 </div>

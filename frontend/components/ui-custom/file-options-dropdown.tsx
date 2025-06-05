@@ -1,18 +1,32 @@
-import React, {useState} from "react";
-import {clsx} from "clsx";
+import React, { useState } from "react";
+import { clsx } from "clsx";
 import axios from "axios";
-import {Button} from "@/components/ui/button";
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
-import {EllipsisVertical, FileIcon} from "lucide-react";
-import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from "@/components/ui/dialog";
-import {MusicScore} from "@/components/music-xml-renderer";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { EllipsisVertical, FileIcon } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { MusicScore } from "@/components/music-xml-renderer";
 
 interface FileOptionsProps {
-  score: MusicScore
+  score: MusicScore;
   onDelete: (id: string) => void;
 }
 
-const FileOptionsDropdown: React.FC<FileOptionsProps> = ({score, onDelete}) => {
+const FileOptionsDropdown: React.FC<FileOptionsProps> = ({
+  score,
+  onDelete,
+}) => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -36,16 +50,14 @@ const FileOptionsDropdown: React.FC<FileOptionsProps> = ({score, onDelete}) => {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="link">
-            <EllipsisVertical className="xl:size-4"/>
+            <EllipsisVertical className="xl:size-4" />
           </Button>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent className="border rounded-md shadow-lg">
           <DropdownMenuItem
             onSelect={() => setIsConfirmOpen(true)}
-            className={clsx(
-              "px-4 py-2 text-sm text-red-500 cursor-pointer"
-            )}
+            className={clsx("px-4 py-2 text-sm text-red-500 cursor-pointer")}
           >
             Delete
           </DropdownMenuItem>
@@ -59,28 +71,28 @@ const FileOptionsDropdown: React.FC<FileOptionsProps> = ({score, onDelete}) => {
             <DialogTitle>Confirm Deletion</DialogTitle>
           </DialogHeader>
           <DialogDescription asChild>
-            <div
-              className="flex items-center gap-4 bg-gray-50 dark:bg-gray-900/30 border border-gray-300 dark:border-gray-600 p-4 rounded-lg">
-              <FileIcon className="h-8 w-8 text-gray-500"/>
+            <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-900/30 border border-gray-300 dark:border-gray-600 p-4 rounded-lg">
+              <FileIcon className="h-8 w-8 text-gray-500" />
               <div>
-                <h4 className="font-medium text-gray-900 dark:text-white text-sm">{score.title}</h4>
-                <p
-                  className="text-xs text-gray-500 dark:text-gray-400 mt-1">{score.subtitle} • {new Date(score.upload_date).toLocaleDateString()}</p>
+                <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                  {score.title}
+                </h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {score.subtitle} •{" "}
+                  {new Date(score.upload_date).toLocaleDateString()}
+                </p>
               </div>
             </div>
           </DialogDescription>
           <div className="flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => setIsConfirmOpen(false)}
-            >
+            <Button variant="ghost" onClick={() => setIsConfirmOpen(false)}>
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={isDeleting}
-              className={clsx({"opacity-50 cursor-not-allowed": isDeleting})}
+              className={clsx({ "opacity-50 cursor-not-allowed": isDeleting })}
             >
               {isDeleting ? "Deleting..." : "Delete"}
             </Button>

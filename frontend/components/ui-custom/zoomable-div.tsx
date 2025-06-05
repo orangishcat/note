@@ -1,12 +1,18 @@
-import React, {RefObject, useContext, useEffect, useRef, useState} from 'react';
-import {ZoomContext} from '@/app/providers';
+import React, {
+  RefObject,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { ZoomContext } from "@/app/providers";
 
 export default function ZoomableDiv({
-                                      children,
-                                      recenter,
-                                      onScaleChange,
-                                      defaultScale = 1,
-                                    }: {
+  children,
+  recenter,
+  onScaleChange,
+  defaultScale = 1,
+}: {
   children: React.ReactNode;
   recenter: RefObject<HTMLButtonElement>;
   onScaleChange?: (scale: number) => void;
@@ -24,7 +30,7 @@ export default function ZoomableDiv({
   // Get zoom context
   const zoomContext = useContext(ZoomContext);
   // Keep track of the score ID
-  const scoreIdRef = useRef<string>('');
+  const scoreIdRef = useRef<string>("");
 
   // Extract scoreId from parent element's ID
   useEffect(() => {
@@ -32,7 +38,7 @@ export default function ZoomableDiv({
       const parentElement = outerRef.current.closest('[id^="score-"]');
       if (parentElement) {
         const id = parentElement.id;
-        scoreIdRef.current = id.replace('score-', '');
+        scoreIdRef.current = id.replace("score-", "");
       }
     }
   }, []);
@@ -66,7 +72,11 @@ export default function ZoomableDiv({
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const newScale = clamp(scale - e.deltaY * zoomSensitivity, minScale, maxScale);
+        const newScale = clamp(
+          scale - e.deltaY * zoomSensitivity,
+          minScale,
+          maxScale,
+        );
         setScale(newScale);
       }
     };
@@ -84,22 +94,28 @@ export default function ZoomableDiv({
 
     const outer = outerRef.current;
     if (outer) {
-      outer.addEventListener('wheel', handleWheel, {passive: false});
+      outer.addEventListener("wheel", handleWheel, { passive: false });
     }
 
-    recenter.current?.addEventListener('click', handleRecenter);
+    recenter.current?.addEventListener("click", handleRecenter);
 
     return () => {
       if (outer) {
-        outer.removeEventListener('wheel', handleWheel);
+        outer.removeEventListener("wheel", handleWheel);
       }
-      recenter.current?.removeEventListener('click', handleRecenter);
+      recenter.current?.removeEventListener("click", handleRecenter);
     };
   }, [recenter, scale, zoomContext]);
 
   // When scale changes, update the transform, recalc dimensions, and adjust scroll so that the center remains.
   useEffect(() => {
-    if (!innerRef.current || !outerRef.current || originalWidth === null || originalHeight === null) return;
+    if (
+      !innerRef.current ||
+      !outerRef.current ||
+      originalWidth === null ||
+      originalHeight === null
+    )
+      return;
     const outer = outerRef.current;
     const inner = innerRef.current;
 
@@ -110,7 +126,7 @@ export default function ZoomableDiv({
 
     // Apply the scaling transform with origin at the top-left.
     inner.style.transform = `scale(${scale})`;
-    inner.style.transformOrigin = '0 0';
+    inner.style.transformOrigin = "0 0";
 
     // Calculate new effective dimensions.
     const newWidth = originalWidth * scale;

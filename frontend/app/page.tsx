@@ -1,8 +1,7 @@
-"use client"
+"use client";
 
-import FileManager from "./file-manager"
+import FileManager from "./file-manager";
 
 export default function Page() {
-  return <FileManager/>
+  return <FileManager />;
 }
-
