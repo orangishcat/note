@@ -1,0 +1,9 @@
+# AGENTS.md
+
+For agents like OpenAI's Codex and more.
+
+- Respect `.editorconfig` while making changes.
+- Prefer `numpy` over pure Python, but only if the code can be optimized clearly
+  and in an easily readable way.
+- Since the entire Next.js project is in the `frontend` directory, ensure to
+  `cd frontend` before running npm commands.

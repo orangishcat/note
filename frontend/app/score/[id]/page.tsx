@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import {useParams, useRouter} from "next/navigation"
-import React, {useEffect, useRef, useState, useMemo} from "react"
-import Link from "next/link"
+import { useParams, useRouter } from "next/navigation";
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -18,25 +18,29 @@ import {
   Minimize2,
   Share2,
   SquareIcon,
-  Star
-} from "lucide-react"
-import {Button} from "@/components/ui/button"
-import {Layout} from "@/components/layout"
-import MusicXMLRenderer, {MusicScore} from "@/components/music-xml-renderer"
-import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip"
-import {useQuery} from "@tanstack/react-query"
-import BasicTooltip from "@/components/ui-custom/basic-tooltip"
+  Star,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Layout } from "@/components/layout";
+import MusicXMLRenderer, { MusicScore } from "@/components/music-xml-renderer";
+import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
+import { useQuery } from "@tanstack/react-query";
+import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import axios from "axios";
 import ImageScoreRenderer from "@/components/image-score-renderer";
-import protobuf, {Message, Type} from 'protobufjs';
-import log from '@/lib/logger';
-import {setupEditEventHandlers, useEditDisplay} from '@/lib/edit-display';
-import {RecordingError, splitCombinedResponse, useAudioRecorder} from '@/lib/audio-recorder';
-import ComparisonDialog from '@/components/ComparisonDialog';
-import {useToast} from '@/components/ui/toast';
+import protobuf, { Message, Type } from "protobufjs";
+import log from "@/lib/logger";
+import { setupEditEventHandlers, useEditDisplay } from "@/lib/edit-display";
+import {
+  RecordingError,
+  splitCombinedResponse,
+  useAudioRecorder,
+} from "@/lib/audio-recorder";
+import ComparisonDialog from "@/components/ComparisonDialog";
+import { useToast } from "@/components/ui/toast";
 import api from "@/lib/network";
-import {protobufTypeCache, initProtobufTypes} from '@/lib/proto';
-import DebugPanel from '@/components/DebugPanel';
+import { protobufTypeCache, initProtobufTypes } from "@/lib/proto";
+import DebugPanel from "@/components/DebugPanel";
 
 // Add a global type declaration to prevent TypeScript errors
 declare global {
@@ -47,13 +51,14 @@ declare global {
 
 export default function ScorePage() {
   const router = useRouter();
-  const {id} = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>();
   const [score, setScore] = useState<MusicScore>({
     id: "",
     title: "loading",
-    subtitle: "you're not supposed to be seeing this. if you are, good for you.",
+    subtitle:
+      "you're not supposed to be seeing this. if you are, good for you.",
     upload_date: "now",
-    total_pages: 1
+    total_pages: 1,
   });
   const [editList, setEditList] = useState<Message | null>(null);
   const [playedNotes, setPlayedNotes] = useState<Message | null>(null);
@@ -63,9 +68,11 @@ export default function ScorePage() {
   const [isDebugMode, setIsDebugMode] = useState(false); // Default false for server rendering
   const [editsOnPage, setEditsOnPage] = useState(0);
   const [isClient, setIsClient] = useState(false); // Track if we're on client side
-  const [confidenceThreshold, setConfidenceThreshold] = useState(1);
-  const {addToast} = useToast(); // Use the toast context
-  const [recordingCompatible, setRecordingCompatible] = useState<boolean | null>(null);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(3);
+  const { addToast } = useToast(); // Use the toast context
+  const [recordingCompatible, setRecordingCompatible] = useState<
+    boolean | null
+  >(null);
   const hasShownCompatibilityToast = useRef(false);
 
   // Use effect to detect client side rendering and initialize debug mode
@@ -80,16 +87,20 @@ export default function ScorePage() {
       setIsDebugMode(debugEnabled);
     };
 
-    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener("storage", handleStorageChange);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
 
   // State to track protobuf type initialization
-  const [editListType, setEditListType] = useState<Type | null>(protobufTypeCache.EditListType);
-  const [noteListType, setNoteListType] = useState<Type | null>(protobufTypeCache.NoteListType);
+  const [editListType, setEditListType] = useState<Type | null>(
+    protobufTypeCache.EditListType,
+  );
+  const [noteListType, setNoteListType] = useState<Type | null>(
+    protobufTypeCache.NoteListType,
+  );
 
   // Function to refetch protobuf types
   const refetchTypes = async () => {
@@ -119,18 +130,23 @@ export default function ScorePage() {
     async function fetchScore() {
       try {
         const response = await api.get(`/score/data/${id}`);
-        log.debug(`Score data received:`, {id: response.data.id, title: response.data.title});
+        log.debug(`Score data received:`, {
+          id: response.data.id,
+          title: response.data.title,
+        });
         setScore(response.data);
       } catch (error) {
         if (axios.isAxiosError(error)) {
-          log.error(`Failed to fetch score: ${error.response?.status} ${error.response?.statusText}`);
+          log.error(
+            `Failed to fetch score: ${error.response?.status} ${error.response?.statusText}`,
+          );
           if (error.response?.status === 404) {
             // Handle 404 case - redirect to home page
             log.error(`Score with ID ${id} not found`);
-            router.push('/');
+            router.push("/");
           }
         } else {
-          log.error('Error fetching score:', error);
+          log.error("Error fetching score:", error);
         }
       }
     }
@@ -144,31 +160,43 @@ export default function ScorePage() {
   useEffect(() => {
     // Skip if we don't have the score scores yet or already have notes
     if (!score?.id || !score.notes_id || scoreNotes || !noteListType) {
-      log.debug('Skipping score notes fetch due to missing score scores or notes');
+      log.debug(
+        "Skipping score notes fetch due to missing score scores or notes",
+      );
       return;
     }
 
     const fetchScoreNotes = async () => {
       try {
-        log.debug(`Fetching notes for score ID: ${score.id}, notes_id: ${score.notes_id}`);
+        log.debug(
+          `Fetching notes for score ID: ${score.id}, notes_id: ${score.notes_id}`,
+        );
         const response = await api.get(`/score/notes/${score.notes_id}`, {
-          responseType: 'arraybuffer'
+          responseType: "arraybuffer",
         });
 
         const buffer = response.data;
-        log.debug(`Received score notes buffer of size: ${buffer.byteLength} bytes`);
+        log.debug(
+          `Received score notes buffer of size: ${buffer.byteLength} bytes`,
+        );
 
         // Decode the notes
         const dataView = new Uint8Array(buffer);
         const notes = noteListType.decode(dataView);
 
-        log.debug(`Successfully decoded score notes with ${(notes as any).notes?.length || 0} notes`);
+        log.debug(
+          `Successfully decoded score notes with ${
+            (notes as any).notes?.length || 0
+          } notes`,
+        );
         setScoreNotes(notes);
       } catch (error) {
         if (axios.isAxiosError(error)) {
-          log.error(`Failed to fetch score notes: ${error.response?.status} ${error.response?.statusText}`);
+          log.error(
+            `Failed to fetch score notes: ${error.response?.status} ${error.response?.statusText}`,
+          );
         } else {
-          log.error('Error fetching score notes:', error);
+          log.error("Error fetching score notes:", error);
         }
       }
     };
@@ -179,7 +207,12 @@ export default function ScorePage() {
   const filteredEditList = useMemo(() => {
     if (!editList) return null;
     const obj: any = editList;
-    return {...obj, edits: obj.edits.filter((e: any) => (e.sChar?.confidence ?? 5) >= confidenceThreshold)};
+    return {
+      ...obj,
+      edits: obj.edits.filter(
+        (e: any) => (e.sChar?.confidence ?? 5) >= confidenceThreshold,
+      ),
+    };
   }, [editList, confidenceThreshold]);
 
   // Use the edit display hook
@@ -192,18 +225,22 @@ export default function ScorePage() {
     setCurrentPage,
     setEditList,
     editList,
-    currentPage
+    currentPage,
   );
 
   // Check for recording compatibility on component mount
   useEffect(() => {
     // Only run once when the component is mounted on the client
-    if (typeof window !== 'undefined' && recordingCompatible === null) {
+    if (typeof window !== "undefined" && recordingCompatible === null) {
       // Check for iOS and Safari
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-      const isIOSChrome = isIOS && navigator.userAgent.includes('CriOS');
-      const isIOSFirefox = isIOS && navigator.userAgent.includes('FxiOS');
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+        !(window as any).MSStream;
+      const isSafari = /^((?!chrome|android).)*safari/i.test(
+        navigator.userAgent,
+      );
+      const isIOSChrome = isIOS && navigator.userAgent.includes("CriOS");
+      const isIOSFirefox = isIOS && navigator.userAgent.includes("FxiOS");
 
       // iOS devices should use Safari
       if (isIOS && (isIOSChrome || isIOSFirefox)) {
@@ -213,10 +250,11 @@ export default function ScorePage() {
           hasShownCompatibilityToast.current = true;
           setTimeout(() => {
             addToast({
-              title: 'Browser Not Supported',
-              description: 'Recording in Chrome or Firefox on iOS is not supported. Please use Safari instead.',
-              type: 'info',
-              duration: 8000
+              title: "Browser Not Supported",
+              description:
+                "Recording in Chrome or Firefox on iOS is not supported. Please use Safari instead.",
+              type: "info",
+              duration: 8000,
             });
           }, 100);
         }
@@ -227,10 +265,11 @@ export default function ScorePage() {
           hasShownCompatibilityToast.current = true;
           setTimeout(() => {
             addToast({
-              title: 'Microphone Access Required',
-              description: 'On iOS, recording requires microphone permission. Try opening this page directly in Safari.',
-              type: 'info',
-              duration: 8000
+              title: "Microphone Access Required",
+              description:
+                "On iOS, recording requires microphone permission. Try opening this page directly in Safari.",
+              type: "info",
+              duration: 8000,
             });
           }, 100);
         }
@@ -244,40 +283,43 @@ export default function ScorePage() {
 
   // Handle recording errors with more detail
   const handleRecordingError = (error: RecordingError) => {
-    log.error('Recording error:', error);
+    log.error("Recording error:", error);
 
     // Reset recording state when an error occurs
     setIsRecording(false);
 
     // Show error toast with more iOS-specific help
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 
-    if (error.code === 'not_supported' && isIOS) {
+    if (error.code === "not_supported" && isIOS) {
       addToast({
-        title: 'Recording Not Available',
-        description: 'On iOS, please use Safari and make sure the site has microphone permissions. Try opening directly from Safari, not from an app.',
-        type: 'error',
-        duration: 8000
+        title: "Recording Not Available",
+        description:
+          "On iOS, please use Safari and make sure the site has microphone permissions. Try opening directly from Safari, not from an app.",
+        type: "error",
+        duration: 8000,
       });
-    } else if (error.code === 'permission_denied') {
+    } else if (error.code === "permission_denied") {
       addToast({
-        title: 'Microphone Access Denied',
-        description: 'Please allow microphone access to use recording features.',
-        type: 'error',
-        duration: 5000
+        title: "Microphone Access Denied",
+        description:
+          "Please allow microphone access to use recording features.",
+        type: "error",
+        duration: 5000,
       });
     } else {
       addToast({
-        title: 'Recording Failed',
+        title: "Recording Failed",
         description: error.message,
-        type: 'error',
-        duration: 5000
+        type: "error",
+        duration: 5000,
       });
     }
   };
 
   // Initialize the hook without pulling out start/stop
-  const {hasPermission} = useAudioRecorder({
+  const { hasPermission } = useAudioRecorder({
     isRecording,
     EditListType: editListType,
     NoteListType: noteListType,
@@ -286,12 +328,12 @@ export default function ScorePage() {
     refetchTypes,
     scoreId: id as string,
     notesId: score.notes_id as string,
-    onError: handleRecordingError
+    onError: handleRecordingError,
   });
 
   const toggleRecording = () => {
-    log.debug(isRecording ? 'Stopping recording' : 'Starting recording');
-    setIsRecording(prev => !prev);
+    log.debug(isRecording ? "Stopping recording" : "Starting recording");
+    setIsRecording((prev) => !prev);
   };
 
   // Function to show recording help toast
@@ -302,23 +344,26 @@ export default function ScorePage() {
     }
 
     hasShownCompatibilityToast.current = true;
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 
     // Use setTimeout to break potential render loops
     setTimeout(() => {
       if (isIOS) {
         addToast({
-          title: 'iOS Recording Requirements',
-          description: 'Recording requires Safari browser. Please open this page directly in Safari, not from within apps like Instagram or Facebook.',
-          type: 'info',
-          duration: 8000
+          title: "iOS Recording Requirements",
+          description:
+            "Recording requires Safari browser. Please open this page directly in Safari, not from within apps like Instagram or Facebook.",
+          type: "info",
+          duration: 8000,
         });
       } else {
         addToast({
-          title: 'Recording Not Supported',
-          description: 'Your browser does not support recording. Please try a different browser like Chrome or Safari.',
-          type: 'info',
-          duration: 5000
+          title: "Recording Not Supported",
+          description:
+            "Your browser does not support recording. Please try a different browser like Chrome or Safari.",
+          type: "info",
+          duration: 5000,
         });
       }
     }, 100);
@@ -351,16 +396,20 @@ export default function ScorePage() {
   const onStarToggle = (score: MusicScore) => {
     setLastStarTime(Date.now());
     if (Date.now() - lastStarTime < 700) return;
-    setScore({...score, starred: !score.starred});
-    api.post(`/score/star/${score.id}`, {starred: !score.starred}).catch(log.error);
-  }
+    setScore({ ...score, starred: !score.starred });
+    api
+      .post(`/score/star/${score.id}`, { starred: !score.starred })
+      .catch(log.error);
+  };
 
-  const {data: loadedScore, refetch} = useQuery({
+  const { data: loadedScore, refetch } = useQuery({
     queryKey: ["score_" + id],
     queryFn: async () => {
       // Prevent duplicate API calls during StrictMode's double-render or if we already have scores
       if (fetchedDataRef.current || score.id) {
-        log.debug('Preventing duplicate score scores fetch - using existing scores');
+        log.debug(
+          "Preventing duplicate score scores fetch - using existing scores",
+        );
         return score.id ? score : null;
       }
 
@@ -372,10 +421,10 @@ export default function ScorePage() {
         const response = await api.get<MusicScore>(`/score/data/${id}`);
         return response.data;
       } catch (error) {
-        log.error('Error in React Query fetch:', error);
+        log.error("Error in React Query fetch:", error);
         if (axios.isAxiosError(error) && error.response?.status === 404) {
           log.error(`Score with ID ${id} not found`);
-          router.push('/');
+          router.push("/");
         }
         return null;
       }
@@ -441,8 +490,8 @@ export default function ScorePage() {
     };
 
     // Add listeners for fullscreen mode
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('touchmove', handleTouchMove as EventListener);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("touchmove", handleTouchMove as EventListener);
 
     // Initialize timeout for top bar hiding (dock stays visible)
     mouseMoveTimeoutRef.current = setTimeout(() => {
@@ -451,8 +500,8 @@ export default function ScorePage() {
 
     // Cleanup function
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchmove', handleTouchMove as EventListener);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("touchmove", handleTouchMove as EventListener);
       if (mouseMoveTimeoutRef.current) {
         clearTimeout(mouseMoveTimeoutRef.current);
       }
@@ -461,10 +510,10 @@ export default function ScorePage() {
 
   // Check URL for fullscreen param on initial load
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
-      const fullscreenParam = url.searchParams.get('fullscreen');
-      if (fullscreenParam === 'true') {
+      const fullscreenParam = url.searchParams.get("fullscreen");
+      if (fullscreenParam === "true") {
         setIsFullscreen(true);
       }
     }
@@ -478,23 +527,23 @@ export default function ScorePage() {
   useEffect(() => {
     const handlePageInfo = (event: Event) => {
       const customEvent = event as CustomEvent;
-      const {totalPages, scoreId} = customEvent.detail;
+      const { totalPages, scoreId } = customEvent.detail;
 
       if (scoreId === id || scoreId === score.file_id) {
         setTotalPages(totalPages);
         // Update score object with totalPages
-        setScore(prevScore => ({
+        setScore((prevScore) => ({
           ...prevScore,
-          total_pages: totalPages
+          total_pages: totalPages,
         }));
       }
     };
 
     // Listen for page info events
-    document.addEventListener('score:pageInfo', handlePageInfo);
+    document.addEventListener("score:pageInfo", handlePageInfo);
 
     return () => {
-      document.removeEventListener('score:pageInfo', handlePageInfo);
+      document.removeEventListener("score:pageInfo", handlePageInfo);
     };
   }, [id, score.file_id]);
 
@@ -531,7 +580,7 @@ export default function ScorePage() {
   const ControlDock = () => {
     // Calculate which page we're viewing based on current page (0-indexed) + 1
     const currentDisplayPage = currentPage + 1;
-    const totalPages = score && score.total_pages ? score.total_pages : '?';
+    const totalPages = score && score.total_pages ? score.total_pages : "?";
 
     // Track if we're on a small screen for responsive UI
     const [isSmallScreen, setIsSmallScreen] = useState(false);
@@ -544,47 +593,68 @@ export default function ScorePage() {
 
       // Check on mount and resize
       checkScreenSize();
-      window.addEventListener('resize', checkScreenSize);
+      window.addEventListener("resize", checkScreenSize);
 
-      return () => window.removeEventListener('resize', checkScreenSize);
+      return () => window.removeEventListener("resize", checkScreenSize);
     }, []);
 
     return (
       <div
         ref={dockRef}
-        className={`absolute w-full flex justify-center bottom-8 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 ${showDock ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`absolute w-full flex justify-center bottom-8 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 ${
+          showDock ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div
-          className={`flex flex-wrap items-center bg-gray-800/50 backdrop-blur-sm rounded-full ${isSmallScreen ? 'p-2' : 'p-3'} shadow-lg max-w-[95vw] overflow-hidden`}>
+          className={`flex flex-wrap items-center bg-gray-800/50 backdrop-blur-sm rounded-full ${
+            isSmallScreen ? "p-2" : "p-3"
+          } shadow-lg max-w-[95vw] overflow-hidden`}
+        >
           {/* Record button with compatibility indicator */}
-          <BasicTooltip text={
-            recordingCompatible === false
-              ? "Recording not supported in this browser"
-              : isRecording
-                ? "Stop recording"
-                : "Start recording"
-          }>
+          <BasicTooltip
+            text={
+              recordingCompatible === false
+                ? "Recording not supported in this browser"
+                : isRecording
+                  ? "Stop recording"
+                  : "Start recording"
+            }
+          >
             <Button
-              onClick={recordingCompatible === false ? showRecordingHelp : toggleRecording}
+              onClick={
+                recordingCompatible === false
+                  ? showRecordingHelp
+                  : toggleRecording
+              }
               className={`
-                          ${isRecording ? 'bg-red-600' : recordingCompatible === false ? 'bg-amber-600' : 'bg-primary'} 
-                          text-white 
-                          ${isSmallScreen ? 'w-10 h-10' : 'w-14 h-14'} 
-                          rounded-full 
-                          flex items-center justify-center 
-                          ${isSmallScreen ? 'mr-1' : 'mr-3'}
+                          ${
+                            isRecording
+                              ? "bg-red-600"
+                              : recordingCompatible === false
+                                ? "bg-amber-600"
+                                : "bg-primary"
+                          }
+                          text-white
+                          ${isSmallScreen ? "w-10 h-10" : "w-14 h-14"}
+                          rounded-full
+                          flex items-center justify-center
+                          ${isSmallScreen ? "mr-1" : "mr-3"}
                           relative
                         `}
               disabled={recordingCompatible === false}
             >
               {isRecording ? (
-                <SquareIcon className={`${isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}`}/>
+                <SquareIcon
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                />
               ) : recordingCompatible === false ? (
-                <AlertTriangle className={`${isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}`}/>
+                <AlertTriangle
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                />
               ) : (
-                <Mic className={`${isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}`}/>
+                <Mic className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
               )}
             </Button>
           </BasicTooltip>
@@ -595,14 +665,18 @@ export default function ScorePage() {
               onClick={() => setShowRecordingsModal(!showRecordingsModal)}
               variant="ghost"
               size="icon"
-              className={`text-white ${isSmallScreen ? 'mr-1' : 'mr-3'}`}
+              className={`text-white ${isSmallScreen ? "mr-1" : "mr-3"}`}
             >
-              <Clock className={`${isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}`}/>
+              <Clock className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
             </Button>
           </BasicTooltip>
 
           {/* Divider */}
-          <div className={`h-10 w-px bg-gray-400 ${isSmallScreen ? 'mx-1' : 'mx-3'}`}></div>
+          <div
+            className={`h-10 w-px bg-gray-400 ${
+              isSmallScreen ? "mx-1" : "mx-3"
+            }`}
+          ></div>
 
           {/* Previous page */}
           <BasicTooltip text="Previous page">
@@ -613,13 +687,18 @@ export default function ScorePage() {
               className="text-white"
               disabled={currentPage <= 0}
             >
-              <ArrowLeftCircle className={`${isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}`}/>
+              <ArrowLeftCircle
+                className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+              />
             </Button>
           </BasicTooltip>
 
           {/* Page counter */}
           <div
-            className={`${isSmallScreen ? 'px-1 text-sm' : 'px-4'} text-white font-medium whitespace-nowrap`}>
+            className={`${
+              isSmallScreen ? "px-1 text-sm" : "px-4"
+            } text-white font-medium whitespace-nowrap`}
+          >
             {currentDisplayPage} / {totalPages}
           </div>
 
@@ -629,14 +708,20 @@ export default function ScorePage() {
               onClick={goToNextPage}
               variant="ghost"
               size="icon"
-              className={`text-white ${isSmallScreen ? 'mr-1' : 'mr-3'}`}
+              className={`text-white ${isSmallScreen ? "mr-1" : "mr-3"}`}
             >
-              <ArrowRightCircle className={`${isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}`}/>
+              <ArrowRightCircle
+                className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+              />
             </Button>
           </BasicTooltip>
 
           {/* Divider */}
-          <div className={`h-10 w-px bg-gray-400 ${isSmallScreen ? 'mx-1' : 'mx-3'}`}></div>
+          <div
+            className={`h-10 w-px bg-gray-400 ${
+              isSmallScreen ? "mx-1" : "mx-3"
+            }`}
+          ></div>
 
           {/* Reset zoom button */}
           <BasicTooltip text="Reset zoom">
@@ -644,22 +729,33 @@ export default function ScorePage() {
               variant="ghost"
               size="icon"
               ref={recenterButton}
-              className={`text-white ${isSmallScreen ? 'mr-1' : 'mr-3'}`}
+              className={`text-white ${isSmallScreen ? "mr-1" : "mr-3"}`}
             >
-              <Fullscreen className={`${isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}`}/>
+              <Fullscreen
+                className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+              />
             </Button>
           </BasicTooltip>
 
           {/* Fullscreen toggle */}
-          <BasicTooltip text={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
+          <BasicTooltip
+            text={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          >
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleFullscreen}
-              className={`text-white ${isSmallScreen ? 'mr-1' : 'mr-3'}`}
+              className={`text-white ${isSmallScreen ? "mr-1" : "mr-3"}`}
             >
-              {isFullscreen ? <Minimize2 className={`${isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}`}/> :
-                <Maximize2 className={`${isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}`}/>}
+              {isFullscreen ? (
+                <Minimize2
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                />
+              ) : (
+                <Maximize2
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                />
+              )}
             </Button>
           </BasicTooltip>
 
@@ -672,8 +768,13 @@ export default function ScorePage() {
                 onClick={toggleDockVisibility}
                 className="text-white"
               >
-                {showDock ? <EyeOff className={`${isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}`}/> :
-                  <Eye className={`${isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}`}/>}
+                {showDock ? (
+                  <EyeOff
+                    className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                  />
+                ) : (
+                  <Eye className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                )}
               </Button>
             </BasicTooltip>
           )}
@@ -682,12 +783,18 @@ export default function ScorePage() {
         {/* Recordings modal - appears above the button */}
         {showRecordingsModal && (
           <div
-            className={`absolute bottom-20 ${isSmallScreen ? 'left-2 right-2 w-auto' : 'left-[calc(25%)] w-64'} bg-gray-800/50 backdrop-blur-sm text-white rounded-lg shadow-lg p-4`}
+            className={`absolute bottom-20 ${
+              isSmallScreen ? "left-2 right-2 w-auto" : "left-[calc(25%)] w-64"
+            } bg-gray-800/50 backdrop-blur-sm text-white rounded-lg shadow-lg p-4`}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="text-center mb-2 font-semibold">Previous Recordings</div>
-            <div className="text-center text-gray-300 italic">No recordings yet</div>
+            <div className="text-center mb-2 font-semibold">
+              Previous Recordings
+            </div>
+            <div className="text-center text-gray-300 italic">
+              No recordings yet
+            </div>
             {/* Arrow pointing to button */}
             <div className="absolute -bottom-2 left-12 w-4 h-4 bg-gray-800/50 transform rotate-45"></div>
           </div>
@@ -709,85 +816,113 @@ export default function ScorePage() {
 
       // Check on mount and resize
       checkScreenSize();
-      window.addEventListener('resize', checkScreenSize);
+      window.addEventListener("resize", checkScreenSize);
 
-      return () => window.removeEventListener('resize', checkScreenSize);
+      return () => window.removeEventListener("resize", checkScreenSize);
     }, []);
 
-    return <div
-      className={`absolute top-0 left-0 right-0 z-10 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-      onMouseEnter={() => setShowControls(true)}
-    >
+    return (
       <div
-        className={`flex items-center justify-between ${isSmallScreen ? 'p-2' : 'p-4'} bg-white ${isFullscreen ? "dark:bg-gray-800" : "dark:bg-inherit"}`}>
-        <div className="flex gap-2 place-items-center overflow-hidden">
-          {isFullscreen ? (
-            <Button variant="ghost" size="icon" onClick={toggleFullscreen}
-                    className={isSmallScreen ? 'h-8 w-8 mr-1' : ''}>
-              <Minimize2 className={isSmallScreen ? 'h-4 w-4' : 'h-5 w-5'}/>
-            </Button>
-          ) : (
-            <Link href="/" className="text-muted-foreground">
-              <ArrowLeft className={isSmallScreen ? 'h-4 w-4' : 'h-6 w-6'}/>
-            </Link>
-          )}
-          <p
-            className={`${isFullscreen ? 'text-xl text-white dark:text-white' : 'text-2xl'} ${isSmallScreen ? 'text-sm' : ''} ml-1 truncate`}>
-            {score.title}
-            {score.subtitle && !isSmallScreen && (
-              <span
-                className={`${isFullscreen ? 'text-gray-300 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'} ml-2`}>
-                                {score.subtitle}
-                            </span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-x-1">
-          <BasicTooltip text="Download">
-            <Button
-              variant="ghost"
-              onClick={() => window.open(`/score/download/${score.id}`)}
-              className={isSmallScreen ? 'h-8 w-8' : ''}
-            >
-              <Download className={isSmallScreen ? 'h-3 w-3' : 'h-4 w-4'}/>
-            </Button>
-          </BasicTooltip>
-          <BasicTooltip text="Star">
-            <Button
-              variant="ghost"
-              onClick={() => onStarToggle(score)}
-              className={isSmallScreen ? 'h-8 w-8' : ''}
-            >
-              <Star
-                className={`${isSmallScreen ? 'h-3 w-3' : 'size-4'} ${score.starred ? "text-yellow-400 fill-yellow-400" : isFullscreen ? "text-white" : "text-black dark:text-white"}`}/>
-            </Button>
-          </BasicTooltip>
-          {!isFullscreen && (
-            <BasicTooltip text="Enter fullscreen">
+        className={`absolute top-0 left-0 right-0 z-10 transition-opacity duration-300 ${
+          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        onMouseEnter={() => setShowControls(true)}
+      >
+        <div
+          className={`flex items-center justify-between ${
+            isSmallScreen ? "p-2" : "p-4"
+          } bg-white ${isFullscreen ? "dark:bg-gray-800" : "dark:bg-inherit"}`}
+        >
+          <div className="flex gap-2 place-items-center overflow-hidden">
+            {isFullscreen ? (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={toggleFullscreen}
-                className={isSmallScreen ? 'h-8 w-8' : ''}
+                className={isSmallScreen ? "h-8 w-8 mr-1" : ""}
               >
-                <Maximize2 className={isSmallScreen ? 'h-3 w-3' : 'h-4 w-4'}/>
+                <Minimize2 className={isSmallScreen ? "h-4 w-4" : "h-5 w-5"} />
               </Button>
-            </BasicTooltip>
-          )}
-          {!isFullscreen && !isSmallScreen && (
-            <NotImplementedTooltip>
+            ) : (
+              <Link href="/" className="text-muted-foreground">
+                <ArrowLeft className={isSmallScreen ? "h-4 w-4" : "h-6 w-6"} />
+              </Link>
+            )}
+            <p
+              className={`${
+                isFullscreen ? "text-xl text-white dark:text-white" : "text-2xl"
+              } ${isSmallScreen ? "text-sm" : ""} ml-1 truncate`}
+            >
+              {score.title}
+              {score.subtitle && !isSmallScreen && (
+                <span
+                  className={`${
+                    isFullscreen
+                      ? "text-gray-300 dark:text-gray-300"
+                      : "text-gray-500 dark:text-gray-400"
+                  } ml-2`}
+                >
+                  {score.subtitle}
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-x-1">
+            <BasicTooltip text="Download">
               <Button
                 variant="ghost"
-                disabled
-                className={isSmallScreen ? 'h-8 w-8' : ''}
+                onClick={() => window.open(`/score/download/${score.id}`)}
+                className={isSmallScreen ? "h-8 w-8" : ""}
               >
-                <Share2 className={isSmallScreen ? 'h-3 w-3' : 'h-4 w-4'}/>
+                <Download className={isSmallScreen ? "h-3 w-3" : "h-4 w-4"} />
               </Button>
-            </NotImplementedTooltip>
-          )}
+            </BasicTooltip>
+            <BasicTooltip text="Star">
+              <Button
+                variant="ghost"
+                onClick={() => onStarToggle(score)}
+                className={isSmallScreen ? "h-8 w-8" : ""}
+              >
+                <Star
+                  className={`${isSmallScreen ? "h-3 w-3" : "size-4"} ${
+                    score.starred
+                      ? "text-yellow-400 fill-yellow-400"
+                      : isFullscreen
+                        ? "text-white"
+                        : "text-black dark:text-white"
+                  }`}
+                />
+              </Button>
+            </BasicTooltip>
+            {!isFullscreen && (
+              <BasicTooltip text="Enter fullscreen">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleFullscreen}
+                  className={isSmallScreen ? "h-8 w-8" : ""}
+                >
+                  <Maximize2
+                    className={isSmallScreen ? "h-3 w-3" : "h-4 w-4"}
+                  />
+                </Button>
+              </BasicTooltip>
+            )}
+            {!isFullscreen && !isSmallScreen && (
+              <NotImplementedTooltip>
+                <Button
+                  variant="ghost"
+                  disabled
+                  className={isSmallScreen ? "h-8 w-8" : ""}
+                >
+                  <Share2 className={isSmallScreen ? "h-3 w-3" : "h-4 w-4"} />
+                </Button>
+              </NotImplementedTooltip>
+            )}
+          </div>
         </div>
       </div>
-    </div>;
+    );
   }
 
   // When in fullscreen mode
@@ -795,37 +930,25 @@ export default function ScorePage() {
     return (
       <div className="w-full h-screen overflow-hidden bg-gray-900">
         {/* Top bar */}
-        <TopBar/>
+        <TopBar />
 
         {/* Main score renderer - fills entire screen */}
         <div className="h-full w-full relative">
           {score && score.id && score.file_id ? (
-            score.is_mxl ?
+            score.is_mxl ? (
               <MusicXMLRenderer
                 scoreId={score.file_id}
                 recenter={recenterButton}
                 retry={() => {
-                  log.debug('Retry requested for MusicXMLRenderer, limiting frequency');
+                  log.debug(
+                    "Retry requested for MusicXMLRenderer, limiting frequency",
+                  );
                   // Debounce the refetch to prevent request spam
-                  if (window.lastRefetchTime && Date.now() - window.lastRefetchTime < 5000) {
-                    log.debug('Skipping refetch due to rate limiting');
-                    return;
-                  }
-                  window.lastRefetchTime = Date.now();
-                  refetch();
-                }}
-                isFullscreen={isFullscreen}
-                currentPage={currentPage}
-                pagesPerView={1}
-              /> :
-              <ImageScoreRenderer
-                scoreId={score.id}
-                recenter={recenterButton}
-                retry={() => {
-                  log.debug('Retry requested for ImageScoreRenderer, limiting frequency');
-                  // Debounce the refetch to prevent request spam
-                  if (window.lastRefetchTime && Date.now() - window.lastRefetchTime < 5000) {
-                    log.debug('Skipping refetch due to rate limiting');
+                  if (
+                    window.lastRefetchTime &&
+                    Date.now() - window.lastRefetchTime < 5000
+                  ) {
+                    log.debug("Skipping refetch due to rate limiting");
                     return;
                   }
                   window.lastRefetchTime = Date.now();
@@ -835,10 +958,36 @@ export default function ScorePage() {
                 currentPage={currentPage}
                 pagesPerView={1}
               />
-          ) : ""}
+            ) : (
+              <ImageScoreRenderer
+                scoreId={score.id}
+                recenter={recenterButton}
+                retry={() => {
+                  log.debug(
+                    "Retry requested for ImageScoreRenderer, limiting frequency",
+                  );
+                  // Debounce the refetch to prevent request spam
+                  if (
+                    window.lastRefetchTime &&
+                    Date.now() - window.lastRefetchTime < 5000
+                  ) {
+                    log.debug("Skipping refetch due to rate limiting");
+                    return;
+                  }
+                  window.lastRefetchTime = Date.now();
+                  refetch();
+                }}
+                isFullscreen={isFullscreen}
+                currentPage={currentPage}
+                pagesPerView={1}
+              />
+            )
+          ) : (
+            ""
+          )}
 
           {/* Control dock */}
-          <ControlDock/>
+          <ControlDock />
 
           {/* Debug panel - only render on client side */}
           {isClient && isDebugMode && (
@@ -870,7 +1019,7 @@ export default function ScorePage() {
                   className="bg-gray-800/50 backdrop-blur-sm text-white rounded-full w-12 h-12 shadow-lg"
                   onClick={() => setShowDock(true)}
                 >
-                  <Eye className="h-6 w-6"/>
+                  <Eye className="h-6 w-6" />
                 </Button>
               </BasicTooltip>
             </div>
@@ -885,36 +1034,25 @@ export default function ScorePage() {
     <Layout>
       <div className="relative h-[calc(100vh-5rem)]">
         {/* Top bar - same in both modes */}
-        <TopBar/>
+        <TopBar />
 
         {/* Main score renderer - fills entire screen */}
         <div className="h-full w-full pt-16 relative">
           {score && score.id && score.file_id ? (
-            score.is_mxl ?
+            score.is_mxl ? (
               <MusicXMLRenderer
                 scoreId={score.file_id}
                 recenter={recenterButton}
                 retry={() => {
-                  log.debug('Retry requested for MusicXMLRenderer, limiting frequency');
+                  log.debug(
+                    "Retry requested for MusicXMLRenderer, limiting frequency",
+                  );
                   // Debounce the refetch to prevent request spam
-                  if (window.lastRefetchTime && Date.now() - window.lastRefetchTime < 5000) {
-                    log.debug('Skipping refetch due to rate limiting');
-                    return;
-                  }
-                  window.lastRefetchTime = Date.now();
-                  refetch();
-                }}
-                currentPage={currentPage}
-                pagesPerView={1}
-              /> :
-              <ImageScoreRenderer
-                scoreId={score.id}
-                recenter={recenterButton}
-                retry={() => {
-                  log.debug('Retry requested for ImageScoreRenderer, limiting frequency');
-                  // Debounce the refetch to prevent request spam
-                  if (window.lastRefetchTime && Date.now() - window.lastRefetchTime < 5000) {
-                    log.debug('Skipping refetch due to rate limiting');
+                  if (
+                    window.lastRefetchTime &&
+                    Date.now() - window.lastRefetchTime < 5000
+                  ) {
+                    log.debug("Skipping refetch due to rate limiting");
                     return;
                   }
                   window.lastRefetchTime = Date.now();
@@ -923,10 +1061,35 @@ export default function ScorePage() {
                 currentPage={currentPage}
                 pagesPerView={1}
               />
-          ) : ""}
+            ) : (
+              <ImageScoreRenderer
+                scoreId={score.id}
+                recenter={recenterButton}
+                retry={() => {
+                  log.debug(
+                    "Retry requested for ImageScoreRenderer, limiting frequency",
+                  );
+                  // Debounce the refetch to prevent request spam
+                  if (
+                    window.lastRefetchTime &&
+                    Date.now() - window.lastRefetchTime < 5000
+                  ) {
+                    log.debug("Skipping refetch due to rate limiting");
+                    return;
+                  }
+                  window.lastRefetchTime = Date.now();
+                  refetch();
+                }}
+                currentPage={currentPage}
+                pagesPerView={1}
+              />
+            )
+          ) : (
+            ""
+          )}
 
           {/* Control dock */}
-          <ControlDock/>
+          <ControlDock />
 
           {/* Debug panel - only render on client side */}
           {isClient && isDebugMode && (

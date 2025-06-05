@@ -1,10 +1,9 @@
-from time import time
-
 import numpy as np
 from loguru import logger
 from numba import njit
 from numpy._typing import NDArray
 from scoring import extract_midi_notes, extract_pb_notes
+from timer import timeit
 
 from .notes_patch import *
 
@@ -14,17 +13,6 @@ ROUND_TO = 0.1
 MAX_MOVE_SWAP = 5
 MOVE_SWAP_COST = 1
 OP_COST = 5
-
-
-def timeit():
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            start = time()
-            result = func(*args, **kwargs)
-            logger.info(f"{func.__name__}: {(time() - start) * 1e3:.3f}ms")
-            return result
-        return wrapper
-    return decorator
 
 
 def key(note):
@@ -38,10 +26,13 @@ def preprocess(s: list[Note], t: list[Note]):
     t.sort(key=key)
     s_pitches = np.fromiter((n.pitch for n in s), dtype=np.int64)
     t_pitches = np.fromiter((n.pitch for n in t), dtype=np.int64)
-    return s_pitches, t_pitches
+    s_times = np.fromiter((n.start_time for n in s), dtype=np.float32)
+    t_times = np.fromiter((n.start_time for n in t), dtype=np.float32)
+    return s_pitches, t_pitches, s_times, t_times
 
 
 # noinspection PyTypeChecker
+@timeit()
 @njit
 def compute_dp(s_pitches, t_pitches):
     n = s_pitches.shape[0]
@@ -92,12 +83,11 @@ def compute_dp(s_pitches, t_pitches):
     return dp
 
 
-@njit
-def backtrack(dp, s_pitches, t_pitches):
-    from numba.typed import List
-
-    edits = List()
-    aligned_indices = List()
+# noinspection PyTypeChecker
+@timeit()
+def backtrack(dp, s, t, s_pitches, t_pitches):
+    edit_list = EditList()
+    aligned_indices = []
     n, m = s_pitches.shape[0], t_pitches.shape[0]
     i = int(np.argmin(dp[:, m]))
     j = m
@@ -106,21 +96,48 @@ def backtrack(dp, s_pitches, t_pitches):
         if dp[i, j] == dp[i - 1, j - 1] + sub_cost:
             aligned_indices.append((i - 1, j - 1))
             if sub_cost:
-                edits.append((EditOperation.SUBSTITUTE, i - 1, i - 1, j - 1, j - 1))
+                edit_list.edits.append(
+                    Edit(
+                        operation=EditOperation.SUBSTITUTE,
+                        pos=i - 1,
+                        s_char=s[i - 1],
+                        t_char=t[j - 1],
+                        t_pos=j - 1,
+                    )
+                )
             i -= 1
             j -= 1
             continue
+
+        # 2) deletion
         if dp[i, j] == dp[i - 1, j] + OP_COST:
-            edits.append((EditOperation.DELETE, i - 1, i - 1, -1, j))
+            edit_list.edits.append(
+                Edit(
+                    operation=EditOperation.DELETE, pos=i - 1, s_char=s[i - 1], t_pos=j
+                )
+            )
             i -= 1
             continue
+
+        # 3) insertion
         if dp[i, j] == dp[i, j - 1] + OP_COST:
-            edits.append((EditOperation.INSERT, i, i - 1, j - 1, j - 1))
+            edit_list.edits.append(
+                Edit(
+                    operation=EditOperation.INSERT,
+                    pos=i,
+                    s_char=s[i - 1],
+                    t_char=t[j - 1],
+                    t_pos=j - 1,
+                )
+            )
             j -= 1
             continue
+
+        # 4) move backward (find if note was moved earlier in target)
         moved_backward = False
         for k in range(1, MAX_MOVE_SWAP + 1):
             if j - 1 - k >= 0 and dp[i, j] == dp[i - 1, j - 1 - k] + MOVE_SWAP_COST:
+                # Record aligned indices for moved notes
                 aligned_indices.append((i - 1, j - 1 - k))
                 i -= 1
                 j -= 1 + k
@@ -128,9 +145,12 @@ def backtrack(dp, s_pitches, t_pitches):
                 break
         if moved_backward:
             continue
+
+        # 5) move forward (find if note was moved later in target)
         moved_forward = False
         for k in range(1, MAX_MOVE_SWAP + 1):
             if j + k <= m and dp[i, j] == dp[i - 1, j + k] + MOVE_SWAP_COST:
+                # Record aligned indices for moved notes
                 aligned_indices.append((i - 1, j + k))
                 i -= 1
                 j += k
@@ -138,6 +158,8 @@ def backtrack(dp, s_pitches, t_pitches):
                 break
         if moved_forward:
             continue
+
+        # 6) swap (no record)
         swapped = False
         for k in range(1, MAX_MOVE_SWAP + 1):
             if (
@@ -147,6 +169,7 @@ def backtrack(dp, s_pitches, t_pitches):
                 and s_pitches[i - 1] == t_pitches[j - 1 - k]
                 and s_pitches[i - 1 - k] == t_pitches[j - 1]
             ):
+                # Record aligned indices for swapped notes
                 aligned_indices.append((i - 1, j - 1 - k))
                 aligned_indices.append((i - 1 - k, j - 1))
                 i -= 1 + k
@@ -155,28 +178,36 @@ def backtrack(dp, s_pitches, t_pitches):
                 break
         if swapped:
             continue
+
+        # Should never get here
         raise RuntimeError(f"Backtrack stuck at dp[{i},{j}]")
 
+    # leftover insertions at start of t
     while j > 0:
-        edits.append((EditOperation.INSERT, 0, -1, j - 1, j - 1))
+        edit_list.edits.append(
+            Edit(
+                operation=EditOperation.INSERT,
+                pos=0,
+                s_char=s[j - 1],
+                t_char=t[j - 1],
+                t_pos=j - 1,
+            )
+        )
         j -= 1
 
-    edits.reverse()
+    edit_list.edits.reverse()
     aligned_indices.reverse()
-    return edits, aligned_indices
+    return edit_list, aligned_indices
 
 
-@timeit()
-def postprocess(edits, s):
-    times = np.fromiter((note.start_time for note in s), dtype=np.float32)
-    pitches = np.fromiter((note.pitch for note in s), dtype=np.int16)
+def adjust_confidence(edit_list: EditList, times, pitches):
     order = np.argsort(times)
     times = times[order]
     pitches = pitches[order]
-    filtered = []
-    for edit in edits:
-        if edit["operation"] == EditOperation.DELETE:
-            note = edit["s_char"]
+    for edit in edit_list.edits:
+        note = edit.s_char
+        note.confidence = 5
+        if edit.operation == EditOperation.DELETE:
             start = note.start_time - OCTAVE_CHECK_SECS
             end = note.start_time + OCTAVE_CHECK_SECS
             lo = np.searchsorted(times, start, side="left")
@@ -184,33 +215,17 @@ def postprocess(edits, s):
             local = pitches[lo:hi]
             if np.any(local == note.pitch + 12) or np.any(local == note.pitch - 12):
                 note.confidence = 3
-        filtered.append(edit)
-    return filtered
+            elif np.any(local == note.pitch + 4) or np.any(local == note.pitch - 4):
+                note.confidence = 4
 
 
-def to_proto(edits):
-    edit_list = EditList()
-    for e in edits:
-        edit_list.edits.append(Edit(**e))
+@timeit()
+def postprocess(edit_list: EditList, s_times, s_pitches):
+    adjust_confidence(edit_list, s_times, s_pitches)
     return edit_list
 
 
-def tuples_to_dicts(edits, s, t):
-    result = []
-    for op, pos, s_idx, t_idx, t_pos in edits:
-        d = {"operation": EditOperation(op), "pos": pos, "t_pos": t_pos}
-        if s_idx >= 0:
-            d["s_char"] = s[s_idx]
-        if t_idx >= 0:
-            d["t_char"] = t[t_idx]
-        result.append(d)
-    return result
-
-
-# noinspection PyTypeChecker
-def find_operations(
-    s: list[Note], t: list[Note]
-) -> tuple[EditList, list[tuple[int, int]]]:
+def find_ops(s: list[Note], t: list[Note]) -> tuple[EditList, list[tuple[int, int]]]:
     """
     Computes the minimum edit distance (by pitch) from s → t,
     allowing free trimming at start/end of s, and returns a tuple of:
@@ -222,15 +237,13 @@ def find_operations(
 
     assert n + m < 10000, "Too big"
 
-    # preprocess
-    s_pitches, t_pitches = preprocess(s, t)
-
+    s_pitches, t_pitches, s_times, t_times = preprocess(s, t)
     dp = compute_dp(s_pitches, t_pitches)
+    edit_list, aligned_indices = backtrack(dp, s, t, s_pitches, t_pitches)
+    edit_list = postprocess(edit_list, s_times, s_pitches)
 
-    edits_raw, aligned_indices = backtrack(dp, s_pitches, t_pitches)
-    edits = tuples_to_dicts(edits_raw, s, t)
-    edits = postprocess(edits, s)
-    edit_list = to_proto(edits)
+    logger.info("Edits: {}", edit_list.edits[:20])
+    logger.info("Aligned indices: {}", aligned_indices[:20])
     return edit_list, aligned_indices
 
 
@@ -238,19 +251,19 @@ def print_wrong_notes(edit_list, limit=99999):
     """
     Prints only the edits that incur cost.
     """
-    logger.info("Edit operations:")
+    print("Edit operations:")
     for i, edit in enumerate(edit_list.edits[:limit]):
         op = edit.operation
         if op == EditOperation.SUBSTITUTE:
-            logger.info(
+            print(
                 f"Wrong '{edit.s_char}' → '{edit.t_char}' at source pos {edit.pos}, target pos {edit.t_pos}."
             )
         elif op == EditOperation.DELETE:
-            logger.info(
+            print(
                 f"Delete '{edit.s_char}' at source pos {edit.pos}, target pos {edit.t_pos}."
             )
         elif op == EditOperation.INSERT:
-            logger.info(
+            print(
                 f"Insert '{edit.t_char}' at source pos {edit.pos}, target pos {edit.t_pos}."
             )
 
@@ -264,12 +277,12 @@ if __name__ == "__main__":
     with open(actual, "rb") as f:
         actual_notes = extract_pb_notes(f.read()).notes
 
-    edit_list, aligned_indices = find_operations(actual_notes, played_notes)
+    edit_list, aligned_indices = find_ops(actual_notes, played_notes)
 
-    logger.info("Lengths:", len(played_notes), len(actual_notes))
-    logger.info("Distance:", len(edit_list.edits))
-    logger.info("Aligned pairs:", len(aligned_indices))
+    print("Lengths:", len(played_notes), len(actual_notes))
+    print("Distance:", len(edit_list.edits))
+    print("Aligned pairs:", len(aligned_indices))
 
-    logger.info("Notes", played_notes[: (limit := 12)], actual_notes[:limit], sep="\n")
+    print("Notes", played_notes[: (limit := 12)], actual_notes[:limit], sep="\n")
     print_wrong_notes(edit_list, 7)
-    logger.info("First few aligned indices:", aligned_indices[:10])
+    print("First few aligned indices:", aligned_indices[:10])

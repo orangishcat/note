@@ -21,7 +21,7 @@ def pdf_preview(pdf_bytes, filename):
         preview_filename = f"{'.'.join(filename.split('.')[:-1])}-preview.png"
         return preview_bytes, preview_filename
     except Exception as e:
-        logger.info(f"Error generating preview from PDF: {e}")
+        logger.error("Error generating preview from PDF: {}", e)
         return None, None
 
 
@@ -95,12 +95,12 @@ if __name__ == "__main__":
     # Process each file type by reading its bytes first.
     for file_type in ["mxl", "pdf", "png"]:
         fp = f"liebestraum.{file_type}"
-        logger.info("Current file:", fp, "\t\t", "Exists:", os.path.exists(fp))
+        print("Current file:", fp, "\t\t", "Exists:", os.path.exists(fp))
         try:
             with open(fp, "rb") as f:
                 file_bytes = f.read()
         except Exception as e:
-            logger.error(f"Error reading {fp}: {e}")
+            print(f"Error reading {fp}: {e}")
             continue
         preview, preview_name = score_preview(file_bytes, fp)
         if preview:
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             )
             with open(output_path, "wb") as out:
                 out.write(preview)
-            logger.info(
+            print(
                 f"Preview for {fp} saved as {output_path}. Preview name: {preview_name}"
             )
         else:

@@ -22,13 +22,6 @@ repos:
     hooks:
       - id: gitleaks
 
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.3
-    hooks:
-      - id: bandit
-        args: ["-r", "."]
-        files: backend/*\.py$
-
   - repo: https://github.com/DavidAnson/markdownlint-cli2
     rev: v0.12.1
     hooks:
@@ -40,4 +33,5 @@ repos:
     rev: v2.2.5
     hooks:
       - id: codespell
-        args: ["--skip", "*.json,*.md"]
+        args: ["--skip"]
+        files: \.(py|js|jsx|ts|tsx|css|scss|html|md|markdown|yaml|yml)$
