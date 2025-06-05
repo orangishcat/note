@@ -11,12 +11,6 @@ repos:
       - id: prettier
         files: \.(js|jsx|ts|tsx|css|scss|html|json|md|markdown|yaml|yml)$
 
-  - repo: https://github.com/pycqa/isort
-    rev: 6.0.1
-    hooks:
-      - id: isort
-        files: \.py$
-
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.24.2
     hooks:
