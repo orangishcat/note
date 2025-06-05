@@ -1,5 +1,6 @@
 from appwrite.exception import AppwriteException
 from flask import Blueprint, abort, g
+from loguru import logger
 
 from .util import *
 
@@ -14,7 +15,8 @@ api_bp.register_blueprint(needs_login)
 def is_logged_in():
     try:
         g.account = get_user_account().get()
-    except Exception:
+    except Exception as e:
+        logger.debug("Not logged in: {}", e)
         g.account = None
     return g.account is not None
 

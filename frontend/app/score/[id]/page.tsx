@@ -208,6 +208,7 @@ export default function ScorePage() {
   const filteredEditList = useMemo(() => {
     if (!editList) return null;
     const obj: any = editList;
+
     return {
       ...obj,
       edits: obj.edits.filter(

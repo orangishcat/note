@@ -25,7 +25,7 @@ export const setNavigateFunction = (navigate: (path: string) => void) => {
 
 // Attach JWT for authenticated requests
 api.interceptors.request.use(async (config) => {
-  if (config.url?.includes("/audio/receive")) {
+  if (!config.url?.includes("http")) {
     try {
       const { jwt } = await account.createJWT();
       config.headers.Authorization = `Bearer ${jwt}`;

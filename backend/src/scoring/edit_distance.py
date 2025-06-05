@@ -2,6 +2,8 @@ import numpy as np
 from loguru import logger
 from numba import njit
 from numpy._typing import NDArray
+from torch.fx.experimental.symbolic_shapes import lru_cache
+
 from scoring import extract_midi_notes, extract_pb_notes
 from timer import timeit
 
@@ -33,7 +35,7 @@ def preprocess(s: list[Note], t: list[Note]):
 
 # noinspection PyTypeChecker
 @timeit()
-@njit
+@njit()
 def compute_dp(s_pitches, t_pitches):
     n = s_pitches.shape[0]
     m = t_pitches.shape[0]
