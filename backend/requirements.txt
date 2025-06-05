@@ -1,0 +1,5 @@
+pre-commit
+numba
+loguru
+betterproto
+beam-client

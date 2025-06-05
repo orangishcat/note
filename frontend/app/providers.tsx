@@ -15,7 +15,7 @@ export interface AccountView {
 }
 
 interface AccountContextType {
-  account: AccountView | null;
+  accountView: AccountView | null;
   setAccount: (newValue: AccountView | null) => void;
   justLogin: boolean;
   setJustLogin: (b: boolean) => void;
@@ -45,7 +45,7 @@ export const AuthModalContext =
 const cacheTime = 7 * 24 * 60 * 60 * 1000;
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [account, setAccount] = React.useState<AccountView | null>(null);
+  const [accountView, setAccount] = React.useState<AccountView | null>(null);
   const [justLogin, setJustLogin] = useState(false);
   const [zoomLevels, setZoomLevels] = useState<Record<string, number>>({});
 
@@ -117,7 +117,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <AccountContext.Provider
-      value={{ account, setAccount, justLogin, setJustLogin }}
+      value={{ accountView, setAccount, justLogin, setJustLogin }}
     >
       <ZoomContext.Provider value={{ zoomLevels, setZoomLevel, getZoomLevel }}>
         <AuthModalContext.Provider

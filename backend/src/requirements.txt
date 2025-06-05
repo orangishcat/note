@@ -1,7 +1,0 @@
-git+https://github.com/orangishcat/oemer
-git+https://github.com/orangishcat/transkun
-pre-commit
-numba
-loguru
-betterproto
-beam-client

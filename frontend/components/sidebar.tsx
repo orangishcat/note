@@ -23,7 +23,7 @@ export function Sidebar({
         process.env.NEXT_PUBLIC_DATABASE!,
         process.env.NEXT_PUBLIC_FOLDERS_COLLECTION!,
       );
-      return res.documents as Folder[];
+      return res.documents as unknown[] as Folder[];
     },
   });
 

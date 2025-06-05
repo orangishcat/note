@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -28,19 +28,15 @@ import { useQuery } from "@tanstack/react-query";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import axios from "axios";
 import ImageScoreRenderer from "@/components/image-score-renderer";
-import protobuf, { Message, Type } from "protobufjs";
+import { Message, Type } from "protobufjs";
 import log from "@/lib/logger";
 import { setupEditEventHandlers, useEditDisplay } from "@/lib/edit-display";
-import {
-  RecordingError,
-  splitCombinedResponse,
-  useAudioRecorder,
-} from "@/lib/audio-recorder";
-import ComparisonDialog from "@/components/ComparisonDialog";
+import { RecordingError, useAudioRecorder } from "@/lib/audio-recorder";
 import { useToast } from "@/components/ui/toast";
 import { databases, storage } from "@/lib/appwrite";
-import { protobufTypeCache, initProtobufTypes } from "@/lib/proto";
+import { initProtobufTypes, protobufTypeCache } from "@/lib/proto";
 import DebugPanel from "@/components/DebugPanel";
+import api from "@/lib/network";
 
 // Add a global type declaration to prevent TypeScript errors
 declare global {
@@ -53,6 +49,16 @@ export default function ScorePage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [score, setScore] = useState<MusicScore>({
+    audio_file_id: "",
+    file_id: "",
+    folder: "",
+    is_mxl: false,
+    mime_type: "",
+    notes_id: "",
+    preview_id: "",
+    starred: false,
+    starred_users: [],
+    user_id: "",
     $id: "",
     name: "loading",
     subtitle:
@@ -138,7 +144,7 @@ export default function ScorePage() {
           id: response.$id,
           title: response.name,
         });
-        setScore(response as MusicScore);
+        setScore(response as unknown as MusicScore);
       } catch (error) {
         log.error("Error fetching score:", error);
         router.push("/");
@@ -153,7 +159,7 @@ export default function ScorePage() {
   // Fetch score notes when score is loaded
   useEffect(() => {
     // Skip if we don't have the score scores yet or already have notes
-    if (!score?.id || !score.notes_id || scoreNotes || !noteListType) {
+    if (!score?.$id || !score.notes_id || scoreNotes || !noteListType) {
       log.debug(
         "Skipping score notes fetch due to missing score scores or notes",
       );
@@ -165,11 +171,12 @@ export default function ScorePage() {
         log.debug(
           `Fetching notes for score ID: ${score.$id}, notes_id: ${score.notes_id}`,
         );
-        const response = await storage.getFileDownload(
+        const url = storage.getFileDownload(
           process.env.NEXT_PUBLIC_FILES_BUCKET!,
           score.notes_id!,
         );
-        const buffer = await response.arrayBuffer();
+        const response = await api.get(url, { responseType: "arraybuffer" });
+        const buffer = response.data;
         log.debug(
           `Received score notes buffer of size: ${buffer.byteLength} bytes`,
         );
@@ -196,7 +203,7 @@ export default function ScorePage() {
     };
 
     fetchScoreNotes();
-  }, [score?.id, score?.notes_id, scoreNotes, noteListType]);
+  }, [score?.$id, score?.notes_id, scoreNotes, noteListType]);
 
   const filteredEditList = useMemo(() => {
     if (!editList) return null;
@@ -422,7 +429,7 @@ export default function ScorePage() {
           process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
           id,
         );
-        return response as MusicScore;
+        return response as unknown as MusicScore;
       } catch (error) {
         log.error("Error in React Query fetch:", error);
         if (axios.isAxiosError(error) && error.response?.status === 404) {
@@ -438,7 +445,7 @@ export default function ScorePage() {
 
   useEffect(() => {
     if (!loadedScore) return;
-    log.debug(`Setting score from React Query data: ${loadedScore.id}`);
+    log.debug(`Setting score from React Query data: ${loadedScore.$id}`);
     setScore(loadedScore);
   }, [loadedScore]);
 

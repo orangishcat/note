@@ -104,7 +104,7 @@ export function AuthModal({
   };
 
   const handleCaptcha = async () => {
-    if (context?.account) return;
+    if (context?.accountView) return;
     try {
       setStatus(type === "login" ? "Logging in..." : "Loading...");
       await account.createEmailPasswordSession(email, password);

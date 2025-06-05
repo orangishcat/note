@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { AccountContext, AccountView, AuthModalContext } from "@/app/providers";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
+import { account } from "@/lib/appwrite";
 
 interface NavItemProps {
   href: string;
@@ -87,7 +88,7 @@ export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
 
   const context = React.useContext(AccountContext);
   if (!context) throw new Error("Account context not found.");
-  const { account } = context;
+  const { accountView } = context;
 
   return (
     <>
@@ -127,7 +128,7 @@ export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
             <Bell className="h-4 w-4" />
           </Button>
           {/* If user is logged in, display their name and email; otherwise show the auth button */}
-          {account ? (
+          {accountView ? (
             <AccountDropdown />
           ) : (
             <Button

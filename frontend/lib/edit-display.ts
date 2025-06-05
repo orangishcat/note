@@ -659,7 +659,7 @@ export function useEditDisplay(
               targetNote.pitch !== undefined &&
               targetResult.success
             ) {
-              const [x1, y1, x2, y2] = targetNote.bbox;
+              const [x1, y1, x2] = targetNote.bbox;
 
               // Calculate a position for the label
               const centerX = (x1 + x2) / 2;
@@ -854,7 +854,7 @@ export function useEditDisplay(
               targetNote.pitch !== undefined &&
               targetResult.success
             ) {
-              const [x1, y1, x2, y2] = targetNote.bbox;
+              const [x1, y1, x2] = targetNote.bbox;
 
               // Calculate a position for the label
               const centerX = (x1 + x2) / 2;

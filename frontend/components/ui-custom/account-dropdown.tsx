@@ -15,7 +15,7 @@ import log from "loglevel";
 
 export default function AccountDropdown() {
   const qc = useQueryClient();
-  const account = React.useContext(AccountContext)?.account;
+  const account = React.useContext(AccountContext)?.accountView;
 
   return account ? (
     <DropdownMenu>

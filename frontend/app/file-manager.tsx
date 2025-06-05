@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FolderPlus, RefreshCw, Star } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import React, { useContext, useEffect, useState } from "react";
 import { Layout } from "@/components/layout";
 import {
@@ -43,7 +42,7 @@ export default function FileManager() {
   const [refetchDisabled, setRefetchDisabled] = useState(false);
   const context = React.useContext(AccountContext);
   const authModalContext = useContext(AuthModalContext);
-  const account = context?.account;
+  const account = context?.accountView;
   const searchParams = useSearchParams();
 
   const loadError = (reason: string) => {
@@ -61,7 +60,7 @@ export default function FileManager() {
         process.env.NEXT_PUBLIC_DATABASE!,
         process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
       );
-      return res.documents.map(
+      return (res.documents as any[]).map(
         (doc) =>
           ({
             ...doc,
@@ -107,7 +106,6 @@ export default function FileManager() {
     qc.invalidateQueries({ queryKey: ["scores"] });
   };
 
-
   const [lastStarTime, setLastStarTime] = useState(0);
   const toggleStar = (score: MusicScore) => {
     setLastStarTime(Date.now());
@@ -137,14 +135,16 @@ export default function FileManager() {
 
   const newFolder = async (folderName: string) => {
     try {
-      const res = await databases.createDocument(
+      return await databases.createDocument(
         process.env.NEXT_PUBLIC_DATABASE!,
         process.env.NEXT_PUBLIC_FOLDERS_COLLECTION!,
         ID.unique(),
         { name: folderName },
-        [Permission.read(Role.user("current")), Permission.write(Role.user("current"))],
+        [
+          Permission.read(Role.user("current")),
+          Permission.write(Role.user("current")),
+        ],
       );
-      return res;
     } catch (err) {
       setErrorMessage("Failed to create folder");
       throw err;
@@ -329,11 +329,15 @@ function ScoreCard({
     >
       <Link href={`/score/${$id}`} key={$id}>
         <div className="aspect-[4/3] overflow-hidden">
-          <Image
-            src={storage.getFilePreview(
-              process.env.NEXT_PUBLIC_IMAGES_BUCKET!,
-              preview_id,
-            )}
+          <img
+            src={
+              preview_id
+                ? storage.getFileDownload(
+                    process.env.NEXT_PUBLIC_IMAGES_BUCKET!,
+                    preview_id,
+                  )
+                : "/static/preview.png"
+            }
             alt={`Score preview for ${name}`}
             style={{
               width: "80%",
@@ -343,7 +347,6 @@ function ScoreCard({
             }}
             width={300}
             height={225}
-            priority
             draggable={false}
             className={
               "w-full h-full object-contain " + (preview_id && "bg-white")

@@ -3,7 +3,8 @@ import log from "./logger";
 import { account } from "./appwrite";
 
 const api = axios.create({
-  baseURL: "/api", // Change to your API URL
+  baseURL: "/api",
+  withCredentials: true,
 });
 
 // This will be set by the layout component
@@ -27,10 +28,7 @@ api.interceptors.request.use(async (config) => {
   if (config.url?.includes("/audio/receive")) {
     try {
       const { jwt } = await account.createJWT();
-      config.headers = {
-        ...config.headers,
-        Authorization: `Bearer ${jwt}`,
-      };
+      config.headers.Authorization = `Bearer ${jwt}`;
     } catch (err) {
       log.error("Failed to create JWT", err);
     }

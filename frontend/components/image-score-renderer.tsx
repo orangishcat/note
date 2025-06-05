@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import log from "@/lib/logger";
 import api from "@/lib/network";
 import { ZoomContext } from "@/app/providers";
+import { storage } from "@/lib/appwrite";
 
 // Store blobs in memory cache
 const blobCache = new Map<string, string[]>();
@@ -173,7 +174,12 @@ export default function ImageScoreRenderer({
       log.info(`Fetching score file ${scoreId}`);
 
       try {
-        const response = await api.get(`/score/download/${scoreId}`, {
+        const url = storage.getFileDownload(
+          process.env.NEXT_PUBLIC_SCORES_BUCKET!,
+          scoreId,
+        );
+        log.debug(`Fetching url ${url}`);
+        const response = await api.get(url, {
           responseType: "blob",
           onDownloadProgress: (progressEvent: AxiosProgressEvent) => {
             if (progressEvent.total) {

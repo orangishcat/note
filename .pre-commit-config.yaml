@@ -16,6 +16,12 @@ repos:
     hooks:
       - id: gitleaks
 
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.3
+    hooks:
+      - id: bandit
+        files: ^baπckend/src/.*\.py$
+
   - repo: https://github.com/DavidAnson/markdownlint-cli2
     rev: v0.12.1
     hooks:

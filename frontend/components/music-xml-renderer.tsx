@@ -21,15 +21,15 @@ export interface MusicScore {
   $id: string;
   name: string;
   subtitle: string;
-  user_id?: string;
+  user_id: string;
   file_id?: string;
   notes_id?: string;
   preview_id?: string;
   audio_file_id?: string;
-  mime_type?: string;
-  starred_users?: string[];
+  mime_type: string;
+  starred_users: string[];
   /** Optional helper properties */
-  $createdAt?: string;
+  $createdAt: string;
   total_pages?: number;
   is_mxl?: boolean;
   starred?: boolean;
@@ -342,7 +342,8 @@ export default function MusicXMLRenderer({
         " " +
         // @ts-expect-error protected elements access
         (note.sourceNote.pitch
-          ? note.sourceNote.pitch.ToStringShortGet
+          ? // @ts-expect-error protected elements access
+            note.sourceNote.pitch.ToStringShortGet
           : "null");
       const textEl = document.createElementNS(
         "http://www.w3.org/2000/svg",
