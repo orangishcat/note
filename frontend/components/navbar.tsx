@@ -10,8 +10,6 @@ import { cn } from "@/lib/utils";
 import { AccountContext, AccountView, AuthModalContext } from "@/app/providers";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
-import { AxiosResponse } from "axios";
-import api from "@/lib/network";
 
 interface NavItemProps {
   href: string;

@@ -38,7 +38,7 @@ import {
 } from "@/lib/audio-recorder";
 import ComparisonDialog from "@/components/ComparisonDialog";
 import { useToast } from "@/components/ui/toast";
-import api from "@/lib/network";
+import { databases, storage } from "@/lib/appwrite";
 import { protobufTypeCache, initProtobufTypes } from "@/lib/proto";
 import DebugPanel from "@/components/DebugPanel";
 
@@ -53,11 +53,11 @@ export default function ScorePage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [score, setScore] = useState<MusicScore>({
-    id: "",
-    title: "loading",
+    $id: "",
+    name: "loading",
     subtitle:
       "you're not supposed to be seeing this. if you are, good for you.",
-    upload_date: "now",
+    $createdAt: "",
     total_pages: 1,
   });
   const [editList, setEditList] = useState<Message | null>(null);
@@ -120,7 +120,7 @@ export default function ScorePage() {
   // Fetch the score scores
   useEffect(() => {
     // Skip fetch if we already have scores or are using React Query
-    if (score.id || fetchedDataRef.current) {
+    if (score.$id || fetchedDataRef.current) {
       return;
     }
 
@@ -129,32 +129,26 @@ export default function ScorePage() {
 
     async function fetchScore() {
       try {
-        const response = await api.get(`/score/data/${id}`);
+        const response = await databases.getDocument(
+          process.env.NEXT_PUBLIC_DATABASE!,
+          process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
+          id,
+        );
         log.debug(`Score data received:`, {
-          id: response.data.id,
-          title: response.data.title,
+          id: response.$id,
+          title: response.name,
         });
-        setScore(response.data);
+        setScore(response as MusicScore);
       } catch (error) {
-        if (axios.isAxiosError(error)) {
-          log.error(
-            `Failed to fetch score: ${error.response?.status} ${error.response?.statusText}`,
-          );
-          if (error.response?.status === 404) {
-            // Handle 404 case - redirect to home page
-            log.error(`Score with ID ${id} not found`);
-            router.push("/");
-          }
-        } else {
-          log.error("Error fetching score:", error);
-        }
+        log.error("Error fetching score:", error);
+        router.push("/");
       }
     }
 
     if (id) {
       fetchScore();
     }
-  }, [id, score.id]);
+  }, [id, score.$id]);
 
   // Fetch score notes when score is loaded
   useEffect(() => {
@@ -169,13 +163,13 @@ export default function ScorePage() {
     const fetchScoreNotes = async () => {
       try {
         log.debug(
-          `Fetching notes for score ID: ${score.id}, notes_id: ${score.notes_id}`,
+          `Fetching notes for score ID: ${score.$id}, notes_id: ${score.notes_id}`,
         );
-        const response = await api.get(`/score/notes/${score.notes_id}`, {
-          responseType: "arraybuffer",
-        });
-
-        const buffer = response.data;
+        const response = await storage.getFileDownload(
+          process.env.NEXT_PUBLIC_FILES_BUCKET!,
+          score.notes_id!,
+        );
+        const buffer = await response.arrayBuffer();
         log.debug(
           `Received score notes buffer of size: ${buffer.byteLength} bytes`,
         );
@@ -397,8 +391,13 @@ export default function ScorePage() {
     setLastStarTime(Date.now());
     if (Date.now() - lastStarTime < 700) return;
     setScore({ ...score, starred: !score.starred });
-    api
-      .post(`/score/star/${score.id}`, { starred: !score.starred })
+    databases
+      .updateDocument(
+        process.env.NEXT_PUBLIC_DATABASE!,
+        process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
+        score.$id,
+        { starred_users: [] },
+      )
       .catch(log.error);
   };
 
@@ -406,11 +405,11 @@ export default function ScorePage() {
     queryKey: ["score_" + id],
     queryFn: async () => {
       // Prevent duplicate API calls during StrictMode's double-render or if we already have scores
-      if (fetchedDataRef.current || score.id) {
+      if (fetchedDataRef.current || score.$id) {
         log.debug(
           "Preventing duplicate score scores fetch - using existing scores",
         );
-        return score.id ? score : null;
+        return score.$id ? score : null;
       }
 
       // Mark that we've started a fetch
@@ -418,8 +417,12 @@ export default function ScorePage() {
       log.debug(`React Query fetching score data for ID: ${id}`);
 
       try {
-        const response = await api.get<MusicScore>(`/score/data/${id}`);
-        return response.data;
+        const response = await databases.getDocument(
+          process.env.NEXT_PUBLIC_DATABASE!,
+          process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
+          id,
+        );
+        return response as MusicScore;
       } catch (error) {
         log.error("Error in React Query fetch:", error);
         if (axios.isAxiosError(error) && error.response?.status === 404) {
@@ -853,7 +856,7 @@ export default function ScorePage() {
                 isFullscreen ? "text-xl text-white dark:text-white" : "text-2xl"
               } ${isSmallScreen ? "text-sm" : ""} ml-1 truncate`}
             >
-              {score.title}
+              {score.name}
               {score.subtitle && !isSmallScreen && (
                 <span
                   className={`${
@@ -871,7 +874,14 @@ export default function ScorePage() {
             <BasicTooltip text="Download">
               <Button
                 variant="ghost"
-                onClick={() => window.open(`/score/download/${score.id}`)}
+                onClick={() =>
+                  window.open(
+                    storage.getFileDownload(
+                      process.env.NEXT_PUBLIC_SCORES_BUCKET!,
+                      score.file_id!,
+                    ),
+                  )
+                }
                 className={isSmallScreen ? "h-8 w-8" : ""}
               >
                 <Download className={isSmallScreen ? "h-3 w-3" : "h-4 w-4"} />
@@ -934,7 +944,7 @@ export default function ScorePage() {
 
         {/* Main score renderer - fills entire screen */}
         <div className="h-full w-full relative">
-          {score && score.id && score.file_id ? (
+          {score && score.$id && score.file_id ? (
             score.is_mxl ? (
               <MusicXMLRenderer
                 scoreId={score.file_id}
@@ -960,7 +970,7 @@ export default function ScorePage() {
               />
             ) : (
               <ImageScoreRenderer
-                scoreId={score.id}
+                scoreId={score.file_id}
                 recenter={recenterButton}
                 retry={() => {
                   log.debug(
@@ -1038,7 +1048,7 @@ export default function ScorePage() {
 
         {/* Main score renderer - fills entire screen */}
         <div className="h-full w-full pt-16 relative">
-          {score && score.id && score.file_id ? (
+          {score && score.$id && score.file_id ? (
             score.is_mxl ? (
               <MusicXMLRenderer
                 scoreId={score.file_id}
@@ -1063,7 +1073,7 @@ export default function ScorePage() {
               />
             ) : (
               <ImageScoreRenderer
-                scoreId={score.id}
+                scoreId={score.file_id}
                 recenter={recenterButton}
                 retry={() => {
                   log.debug(

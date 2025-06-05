@@ -7,8 +7,7 @@ import React from "react";
 import { NavItem } from "@/components/navbar";
 import { Folder, FolderDisplay } from "@/components/folder";
 import { useQuery } from "@tanstack/react-query";
-import { AxiosResponse } from "axios";
-import api from "@/lib/network";
+import { databases } from "@/lib/appwrite";
 
 export function Sidebar({
   isOpen,
@@ -19,10 +18,13 @@ export function Sidebar({
 }) {
   const { data: folders = [] } = useQuery({
     queryKey: ["folders"],
-    queryFn: () =>
-      api
-        .get<Folder[]>("/folder/list")
-        .then((resp: AxiosResponse<Folder[]>) => resp.data),
+    queryFn: async () => {
+      const res = await databases.listDocuments(
+        process.env.NEXT_PUBLIC_DATABASE!,
+        process.env.NEXT_PUBLIC_FOLDERS_COLLECTION!,
+      );
+      return res.documents as Folder[];
+    },
   });
 
   return (
@@ -63,7 +65,6 @@ export function Sidebar({
                   key={folder.$id}
                   name={folder.name}
                   files={folder.files || []}
-                  file_ids={folder.file_ids || []}
                 />
               ))
             )}

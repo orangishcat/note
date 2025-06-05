@@ -17,15 +17,21 @@ import { cn } from "@/lib/utils";
 import api from "@/lib/network";
 
 export interface MusicScore {
-  id: string;
-  title: string;
+  /** Appwrite document identifier */
+  $id: string;
+  name: string;
   subtitle: string;
-  upload_date: string;
-  total_pages: number;
-  is_mxl?: boolean;
+  user_id?: string;
   file_id?: string;
   notes_id?: string;
   preview_id?: string;
+  audio_file_id?: string;
+  mime_type?: string;
+  starred_users?: string[];
+  /** Optional helper properties */
+  $createdAt?: string;
+  total_pages?: number;
+  is_mxl?: boolean;
   starred?: boolean;
   folder?: string;
 }

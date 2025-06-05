@@ -22,19 +22,17 @@ import {
 import { AccountContext, AuthModalContext } from "@/app/providers";
 import { TooltipArrow } from "@radix-ui/react-tooltip";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Folder } from "@/components/folder";
 import { MusicScore } from "@/components/music-xml-renderer";
 import FileOptionsDropdown from "@/components/ui-custom/file-options-dropdown";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import { useSearchParams } from "next/navigation";
 
-import { databases, storage, account } from "@/lib/appwrite";
+import { databases, storage } from "@/lib/appwrite";
 import { ID, Permission, Role } from "appwrite";
 
 export default function FileManager() {
   const [activeTab, setActiveTab] = useState<"recent" | "starred">("recent");
   const [scores, setScores] = useState<MusicScore[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [loadSuccess, setLoadSuccess] = useState(false);
@@ -63,25 +61,14 @@ export default function FileManager() {
         process.env.NEXT_PUBLIC_DATABASE!,
         process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
       );
-      return res.documents.map((doc) => ({
-        id: doc.$id,
-        title: doc.name,
-        subtitle: doc.subtitle,
-        preview_id: doc.preview_id,
-        is_mxl: doc.mime_type?.includes("musicxml"),
-        upload_date: doc.$createdAt,
-        starred: false,
-      })) as MusicScore[];
-    },
-  });
-  const { data: folderList, error: folderError } = useQuery({
-    queryKey: ["folders"],
-    queryFn: async () => {
-      const res = await databases.listDocuments(
-        process.env.NEXT_PUBLIC_DATABASE!,
-        process.env.NEXT_PUBLIC_FOLDERS_COLLECTION!,
+      return res.documents.map(
+        (doc) =>
+          ({
+            ...doc,
+            is_mxl: doc.mime_type?.includes("musicxml"),
+            starred: false,
+          }) as MusicScore,
       );
-      return res.documents as Folder[];
     },
   });
   useEffect(
@@ -108,24 +95,18 @@ export default function FileManager() {
 
   useEffect(() => {
     if (scoreList) setScores(scoreList);
-    if (folderList) setFolders(folderList);
     if (scoreError) loadError(scoreError.message);
     else setLoadSuccess(true);
-    if (folderError) loadError(folderError.message);
-    else setLoadSuccess(true);
-    if (scoreList && folderList) setLoadSuccess(true);
+    if (scoreList) setLoadSuccess(true);
     setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scoreList, folderList]);
+  }, [scoreList]);
 
   const qc = useQueryClient();
   const invalidateScores = () => {
     qc.invalidateQueries({ queryKey: ["scores"] });
   };
 
-  const invalidateFolders = () => {
-    qc.invalidateQueries({ queryKey: ["folders"] });
-  };
 
   const [lastStarTime, setLastStarTime] = useState(0);
   const toggleStar = (score: MusicScore) => {
@@ -134,20 +115,20 @@ export default function FileManager() {
 
     setScores(
       scores.map((s) =>
-        s.id === score.id ? { ...s, starred: !s.starred } : s,
+        s.$id === score.$id ? { ...s, starred: !s.starred } : s,
       ),
     );
     databases
       .updateDocument(
         process.env.NEXT_PUBLIC_DATABASE!,
         process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
-        score.id,
+        score.$id,
         { starred_users: [] },
       )
       .catch(() => {
         setScores(
           scores.map((s) =>
-            s.id === score.id ? { ...s, starred: score.starred } : s,
+            s.$id === score.$id ? { ...s, starred: score.starred } : s,
           ),
         );
         setErrorMessage("Failed to update star status");
@@ -163,7 +144,6 @@ export default function FileManager() {
         { name: folderName },
         [Permission.read(Role.user("current")), Permission.write(Role.user("current"))],
       );
-      invalidateFolders();
       return res;
     } catch (err) {
       setErrorMessage("Failed to create folder");
@@ -190,7 +170,7 @@ export default function FileManager() {
   };
 
   const onDelete = (id: string) => {
-    setScores(scores.filter((score) => score.id !== id));
+    setScores(scores.filter((score) => score.$id !== id));
     invalidateScores();
   };
   return (
@@ -283,7 +263,7 @@ export default function FileManager() {
           >
             {filteredScores.map((score) => (
               <ScoreCard
-                key={score.id}
+                key={score.$id}
                 score={score}
                 onStarToggle={() => toggleStar(score)}
                 onDragStart={handleDragStart}
@@ -339,22 +319,22 @@ function ScoreCard({
   onDragStart: (e: React.DragEvent, id: string) => void;
   onDelete: (id: string) => void;
 }) {
-  const { id, title, subtitle, upload_date, starred, preview_id } = score;
+  const { $id, name, subtitle, $createdAt, starred, preview_id } = score;
 
   return (
     <div
       className="group relative overflow-hidden rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-700
        dark:hover:border-gray-500 transition-colors duration-200"
-      onDragStart={(e) => onDragStart(e, id)}
+      onDragStart={(e) => onDragStart(e, $id)}
     >
-      <Link href={`/score/${id}`} key={id}>
+      <Link href={`/score/${$id}`} key={$id}>
         <div className="aspect-[4/3] overflow-hidden">
           <Image
             src={storage.getFilePreview(
               process.env.NEXT_PUBLIC_IMAGES_BUCKET!,
               preview_id,
             )}
-            alt={`Score preview for ${title}`}
+            alt={`Score preview for ${name}`}
             style={{
               width: "80%",
               height: "auto",
@@ -374,17 +354,17 @@ function ScoreCard({
 
       <div className="flex items-center justify-between bg-gray-200 dark:bg-gray-800 dark:border-gray-600 border-t border-inherit">
         <Link
-          href={`/score/${id}`}
-          key={id}
+          href={`/score/${$id}`}
+          key={$id}
           style={{ maxWidth: "calc(100% - 60px)" }}
         >
           <div className="p-4 ml-4">
             <h3 className="font-medium text-gray-900 dark:text-white truncate">
-              {title}
+              {name}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1 truncate">
               {subtitle} •&nbsp;
-              {new Date(upload_date).toLocaleDateString()}
+              {new Date($createdAt ?? "").toLocaleDateString()}
             </p>
           </div>
         </Link>

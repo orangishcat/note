@@ -4,15 +4,15 @@ import { ChevronDown, ChevronRight, Folder as FolderIcon } from "lucide-react";
 export interface Folder {
   $id: string;
   name: string;
-  files: string[];
-  file_ids: string[];
-  user_id: string;
+  files?: string[];
+  /** Additional properties from Appwrite Document */
+  $createdAt?: string;
+  $updatedAt?: string;
 }
 
 interface FolderItemProps {
   name: string;
-  files: string[];
-  file_ids: string[];
+  files?: string[];
   id?: string;
 }
 

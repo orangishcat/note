@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { clsx } from "clsx";
-import axios from "axios";
+import { databases, storage } from "@/lib/appwrite";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,11 +34,27 @@ const FileOptionsDropdown: React.FC<FileOptionsProps> = ({
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
-      await axios.delete(`/score/delete/${score.id}`);
+      await databases.deleteDocument(
+        process.env.NEXT_PUBLIC_DATABASE!,
+        process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
+        score.$id,
+      );
+      if (score.file_id) {
+        await storage.deleteFile(
+          process.env.NEXT_PUBLIC_SCORES_BUCKET!,
+          score.file_id,
+        );
+      }
+      if (score.preview_id) {
+        await storage.deleteFile(
+          process.env.NEXT_PUBLIC_IMAGES_BUCKET!,
+          score.preview_id,
+        );
+      }
       setIsConfirmOpen(false); // Close confirmation modal
-      onDelete(score.id); // Trigger callback
-    } catch (error) {
-      // Handle error silently or show a toast notification
+      onDelete(score.$id); // Trigger callback
+    } catch {
+      // Ignore errors for now
     } finally {
       setIsDeleting(false);
     }
@@ -75,11 +91,11 @@ const FileOptionsDropdown: React.FC<FileOptionsProps> = ({
               <FileIcon className="h-8 w-8 text-gray-500" />
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-white text-sm">
-                  {score.title}
+                  {score.name}
                 </h4>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {score.subtitle} •{" "}
-                  {new Date(score.upload_date).toLocaleDateString()}
+                  {new Date(score.$createdAt ?? "").toLocaleDateString()}
                 </p>
               </div>
             </div>
