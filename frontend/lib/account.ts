@@ -1,5 +1,5 @@
-import api from "@/lib/network";
+import { account } from "@/lib/appwrite";
 
 export async function logOut() {
-  return api.post("/account/logout", {});
+  await account.deleteSession("current");
 }

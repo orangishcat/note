@@ -27,7 +27,9 @@ import { MusicScore } from "@/components/music-xml-renderer";
 import FileOptionsDropdown from "@/components/ui-custom/file-options-dropdown";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import { useSearchParams } from "next/navigation";
-import api from "@/lib/network";
+
+import { databases, storage, account } from "@/lib/appwrite";
+import { ID, Permission, Role } from "appwrite";
 
 export default function FileManager() {
   const [activeTab, setActiveTab] = useState<"recent" | "starred">("recent");
@@ -56,12 +58,31 @@ export default function FileManager() {
     refetch: refetchScores,
   } = useQuery({
     queryKey: ["scores"],
-    queryFn: () =>
-      api.get<MusicScore[]>("/score/list").then((resp) => resp.data),
+    queryFn: async () => {
+      const res = await databases.listDocuments(
+        process.env.NEXT_PUBLIC_DATABASE!,
+        process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
+      );
+      return res.documents.map((doc) => ({
+        id: doc.$id,
+        title: doc.name,
+        subtitle: doc.subtitle,
+        preview_id: doc.preview_id,
+        is_mxl: doc.mime_type?.includes("musicxml"),
+        upload_date: doc.$createdAt,
+        starred: false,
+      })) as MusicScore[];
+    },
   });
   const { data: folderList, error: folderError } = useQuery({
     queryKey: ["folders"],
-    queryFn: () => api.get<Folder[]>("/folder/list").then((resp) => resp.data),
+    queryFn: async () => {
+      const res = await databases.listDocuments(
+        process.env.NEXT_PUBLIC_DATABASE!,
+        process.env.NEXT_PUBLIC_FOLDERS_COLLECTION!,
+      );
+      return res.documents as Folder[];
+    },
   });
   useEffect(
     () =>
@@ -116,33 +137,38 @@ export default function FileManager() {
         s.id === score.id ? { ...s, starred: !s.starred } : s,
       ),
     );
-    api
-      .post(`/score/star/${score.id}`, { starred: !score.starred })
-      .catch((error) => {
-        // Revert the star state if the API call fails
+    databases
+      .updateDocument(
+        process.env.NEXT_PUBLIC_DATABASE!,
+        process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
+        score.id,
+        { starred_users: [] },
+      )
+      .catch(() => {
         setScores(
           scores.map((s) =>
             s.id === score.id ? { ...s, starred: score.starred } : s,
           ),
         );
-        // Show error message
         setErrorMessage("Failed to update star status");
       });
   };
 
-  const newFolder = (folderName: string) => {
-    return api
-      .post("/folder/create", { name: folderName })
-      .then((response) => {
-        invalidateFolders();
-        return response.data;
-      })
-      .catch((error) => {
-        setErrorMessage(
-          error.response?.data?.error || "Failed to create folder",
-        );
-        throw error;
-      });
+  const newFolder = async (folderName: string) => {
+    try {
+      const res = await databases.createDocument(
+        process.env.NEXT_PUBLIC_DATABASE!,
+        process.env.NEXT_PUBLIC_FOLDERS_COLLECTION!,
+        ID.unique(),
+        { name: folderName },
+        [Permission.read(Role.user("current")), Permission.write(Role.user("current"))],
+      );
+      invalidateFolders();
+      return res;
+    } catch (err) {
+      setErrorMessage("Failed to create folder");
+      throw err;
+    }
   };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -324,7 +350,10 @@ function ScoreCard({
       <Link href={`/score/${id}`} key={id}>
         <div className="aspect-[4/3] overflow-hidden">
           <Image
-            src={`/api/score/preview/${preview_id}`}
+            src={storage.getFilePreview(
+              process.env.NEXT_PUBLIC_IMAGES_BUCKET!,
+              preview_id,
+            )}
             alt={`Score preview for ${title}`}
             style={{
               width: "80%",

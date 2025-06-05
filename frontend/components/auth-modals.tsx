@@ -12,8 +12,8 @@ import {
 import { Lock, Mail, User } from "lucide-react";
 import HCaptcha from "@hcaptcha/react-hcaptcha";
 import { AccountContext, AccountView } from "@/app/providers";
-import { AxiosError, AxiosResponse } from "axios";
-import api from "@/lib/network";
+
+import { account } from "@/lib/appwrite";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -107,42 +107,27 @@ export function AuthModal({
     if (context?.account) return;
     try {
       setStatus(type === "login" ? "Logging in..." : "Loading...");
-      api
-        .post<AccountView>("/account/login", {
-          email: email,
-          password: password,
-        })
-        .then((resp: AxiosResponse<AccountView>) => {
-          if (!context) throw new Error("Auth failed: Account not found.");
-          context.setAccount(resp.data);
-          // Set justLogin to true to trigger file manager refresh
-          context.setJustLogin(true);
-          // Reset justLogin after a short delay
-          setTimeout(() => {
-            if (context) context.setJustLogin(false);
-          }, 1000);
-          onClose();
-        })
-        .catch((error: AxiosError) => {
-          console.error("Authentication failed:", error);
-
-          // Check if it's a 401 error with invalid credentials
-          if (
-            error.response?.status === 401 &&
-            // @ts-ignore
-            error.response?.data?.error === "invalid credentials"
-          ) {
-            // Reset the modal to show the login form again
-            setShowCaptcha(false);
-            setStatus("");
-            setError("Invalid email and password combination");
-          } else {
-            // For other errors, show generic message
-            setError("Authentication failed. Please try again.");
-          }
-        });
-    } catch (error) {
-      setError("Authentication failed. Please try again.");
+      await account.createEmailPasswordSession(email, password);
+      const user = await account.get();
+      if (!context) throw new Error("Auth failed: Account not found.");
+      context.setAccount({
+        user_id: user.$id,
+        username: user.name,
+        email: user.email,
+      });
+      context.setJustLogin(true);
+      setTimeout(() => {
+        if (context) context.setJustLogin(false);
+      }, 1000);
+      onClose();
+    } catch (error: any) {
+      setShowCaptcha(false);
+      setStatus("");
+      if (error?.type === "general_unauthorized") {
+        setError("Invalid email and password combination");
+      } else {
+        setError("Authentication failed. Please try again.");
+      }
     }
   };
 
@@ -339,7 +324,10 @@ export function ResetPasswordModal({
     setStatus("Sending reset email...");
 
     try {
-      await api.post("/account/reset-password", { email });
+      await account.createRecovery(
+        email,
+        `${window.location.origin}/reset-password`,
+      );
       setStatus("Reset email sent! Check your inbox for instructions.");
       setError("");
       // Clear form after successful submission

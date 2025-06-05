@@ -14,7 +14,7 @@ api_bp.register_blueprint(needs_login)
 def is_logged_in():
     try:
         g.account = get_user_account().get()
-    except AttributeError:
+    except Exception:
         g.account = None
     return g.account is not None
 
@@ -43,10 +43,6 @@ def logged_in():
     return wrapper
 
 
-from .accounts import acc
-from .documents import documents
 from .scoring import audio
 
-api_bp.register_blueprint(acc)
-needs_login.register_blueprint(documents)
 needs_login.register_blueprint(audio)

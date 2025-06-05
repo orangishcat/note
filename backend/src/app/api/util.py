@@ -27,17 +27,22 @@ def get_client():
     return client
 
 
-def _validate_secret(secret):
-    if secret is None:
-        secret = request.cookies.get("appwrite-session")
-    return secret
+def _get_jwt(token: str | None) -> str | None:
+    """Extract bearer token from Authorization header."""
+    if token and token.startswith("Bearer "):
+        return token.split(" ", 1)[1]
+    return token
 
 
-def get_user_client(secret=None) -> Client:
-    secret = _validate_secret(secret)
-    return get_client().set_session(secret)
+def get_user_client(jwt: str | None = None) -> Client:
+    """Return an Appwrite client authorized with the given JWT."""
+    if jwt is None:
+        jwt = _get_jwt(request.headers.get("Authorization"))
+    client = get_client()
+    if jwt:
+        client.set_jwt(jwt)
+    return client
 
 
-def get_user_account(secret=None) -> Account:
-    secret = _validate_secret(secret)
-    return Account(get_user_client(secret))
+def get_user_account(jwt: str | None = None) -> Account:
+    return Account(get_user_client(jwt))

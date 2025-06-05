@@ -1,5 +1,6 @@
 import axios from "axios";
 import log from "./logger";
+import { account } from "./appwrite";
 
 const api = axios.create({
   baseURL: "/api", // Change to your API URL
@@ -20,6 +21,22 @@ export const setAuthModalOpener = (
 export const setNavigateFunction = (navigate: (path: string) => void) => {
   navigateFunction = navigate;
 };
+
+// Attach JWT for authenticated requests
+api.interceptors.request.use(async (config) => {
+  if (config.url?.includes("/audio/receive")) {
+    try {
+      const { jwt } = await account.createJWT();
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${jwt}`,
+      };
+    } catch (err) {
+      log.error("Failed to create JWT", err);
+    }
+  }
+  return config;
+});
 
 // Add response interceptor to handle 401 Unauthorized responses
 api.interceptors.response.use(

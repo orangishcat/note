@@ -66,11 +66,19 @@ export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
   if (!setAccount) throw new Error("Account not found");
   const { data, error } = useQuery({
     queryKey: ["user-data"],
-    queryFn: () =>
-      api
-        .get<AccountView>("/account/user-data")
-        .then((resp: AxiosResponse<AccountView>) => resp.data)
-        .catch(() => setAccount(null)),
+    queryFn: async () => {
+      try {
+        const user = await account.get();
+        return {
+          user_id: user.$id,
+          username: user.name,
+          email: user.email,
+        } as AccountView;
+      } catch {
+        setAccount(null);
+        throw new Error("unauthorized");
+      }
+    },
     staleTime: 60 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
