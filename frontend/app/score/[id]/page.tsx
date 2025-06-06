@@ -37,6 +37,7 @@ import { databases, storage } from "@/lib/appwrite";
 import { initProtobufTypes, protobufTypeCache } from "@/lib/proto";
 import DebugPanel from "@/components/DebugPanel";
 import api from "@/lib/network";
+import RecordingsModal from "@/components/RecordingsModal";
 
 // Add a global type declaration to prevent TypeScript errors
 declare global {
@@ -791,24 +792,17 @@ export default function ScorePage() {
           )}
         </div>
 
-        {/* Recordings modal - appears above the button */}
         {showRecordingsModal && (
-          <div
-            className={`absolute bottom-20 ${
-              isSmallScreen ? "left-2 right-2 w-auto" : "left-[calc(25%)] w-64"
-            } bg-gray-800/50 backdrop-blur-sm text-white rounded-lg shadow-lg p-4`}
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="text-center mb-2 font-semibold">
-              Previous Recordings
-            </div>
-            <div className="text-center text-gray-300 italic">
-              No recordings yet
-            </div>
-            {/* Arrow pointing to button */}
-            <div className="absolute -bottom-2 left-12 w-4 h-4 bg-gray-800/50 transform rotate-45"></div>
-          </div>
+          <RecordingsModal
+            open={showRecordingsModal}
+            onClose={() => setShowRecordingsModal(false)}
+            scoreId={id as string}
+            onLoad={(buf) => {
+              if (!editListType) return;
+              const decoded = editListType.decode(new Uint8Array(buf));
+              setEditList(decoded);
+            }}
+          />
         )}
       </div>
     );

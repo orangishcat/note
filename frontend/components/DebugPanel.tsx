@@ -246,7 +246,9 @@ const DebugPanel = ({
             log.debug(
               `Successfully decoded test response with ${editCount} edits`,
             );
-            setEditList(editList);
+            // Clone to prevent mutation of the original message
+            const cloned = JSON.parse(JSON.stringify(editList));
+            setEditList(cloned);
 
             // Also update played notes if available
             if (receivedPlayedNotes) {
@@ -276,8 +278,9 @@ const DebugPanel = ({
             `Successfully decoded test response with ${editCount} edits`,
           );
 
-          // Update the edit list
-          setEditList(decoded);
+          // Update the edit list with a cloned object
+          const cloned = JSON.parse(JSON.stringify(decoded));
+          setEditList(cloned);
 
           // Set success status message
           setTestStatus({

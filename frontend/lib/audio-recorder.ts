@@ -155,7 +155,9 @@ export function useAudioRecorder({
         editList = EditListType!.decode(new Uint8Array(buffer));
       }
 
-      onEditListChange(editList);
+      // Clone to avoid accidental mutations downstream
+      const editListCopy = JSON.parse(JSON.stringify(editList));
+      onEditListChange(editListCopy);
       if (playedNotes) onPlayedNotesChange(playedNotes);
     } catch (err) {
       log.error("Error stopping/processing recording:", err);

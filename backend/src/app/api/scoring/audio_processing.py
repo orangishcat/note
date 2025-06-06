@@ -10,13 +10,17 @@ from traceback import print_exc
 
 import magic
 from appwrite.services.storage import Storage
+from appwrite.services.databases import Databases
+from appwrite.input_file import InputFile
+from appwrite.permission import Permission
+from appwrite.role import Role
 from beam import Image, endpoint
-from flask import Response, request
+from flask import Response, request, g
 from loguru import logger
 from scoring import Note, NoteList, extract_midi_notes
 from scoring.edit_distance import find_ops
 
-from .. import get_user_client, misc_bucket
+from .. import get_user_client, misc_bucket, database
 from . import audio
 
 
@@ -180,6 +184,40 @@ def receive():
             response_nl.size.extend(actual_notes.size)
         else:
             response_nl = played_notes
+            # Save recording notes and create database entry
+            storage = Storage(get_user_client())
+            db = Databases(get_user_client())
+            user_role = Role.user(g.account["$id"])
+            notes_id = db.create_document(
+                database_id=database,
+                collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
+                document_id="unique()",
+                data={"user_id": g.account["$id"], "score_id": score_id},
+                permissions=[
+                    Permission.read(user_role),
+                    Permission.update(user_role),
+                    Permission.delete(user_role),
+                ],
+            )["$id"]
+            file_res = storage.create_file(
+                bucket_id=misc_bucket,
+                file_id=notes_id,
+                file=InputFile.from_bytes(
+                    response_nl.SerializeToString(), f"{notes_id}.pb", "application/octet-stream"
+                ),
+                permissions=[
+                    Permission.read(user_role),
+                    Permission.update(user_role),
+                    Permission.delete(user_role),
+                ],
+            )
+            # update document with file id
+            db.update_document(
+                database_id=database,
+                collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
+                document_id=notes_id,
+                data={"file_id": file_res["$id"]},
+            )
 
         # Serialize EditList and NoteList with length prefix
         edit_bytes = ops.SerializeToString()

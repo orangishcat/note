@@ -18,6 +18,7 @@ images_bucket = os.environ["IMAGES_BUCKET_ID"]
 misc_bucket = os.environ["FILES_BUCKET_ID"]
 score_collection = os.environ["SCORES_COLLECTION_ID"]
 folder_collection = os.environ["FOLDERS_COLLECTION_ID"]
+recordings_collection = os.environ.get("RECORDINGS_COLLECTION_ID")
 
 
 def get_client():
