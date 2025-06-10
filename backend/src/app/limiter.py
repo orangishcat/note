@@ -8,6 +8,6 @@ def limit(limiter: Limiter):
     limiter.limit("20 per minute")(api_bp)
 
     # Apply rate limit to the audio receive endpoint
-    from api.scoring.audio_processing import receive
+    from api.scoring.audio import receive
 
     limiter.limit("1 per 5 seconds")(receive)

@@ -1,6 +1,7 @@
 import axios from "axios";
 import log from "./logger";
 import { account } from "./appwrite";
+import { useQuery } from "@tanstack/react-query";
 
 const api = axios.create({
   baseURL: "/api",
@@ -27,7 +28,7 @@ export const setNavigateFunction = (navigate: (path: string) => void) => {
 api.interceptors.request.use(async (config) => {
   if (!config.url?.includes("http")) {
     try {
-      const { jwt } = await account.createJWT();
+      const jwt = await account.createJWT();
       config.headers.Authorization = `Bearer ${jwt}`;
     } catch (err) {
       log.error("Failed to create JWT", err);

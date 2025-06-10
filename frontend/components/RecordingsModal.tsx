@@ -15,6 +15,7 @@ interface RecordingsModalProps {
 interface RecordingDoc {
   $id: string;
   $createdAt: string;
+  user_id: string;
   file_id: string;
 }
 
@@ -61,7 +62,10 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
   useEffect(() => {
     const move = (e: MouseEvent) => {
       if (!dragging) return;
-      setPosition({ x: e.clientX - startRef.current.x, y: e.clientY - startRef.current.y });
+      setPosition({
+        x: e.clientX - startRef.current.x,
+        y: e.clientY - startRef.current.y,
+      });
     };
     const up = () => setDragging(false);
     if (dragging) {
@@ -105,14 +109,23 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
       </div>
       <div className="mt-7 max-h-60 overflow-auto space-y-2">
         {recs.length === 0 ? (
-          <div className="text-center text-gray-300 italic">No recordings yet</div>
+          <div className="text-center text-gray-300 italic">
+            No recordings yet
+          </div>
         ) : (
           recs.map((r) => (
-            <div key={r.$id} className="flex justify-between items-center bg-gray-700/40 p-1 rounded">
+            <div
+              key={r.$id}
+              className="flex justify-between items-center bg-gray-700/40 p-1 rounded"
+            >
               <span className="text-xs">
                 {new Date(r.$createdAt).toLocaleString()}
               </span>
-              <Button variant="secondary" size="sm" onClick={() => viewRecording(r.file_id)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => viewRecording(r.file_id)}
+              >
                 View
               </Button>
             </div>

@@ -203,7 +203,9 @@ def receive():
                 bucket_id=misc_bucket,
                 file_id=notes_id,
                 file=InputFile.from_bytes(
-                    response_nl.SerializeToString(), f"{notes_id}.pb", "application/octet-stream"
+                    response_nl.SerializeToString(),
+                    f"{notes_id}.pb",
+                    "application/octet-stream",
                 ),
                 permissions=[
                     Permission.read(user_role),
