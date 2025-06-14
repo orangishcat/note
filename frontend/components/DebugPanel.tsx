@@ -220,9 +220,9 @@ const DebugPanel = ({
         });
         if (response.status !== 200)
           throw new Error(`Server returned status ${response.status}`);
-        const { EditListType, NoteListType } = await initProtobufTypes();
-        if (!EditListType || !NoteListType)
-          throw new Error("Failed to initialize EditListType or NoteListType");
+        const { ScoringResultType, NoteListType } = await initProtobufTypes();
+        if (!ScoringResultType || !NoteListType)
+          throw new Error("Failed to initialize ScoringResultType or NoteListType");
         const buffer = response.data;
         const dataView = new Uint8Array(buffer);
 
@@ -239,7 +239,7 @@ const DebugPanel = ({
 
           // Use the splitCombinedResponse utility to decode both parts
           const { editList, playedNotes: receivedPlayedNotes } =
-            splitCombinedResponse(buffer, EditListType, NoteListType);
+            splitCombinedResponse(buffer, ScoringResultType, NoteListType);
 
           if (editList) {
             const editCount = (editList as any).edits?.length || 0;
@@ -271,8 +271,8 @@ const DebugPanel = ({
           }
         } else {
           // Legacy format - just decode EditList
-          log.debug("Using legacy format (EditList only)");
-          const decoded = EditListType.decode(dataView);
+          log.debug("Using legacy format (ScoringResult only)");
+          const decoded = ScoringResultType.decode(dataView);
           const editCount = (decoded as any).edits?.length || 0;
           log.debug(
             `Successfully decoded test response with ${editCount} edits`,

@@ -45,6 +45,15 @@ class Edit(betterproto.Message):
 
 
 @dataclass
-class EditList(betterproto.Message):
+class TempoSection(betterproto.Message):
+    start_index: int = betterproto.int32_field(1)
+    end_index: int = betterproto.int32_field(2)
+    tempo: float = betterproto.float_field(3)
+
+
+@dataclass
+class ScoringResult(betterproto.Message):
     edits: List["Edit"] = betterproto.message_field(1)
     size: List[int] = betterproto.int32_field(2)
+    unstable_rate: float = betterproto.float_field(3)
+    tempo_sections: List["TempoSection"] = betterproto.message_field(4)

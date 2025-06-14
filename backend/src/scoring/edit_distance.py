@@ -88,7 +88,7 @@ def compute_dp(s_pitches, t_pitches):
 # noinspection PyTypeChecker
 @timeit()
 def backtrack(dp, s, t, s_pitches, t_pitches):
-    edit_list = EditList()
+    edit_list = ScoringResult()
     aligned_indices = []
     n, m = s_pitches.shape[0], t_pitches.shape[0]
     i = int(np.argmin(dp[:, m]))
@@ -202,7 +202,7 @@ def backtrack(dp, s, t, s_pitches, t_pitches):
     return edit_list, aligned_indices
 
 
-def adjust_confidence(edit_list: EditList, times, pitches):
+def adjust_confidence(edit_list: ScoringResult, times, pitches):
     order = np.argsort(times)
     times = times[order]
     pitches = pitches[order]
@@ -222,16 +222,16 @@ def adjust_confidence(edit_list: EditList, times, pitches):
 
 
 @timeit()
-def postprocess(edit_list: EditList, s_times, s_pitches):
+def postprocess(edit_list: ScoringResult, s_times, s_pitches):
     adjust_confidence(edit_list, s_times, s_pitches)
     return edit_list
 
 
-def find_ops(s: list[Note], t: list[Note]) -> tuple[EditList, list[tuple[int, int]]]:
+def find_ops(s: list[Note], t: list[Note]) -> tuple[ScoringResult, list[tuple[int, int]]]:
     """
     Computes the minimum edit distance (by pitch) from s → t,
     allowing free trimming at start/end of s, and returns a tuple of:
-    - EditList: the edit operations
+    - ScoringResult: the edit operations
     - list[tuple[int, int]]: aligned indices of notes (s_index, t_index)
     Now accelerated with Numba and supports move/swap ops up to 5 positions away.
     """

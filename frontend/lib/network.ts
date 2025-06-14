@@ -24,14 +24,25 @@ export const setNavigateFunction = (navigate: (path: string) => void) => {
   navigateFunction = navigate;
 };
 
+// Cache JWT for 15 minutes
+let cachedJwt: string | null = null;
+let jwtExpiry = 0;
+
 // Attach JWT for authenticated requests
 api.interceptors.request.use(async (config) => {
   if (!config.url?.includes("http")) {
-    try {
-      const jwt = await account.createJWT();
-      config.headers.Authorization = `Bearer ${jwt}`;
-    } catch (err) {
-      log.error("Failed to create JWT", err);
+    const now = Date.now();
+    if (!cachedJwt || now >= jwtExpiry) {
+      try {
+        const { jwt } = await account.createJWT();
+        cachedJwt = jwt;
+        jwtExpiry = now + 15 * 60 * 1000;
+      } catch (err) {
+        log.error("Failed to create JWT", err);
+      }
+    }
+    if (cachedJwt) {
+      config.headers.Authorization = `Bearer ${cachedJwt}`;
     }
   }
   return config;

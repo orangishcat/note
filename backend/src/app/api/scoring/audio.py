@@ -17,7 +17,7 @@ from appwrite.role import Role
 from beam import Image, endpoint
 from flask import Response, request, g
 from loguru import logger
-from scoring import Note, NoteList, extract_midi_notes
+from scoring import Note, NoteList, extract_midi_notes, analyze_tempo
 from scoring.edit_distance import find_ops
 
 from .. import get_user_client, misc_bucket, database
@@ -167,6 +167,15 @@ def receive():
         ops, aligned_idx = find_ops(actual_notes.notes, played_notes.notes)
         ops.size.extend(actual_notes.size)
 
+        # Tempo analysis
+        sections, unstable = analyze_tempo(
+            actual_notes.notes,
+            played_notes.notes,
+            aligned_idx,
+        )
+        ops.unstable_rate = unstable
+        ops.tempo_sections.extend(sections)
+
         # Optional debug dump
         if os.environ.get("DEBUG") == "True":
 
@@ -221,7 +230,7 @@ def receive():
                 data={"file_id": file_res["$id"]},
             )
 
-        # Serialize EditList and NoteList with length prefix
+        # Serialize ScoringResult and NoteList with length prefix
         edit_bytes = ops.SerializeToString()
         notes_bytes = response_nl.SerializeToString()
         payload = struct.pack(">I", len(edit_bytes)) + edit_bytes + notes_bytes

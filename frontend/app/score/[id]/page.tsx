@@ -18,6 +18,7 @@ import {
   Minimize2,
   Share2,
   SquareIcon,
+  BarChart2,
   Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -102,8 +103,8 @@ export default function ScorePage() {
   }, []);
 
   // State to track protobuf type initialization
-  const [editListType, setEditListType] = useState<Type | null>(
-    protobufTypeCache.EditListType,
+  const [scoringResultType, setScoringResultType] = useState<Type | null>(
+    protobufTypeCache.ScoringResultType,
   );
   const [noteListType, setNoteListType] = useState<Type | null>(
     protobufTypeCache.NoteListType,
@@ -112,7 +113,7 @@ export default function ScorePage() {
   // Function to refetch protobuf types
   const refetchTypes = async () => {
     const result = await initProtobufTypes();
-    setEditListType(result.EditListType);
+    setScoringResultType(result.ScoringResultType);
     setNoteListType(result.NoteListType);
     return result;
   };
@@ -218,8 +219,22 @@ export default function ScorePage() {
     };
   }, [editList, confidenceThreshold]);
 
+  const unstableRate = (editList as any)?.unstableRate ?? 0;
+  const accuracy = useMemo(() => {
+    if (!filteredEditList || !scoreNotes) return 0;
+    const numEdits = (filteredEditList as any).edits.length || 0;
+    const total = (scoreNotes as any).notes?.length || 1;
+    return ((1 - numEdits / total) * 100).toFixed(1);
+  }, [filteredEditList, scoreNotes]);
+
   // Use the edit display hook
-  useEditDisplay(filteredEditList, currentPage, id as string, setEditsOnPage);
+  useEditDisplay(
+    filteredEditList,
+    currentPage,
+    id as string,
+    setEditsOnPage,
+    scoreNotes,
+  );
 
   // Setup event handlers for page changes and annotation redraws
   setupEditEventHandlers(
@@ -324,7 +339,7 @@ export default function ScorePage() {
   // Initialize the hook without pulling out start/stop
   const { hasPermission } = useAudioRecorder({
     isRecording,
-    EditListType: editListType,
+    ScoringResultType: scoringResultType,
     NoteListType: noteListType,
     onEditListChange: setEditList,
     onPlayedNotesChange: setPlayedNotes,
@@ -378,6 +393,7 @@ export default function ScorePage() {
   const [showControls, setShowControls] = useState(true);
   const [showDock, setShowDock] = useState(true);
   const [showRecordingsModal, setShowRecordingsModal] = useState(false);
+  const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const [totalPages, setTotalPages] = useState<number | null>(null);
 
   // Refs
@@ -388,13 +404,13 @@ export default function ScorePage() {
 
   // Log when protobuf types are initialized
   useEffect(() => {
-    if (!editListType) {
-      log.warn("EditListType is not yet initialized");
+    if (!scoringResultType) {
+      log.warn("ScoringResultType is not yet initialized");
       return;
     }
 
-    log.debug("EditListType is initialized and ready to use");
-  }, [editListType]);
+    log.debug("ScoringResultType is initialized and ready to use");
+  }, [scoringResultType]);
 
   const onStarToggle = (score: MusicScore) => {
     setLastStarTime(Date.now());
@@ -613,7 +629,7 @@ export default function ScorePage() {
     return (
       <div
         ref={dockRef}
-        className={`absolute w-full flex justify-center bottom-8 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 ${
+        className={`fixed bottom-0 left-0 right-0 flex justify-center pb-2 transition-opacity duration-300 ${
           showDock ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -680,6 +696,17 @@ export default function ScorePage() {
               className={`text-white ${isSmallScreen ? "mr-1" : "mr-3"}`}
             >
               <Clock className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+            </Button>
+          </BasicTooltip>
+
+          <BasicTooltip text="Previous metrics">
+            <Button
+              onClick={() => setShowMetricsPanel(!showMetricsPanel)}
+              variant="ghost"
+              size="icon"
+              className={`text-white ${isSmallScreen ? "mr-1" : "mr-3"}`}
+            >
+              <BarChart2 className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
             </Button>
           </BasicTooltip>
 
@@ -798,8 +825,8 @@ export default function ScorePage() {
             onClose={() => setShowRecordingsModal(false)}
             scoreId={id as string}
             onLoad={(buf) => {
-              if (!editListType) return;
-              const decoded = editListType.decode(new Uint8Array(buf));
+              if (!scoringResultType) return;
+              const decoded = scoringResultType.decode(new Uint8Array(buf));
               setEditList(decoded);
             }}
           />
@@ -1000,6 +1027,16 @@ export default function ScorePage() {
 
           {/* Control dock */}
           <ControlDock />
+
+          {showMetricsPanel && (
+            <div className="fixed bottom-20 right-4 bg-gray-800 text-white p-3 rounded shadow-lg z-50 text-sm">
+              <div>Unstable Rate: {unstableRate.toFixed(3)}</div>
+              <div>Accuracy: {accuracy}%</div>
+              <button className="mt-1 underline" onClick={() => setShowMetricsPanel(false)}>
+                Close
+              </button>
+            </div>
+          )}
 
           {/* Debug panel - only render on client side */}
           {isClient && isDebugMode && (

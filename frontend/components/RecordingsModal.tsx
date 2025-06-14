@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { databases } from "@/lib/appwrite";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/network";
@@ -26,9 +26,6 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
   onLoad,
 }) => {
   const [recs, setRecs] = useState<RecordingDoc[]>([]);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [dragging, setDragging] = useState(false);
-  const startRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     if (!open) return;
@@ -51,32 +48,6 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
     fetchRecs();
   }, [open, scoreId]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setDragging(true);
-    startRef.current = {
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
-    };
-  };
-
-  useEffect(() => {
-    const move = (e: MouseEvent) => {
-      if (!dragging) return;
-      setPosition({
-        x: e.clientX - startRef.current.x,
-        y: e.clientY - startRef.current.y,
-      });
-    };
-    const up = () => setDragging(false);
-    if (dragging) {
-      document.addEventListener("mousemove", move);
-      document.addEventListener("mouseup", up);
-    }
-    return () => {
-      document.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", up);
-    };
-  }, [dragging]);
 
   const viewRecording = async (id: string) => {
     try {
@@ -91,14 +62,10 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
   if (!open) return null;
   return (
     <div
-      className="fixed z-50 bg-gray-800/90 text-white rounded-md shadow-lg p-2"
-      style={{ left: position.x, top: position.y, width: "15rem" }}
+      className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 rounded-md bg-gray-800/90 p-2 text-white shadow-lg"
       onClick={(e) => e.stopPropagation()}
     >
-      <div
-        className="absolute top-0 left-0 right-0 h-7 bg-gray-700/80 rounded-t-md flex items-center px-2 cursor-grab"
-        onMouseDown={handleMouseDown}
-      >
+      <div className="absolute left-0 right-0 top-0 flex h-7 items-center rounded-t-md bg-gray-700/80 px-2">
         <span className="text-xs font-semibold">Recordings</span>
         <button
           onClick={onClose}

@@ -4,7 +4,7 @@ import protobuf, { Type } from "protobufjs";
 import log from "@/lib/logger";
 
 export interface ProtoCache {
-  EditListType: Type | null;
+  ScoringResultType: Type | null;
   NoteListType: Type | null;
   initialized: boolean;
   initializing: boolean;
@@ -12,7 +12,7 @@ export interface ProtoCache {
 }
 
 export let protobufTypeCache: ProtoCache = {
-  EditListType: null,
+  ScoringResultType: null,
   NoteListType: null,
   initialized: false,
   initializing: false,
@@ -20,22 +20,22 @@ export let protobufTypeCache: ProtoCache = {
 };
 
 export async function initProtobufTypes(): Promise<{
-  EditListType: Type | null;
+  ScoringResultType: Type | null;
   NoteListType: Type | null;
 }> {
   if (
     protobufTypeCache.initialized &&
-    protobufTypeCache.EditListType &&
+    protobufTypeCache.ScoringResultType &&
     protobufTypeCache.NoteListType
   ) {
     return {
-      EditListType: protobufTypeCache.EditListType,
+      ScoringResultType: protobufTypeCache.ScoringResultType,
       NoteListType: protobufTypeCache.NoteListType,
     };
   }
 
   if (protobufTypeCache.initializing) {
-    return { EditListType: null, NoteListType: null };
+    return { ScoringResultType: null, NoteListType: null };
   }
 
   log.debug("Initializing protobuf types");
@@ -48,27 +48,27 @@ export async function initProtobufTypes(): Promise<{
     log.debug(`Loading proto definition from ${protoUrl}`);
 
     const root = await protobuf.load(protoUrl);
-    const EditListType = root.lookupType("EditList");
+    const ScoringResultType = root.lookupType("ScoringResult");
     const NoteListType = root.lookupType("NoteList");
 
     protobufTypeCache = {
-      EditListType,
+      ScoringResultType,
       NoteListType,
       initialized: true,
       initializing: false,
       error: null,
     };
 
-    return { EditListType, NoteListType };
+    return { ScoringResultType, NoteListType };
   } catch (error: any) {
     log.error("Error initializing protobuf types:", error);
     protobufTypeCache = {
-      EditListType: null,
+      ScoringResultType: null,
       NoteListType: null,
       initialized: false,
       initializing: false,
       error: error instanceof Error ? error : new Error(String(error)),
     };
-    return { EditListType: null, NoteListType: null };
+    return { ScoringResultType: null, NoteListType: null };
   }
 }

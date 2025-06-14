@@ -31,7 +31,15 @@ message Edit {
     int32 t_pos = 5;  // Target position (for SUBSTITUTE)
 }
 
-message EditList {
+message TempoSection {
+    int32 start_index = 1;
+    int32 end_index = 2;
+    float tempo = 3;
+}
+
+message ScoringResult {
     repeated Edit edits = 1;
     repeated int32 size = 2;
+    float unstable_rate = 3;
+    repeated TempoSection tempo_sections = 4;
 }

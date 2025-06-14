@@ -264,6 +264,7 @@ export function useEditDisplay(
   currentPage: number,
   scoreId: string,
   setEditCount: (count: number) => void,
+  scoreNotes?: Message | null,
 ) {
   const lastRenderTimeRef = useRef<number>(0);
   const MIN_RENDER_INTERVAL = 200; // Increased from 100ms to 200ms
@@ -382,7 +383,7 @@ export function useEditDisplay(
 
     // Clear existing rectangles and note labels
     const existingRects = document.querySelectorAll(
-      ".note-rectangle, .note-label",
+      ".note-rectangle, .note-label, .tempo-bracket",
     );
     existingRects.forEach((el) => el.remove());
 
@@ -1005,6 +1006,51 @@ export function useEditDisplay(
         // Don't log individual rectangles anymore to reduce console spam
       }
 
+      // Draw tempo sections
+      if (scoreNotes && (editList as any).tempoSections) {
+        const sections = (editList as any).tempoSections as any[];
+        sections.forEach((ts: any) => {
+          const startNote = (scoreNotes as any).notes?.[ts.startIndex];
+          const endNote = (scoreNotes as any).notes?.[ts.endIndex];
+          if (!startNote || !endNote) return;
+          if (Number(startNote.page) !== Number(currentPage)) return;
+
+          const pageIndex = pageSizes.length === 2 ? 0 : startNote.page;
+          const pageWidth = pageSizes[pageIndex * 2];
+          const pageHeight = pageSizes[pageIndex * 2 + 1];
+
+          const containerRect = scoreContainer.getBoundingClientRect();
+          const containerWidth = containerRect.width / currentScale;
+          const containerHeight = containerRect.height / currentScale;
+          const scale = Math.min(
+            containerWidth / pageWidth,
+            containerHeight / pageHeight,
+          );
+          const offsetX = (containerWidth - pageWidth * scale) / 2;
+          const offsetY = (containerHeight - pageHeight * scale) / 2;
+
+          const left = startNote.bbox[0] * scale + offsetX;
+          const right = endNote.bbox[2] * scale + offsetX;
+          const top = startNote.bbox[1] * scale + offsetY - 10;
+
+          const bracket = document.createElement("div");
+          bracket.className = "tempo-bracket";
+          bracket.style.cssText = `
+              position:absolute;
+              left:${left}px;
+              top:${top}px;
+              width:${right - left}px;
+              height:8px;
+              border-left:2px solid rgba(0,0,255,0.7);
+              border-right:2px solid rgba(0,0,255,0.7);
+              border-bottom:2px solid rgba(0,0,255,0.7);
+              pointer-events:none;
+              z-index:45;
+          `;
+          scoreContainer.appendChild(bracket);
+        });
+      }
+
       // If we limited the log output, add a summary
       if (invalidBboxLogged >= MAX_INVALID_BBOX_LOGS) {
         log.warn(
@@ -1047,7 +1093,7 @@ export function useEditDisplay(
         });
       }
     }
-  }, [editList, currentPage, scoreId, renderEditAnnotations]);
+  }, [editList, currentPage, scoreId, scoreNotes, renderEditAnnotations]);
 
   // Listen for zoom changes and trigger redraw when needed
   useEffect(() => {

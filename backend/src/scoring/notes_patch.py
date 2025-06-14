@@ -22,7 +22,7 @@ if os.environ.get("DEBUG") == "not true":
             print_exc()
 
     NoteList.ParseFromString = NoteList.parse
-    EditList.ParseFromString = EditList.parse
+    ScoringResult.ParseFromString = ScoringResult.parse
     Note.CopyFrom = note_copy
 else:
     try:

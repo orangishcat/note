@@ -12,12 +12,12 @@ export interface RecordingError {
 
 export interface AudioRecorderHookProps {
   isRecording: boolean;
-  EditListType: Type | null;
+  ScoringResultType: Type | null;
   NoteListType: Type | null;
   scoreId: string;
   notesId: string;
   refetchTypes: () => Promise<{
-    EditListType: Type | null;
+    ScoringResultType: Type | null;
     NoteListType: Type | null;
   }>;
   onEditListChange: (editList: Message | null) => void;
@@ -27,7 +27,7 @@ export interface AudioRecorderHookProps {
 
 export function splitCombinedResponse(
   buffer: ArrayBuffer,
-  EditListType: Type,
+  ScoringResultType: Type,
   NoteListType: Type,
 ): { editList: Message | null; playedNotes: Message | null } {
   try {
@@ -41,7 +41,7 @@ export function splitCombinedResponse(
     const editListData = dataView.slice(4, 4 + editListSize);
     const playedNotesData = dataView.slice(4 + editListSize);
 
-    const editList = EditListType.decode(editListData);
+    const editList = ScoringResultType.decode(editListData);
     const playedNotes = NoteListType.decode(playedNotesData);
 
     log.debug(
@@ -58,7 +58,7 @@ export function splitCombinedResponse(
 
 export function useAudioRecorder({
   isRecording,
-  EditListType,
+  ScoringResultType,
   NoteListType,
   scoreId,
   notesId,
@@ -148,11 +148,11 @@ export function useAudioRecorder({
       if (fmt === "combined") {
         ({ editList, playedNotes } = splitCombinedResponse(
           buffer,
-          EditListType!,
+          ScoringResultType!,
           NoteListType!,
         ));
       } else {
-        editList = EditListType!.decode(new Uint8Array(buffer));
+        editList = ScoringResultType!.decode(new Uint8Array(buffer));
       }
 
       // Clone to avoid accidental mutations downstream
