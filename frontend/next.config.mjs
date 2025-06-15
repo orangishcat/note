@@ -23,7 +23,9 @@ const nextConfig = {
   // 2. External image configuration for Appwrite
   images: {
     // -- Parse the Appwrite endpoint into components
-    remotePatterns: [new URL(`${process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT}/**?project=**`)],
+    remotePatterns: [
+      new URL(`${process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT}/**?project=**`),
+    ],
   },
 };
 

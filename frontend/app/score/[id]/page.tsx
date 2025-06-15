@@ -227,6 +227,22 @@ export default function ScorePage() {
     return ((1 - numEdits / total) * 100).toFixed(1);
   }, [filteredEditList, scoreNotes]);
 
+  function NavContent() {
+    return (
+      <div className="flex items-center gap-2 overflow-hidden">
+        <Link href="/" className="text-muted-foreground">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <span className="font-semibold truncate">{score.name}</span>
+        {score.subtitle && (
+          <span className="text-sm text-gray-500 dark:text-gray-400 truncate ml-2">
+            {score.subtitle}
+          </span>
+        )}
+      </div>
+    );
+  }
+
   // Use the edit display hook
   useEditDisplay(
     filteredEditList,
@@ -629,194 +645,156 @@ export default function ScorePage() {
     return (
       <div
         ref={dockRef}
-        className={`fixed bottom-0 left-0 right-0 flex justify-center pb-2 transition-opacity duration-300 ${
+        className={`fixed bottom-0 right-0 left-0 xl:left-72 transition-opacity duration-300 ${
           showDock ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div
-          className={`flex flex-wrap items-center bg-gray-800/50 backdrop-blur-sm rounded-full ${
-            isSmallScreen ? "p-2" : "p-3"
-          } shadow-lg max-w-[95vw] overflow-hidden`}
-        >
-          {/* Record button with compatibility indicator */}
-          <BasicTooltip
-            text={
-              recordingCompatible === false
-                ? "Recording not supported in this browser"
-                : isRecording
-                  ? "Stop recording"
-                  : "Start recording"
-            }
-          >
-            <Button
-              onClick={
+        <div className="flex items-center justify-between bg-background dark:bg-gray-900 px-4 py-2">
+          <div className="flex items-center gap-2">
+            {/* Record button with compatibility indicator */}
+            <BasicTooltip
+              text={
                 recordingCompatible === false
-                  ? showRecordingHelp
-                  : toggleRecording
+                  ? "Recording not supported in this browser"
+                  : isRecording
+                    ? "Stop recording"
+                    : "Start recording"
               }
-              className={`
-                          ${
-                            isRecording
-                              ? "bg-red-600"
-                              : recordingCompatible === false
-                                ? "bg-amber-600"
-                                : "bg-primary"
-                          }
-                          text-white
-                          ${isSmallScreen ? "w-10 h-10" : "w-14 h-14"}
-                          rounded-full
-                          flex items-center justify-center
-                          ${isSmallScreen ? "mr-1" : "mr-3"}
-                          relative
-                        `}
-              disabled={recordingCompatible === false}
             >
-              {isRecording ? (
-                <SquareIcon
-                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
-                />
-              ) : recordingCompatible === false ? (
-                <AlertTriangle
-                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
-                />
-              ) : (
-                <Mic className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
-              )}
-            </Button>
-          </BasicTooltip>
-
-          {/* Previous recordings button */}
-          <BasicTooltip text="View previous recordings">
-            <Button
-              onClick={() => setShowRecordingsModal(!showRecordingsModal)}
-              variant="ghost"
-              size="icon"
-              className={`text-white ${isSmallScreen ? "mr-1" : "mr-3"}`}
-            >
-              <Clock className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
-            </Button>
-          </BasicTooltip>
-
-          <BasicTooltip text="Previous metrics">
-            <Button
-              onClick={() => setShowMetricsPanel(!showMetricsPanel)}
-              variant="ghost"
-              size="icon"
-              className={`text-white ${isSmallScreen ? "mr-1" : "mr-3"}`}
-            >
-              <BarChart2 className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
-            </Button>
-          </BasicTooltip>
-
-          {/* Divider */}
-          <div
-            className={`h-10 w-px bg-gray-400 ${
-              isSmallScreen ? "mx-1" : "mx-3"
-            }`}
-          ></div>
-
-          {/* Previous page */}
-          <BasicTooltip text="Previous page">
-            <Button
-              onClick={goToPrevPage}
-              variant="ghost"
-              size="icon"
-              className="text-white"
-              disabled={currentPage <= 0}
-            >
-              <ArrowLeftCircle
-                className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
-              />
-            </Button>
-          </BasicTooltip>
-
-          {/* Page counter */}
-          <div
-            className={`${
-              isSmallScreen ? "px-1 text-sm" : "px-4"
-            } text-white font-medium whitespace-nowrap`}
-          >
-            {currentDisplayPage} / {totalPages}
-          </div>
-
-          {/* Next page */}
-          <BasicTooltip text="Next page">
-            <Button
-              onClick={goToNextPage}
-              variant="ghost"
-              size="icon"
-              className={`text-white ${isSmallScreen ? "mr-1" : "mr-3"}`}
-            >
-              <ArrowRightCircle
-                className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
-              />
-            </Button>
-          </BasicTooltip>
-
-          {/* Divider */}
-          <div
-            className={`h-10 w-px bg-gray-400 ${
-              isSmallScreen ? "mx-1" : "mx-3"
-            }`}
-          ></div>
-
-          {/* Reset zoom button */}
-          <BasicTooltip text="Reset zoom">
-            <Button
-              variant="ghost"
-              size="icon"
-              ref={recenterButton}
-              className={`text-white ${isSmallScreen ? "mr-1" : "mr-3"}`}
-            >
-              <Fullscreen
-                className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
-              />
-            </Button>
-          </BasicTooltip>
-
-          {/* Fullscreen toggle */}
-          <BasicTooltip
-            text={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleFullscreen}
-              className={`text-white ${isSmallScreen ? "mr-1" : "mr-3"}`}
-            >
-              {isFullscreen ? (
-                <Minimize2
-                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
-                />
-              ) : (
-                <Maximize2
-                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
-                />
-              )}
-            </Button>
-          </BasicTooltip>
-
-          {/* Hide/Show dock toggle (only in fullscreen) */}
-          {isFullscreen && (
-            <BasicTooltip text={showDock ? "Hide controls" : "Show controls"}>
               <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleDockVisibility}
-                className="text-white"
+                onClick={
+                  recordingCompatible === false
+                    ? showRecordingHelp
+                    : toggleRecording
+                }
+                className={`${
+                  isRecording
+                    ? "bg-red-600"
+                    : recordingCompatible === false
+                      ? "bg-amber-600"
+                      : "bg-primary"
+                } text-white ${isSmallScreen ? "w-10 h-10" : "w-14 h-14"} rounded-full flex items-center justify-center`}
+                disabled={recordingCompatible === false}
               >
-                {showDock ? (
-                  <EyeOff
-                    className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
-                  />
+                {isRecording ? (
+                  <SquareIcon className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                ) : recordingCompatible === false ? (
+                  <AlertTriangle className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
                 ) : (
-                  <Eye className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                  <Mic className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
                 )}
               </Button>
             </BasicTooltip>
-          )}
+            <BasicTooltip text="View previous recordings">
+              <Button
+                onClick={() => setShowRecordingsModal(!showRecordingsModal)}
+                variant="ghost"
+                size="icon"
+                className="text-white"
+              >
+                <Clock className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+              </Button>
+            </BasicTooltip>
+            <BasicTooltip text="Previous metrics">
+              <Button
+                onClick={() => setShowMetricsPanel(!showMetricsPanel)}
+                variant="ghost"
+                size="icon"
+                className="text-white"
+              >
+                <BarChart2 className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+              </Button>
+            </BasicTooltip>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <BasicTooltip text="Previous page">
+              <Button
+                onClick={goToPrevPage}
+                variant="ghost"
+                size="icon"
+                className="text-white"
+                disabled={currentPage <= 0}
+              >
+                <ArrowLeftCircle className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+              </Button>
+            </BasicTooltip>
+            <div className={`${isSmallScreen ? "px-1 text-sm" : "px-4"} text-white font-medium whitespace-nowrap`}>
+              {currentDisplayPage} / {totalPages}
+            </div>
+            <BasicTooltip text="Next page">
+              <Button
+                onClick={goToNextPage}
+                variant="ghost"
+                size="icon"
+                className="text-white"
+              >
+                <ArrowRightCircle className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+              </Button>
+            </BasicTooltip>
+            <BasicTooltip text="Reset zoom">
+              <Button variant="ghost" size="icon" ref={recenterButton} className="text-white">
+                <Fullscreen className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+              </Button>
+            </BasicTooltip>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <BasicTooltip text={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
+              <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="text-white">
+                {isFullscreen ? (
+                  <Minimize2 className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                ) : (
+                  <Maximize2 className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                )}
+              </Button>
+            </BasicTooltip>
+            <BasicTooltip text="Download">
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  window.open(
+                    storage.getFileDownload(
+                      process.env.NEXT_PUBLIC_SCORES_BUCKET!,
+                      score.file_id!,
+                    ),
+                  )
+                }
+                className="text-white"
+              >
+                <Download className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`} />
+              </Button>
+            </BasicTooltip>
+            <BasicTooltip text="Star">
+              <Button variant="ghost" onClick={() => onStarToggle(score)} className="text-white">
+                <Star
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"} ${
+                    score.starred ? "text-yellow-400 fill-yellow-400" : ""
+                  }`}
+                />
+              </Button>
+            </BasicTooltip>
+            {!isSmallScreen && (
+              <NotImplementedTooltip>
+                <Button variant="ghost" disabled className="text-white">
+                  <Share2 className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`} />
+                </Button>
+              </NotImplementedTooltip>
+            )}
+            {isFullscreen && (
+              <BasicTooltip text={showDock ? "Hide controls" : "Show controls"}>
+                <Button variant="ghost" size="icon" onClick={toggleDockVisibility} className="text-white">
+                  {showDock ? (
+                    <EyeOff className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                  ) : (
+                    <Eye className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                  )}
+                </Button>
+              </BasicTooltip>
+            )}
+          </div>
         </div>
 
         {showRecordingsModal && (
@@ -898,66 +876,6 @@ export default function ScorePage() {
                 </span>
               )}
             </p>
-          </div>
-          <div className="flex items-center gap-x-1">
-            <BasicTooltip text="Download">
-              <Button
-                variant="ghost"
-                onClick={() =>
-                  window.open(
-                    storage.getFileDownload(
-                      process.env.NEXT_PUBLIC_SCORES_BUCKET!,
-                      score.file_id!,
-                    ),
-                  )
-                }
-                className={isSmallScreen ? "h-8 w-8" : ""}
-              >
-                <Download className={isSmallScreen ? "h-3 w-3" : "h-4 w-4"} />
-              </Button>
-            </BasicTooltip>
-            <BasicTooltip text="Star">
-              <Button
-                variant="ghost"
-                onClick={() => onStarToggle(score)}
-                className={isSmallScreen ? "h-8 w-8" : ""}
-              >
-                <Star
-                  className={`${isSmallScreen ? "h-3 w-3" : "size-4"} ${
-                    score.starred
-                      ? "text-yellow-400 fill-yellow-400"
-                      : isFullscreen
-                        ? "text-white"
-                        : "text-black dark:text-white"
-                  }`}
-                />
-              </Button>
-            </BasicTooltip>
-            {!isFullscreen && (
-              <BasicTooltip text="Enter fullscreen">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleFullscreen}
-                  className={isSmallScreen ? "h-8 w-8" : ""}
-                >
-                  <Maximize2
-                    className={isSmallScreen ? "h-3 w-3" : "h-4 w-4"}
-                  />
-                </Button>
-              </BasicTooltip>
-            )}
-            {!isFullscreen && !isSmallScreen && (
-              <NotImplementedTooltip>
-                <Button
-                  variant="ghost"
-                  disabled
-                  className={isSmallScreen ? "h-8 w-8" : ""}
-                >
-                  <Share2 className={isSmallScreen ? "h-3 w-3" : "h-4 w-4"} />
-                </Button>
-              </NotImplementedTooltip>
-            )}
           </div>
         </div>
       </div>
@@ -1080,7 +998,7 @@ export default function ScorePage() {
 
   // Regular mode with floating UI elements
   return (
-    <Layout>
+    <Layout navbarContent={<NavContent />}>
       <div className="relative h-[calc(100vh-5rem)]">
         {/* Top bar - same in both modes */}
         <TopBar />

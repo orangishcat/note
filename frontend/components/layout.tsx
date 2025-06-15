@@ -8,9 +8,10 @@ import log from "loglevel";
 
 export interface LayoutProps {
   children: ReactNode;
+  navbarContent?: ReactNode;
 }
 
-export function Layout({ children }: LayoutProps) {
+export function Layout({ children, navbarContent }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const authModalContext = useContext(AuthModalContext);
   const router = useRouter();
@@ -44,7 +45,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background dark:text-white">
       <div className="xl:ml-72 transition-all duration-200">
-        <Navbar onMenuClick={toggleSidebar} />
+        <Navbar onMenuClick={toggleSidebar}>{navbarContent}</Navbar>
       </div>
       <div className="flex overflow-auto">
         <Sidebar

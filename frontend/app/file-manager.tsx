@@ -6,6 +6,7 @@ import { FolderPlus, RefreshCw, Star } from "lucide-react";
 import Link from "next/link";
 import React, { useContext, useEffect, useState } from "react";
 import { Layout } from "@/components/layout";
+import SearchBox from "@/components/ui-custom/search-box";
 import {
   Dialog,
   DialogContent,
@@ -174,7 +175,7 @@ export default function FileManager() {
     invalidateScores();
   };
   return (
-    <Layout>
+    <Layout navbarContent={<SearchBox />}>
       <div className="p-6">
         <div className="mb-6 flex items-center justify-between">
           <Tabs

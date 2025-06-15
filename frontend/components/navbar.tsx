@@ -2,7 +2,6 @@ import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Bell, Grid, Menu, Moon, Sun, User } from "lucide-react";
-import SearchBox from "@/components/ui-custom/search-box";
 import AccountDropdown from "@/components/ui-custom/account-dropdown";
 import { AuthModal, ResetPasswordModal } from "@/components/auth-modals";
 import Link from "next/link";
@@ -35,7 +34,13 @@ export function NavItem({ href, icon, children, active }: NavItemProps) {
   );
 }
 
-export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
+export function Navbar({
+  onMenuClick,
+  children,
+}: {
+  onMenuClick: () => void;
+  children?: React.ReactNode;
+}) {
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] =
@@ -93,7 +98,7 @@ export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
   return (
     <>
       <header className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 overflow-hidden">
           <Button
             variant="ghost"
             size="icon"
@@ -103,7 +108,7 @@ export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
           >
             <Menu className="h-6 w-6" />
           </Button>
-          <SearchBox />
+          {children}
         </div>
         <div className="flex items-center gap-4">
           <Button
