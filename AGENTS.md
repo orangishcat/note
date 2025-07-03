@@ -7,6 +7,7 @@ For agents like OpenAI's Codex and more.
   and in an easily readable way.
 - Since the entire Next.js project is in the `frontend` directory, ensure to
   `cd frontend` before running npm commands.
+- Respect and fix all `next lint` warnings if possible
 - Appwrite database collection attributes:
   - Folder collection:
     - name: String

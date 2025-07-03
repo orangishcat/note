@@ -97,7 +97,7 @@ export function Navbar({
 
   return (
     <>
-      <header className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700">
+      <header className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-850">
         <div className="flex items-center gap-4 overflow-hidden">
           <Button
             variant="ghost"

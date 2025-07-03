@@ -665,9 +665,7 @@ export default function ImageScoreRenderer({
     <div
       ref={wrapperRef}
       id={`score-${scoreId}`}
-      className={`overflow-x-hidden flex flex-col place-items-center relative ${
-        isFullscreen ? "pt-16" : ""
-      }`}
+      className="overflow-x-hidden flex flex-col place-items-center relative"
       style={{
         height: containerHeight,
         transition: "height 0.3s ease",

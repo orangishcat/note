@@ -512,41 +512,6 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
   }
 
   // Helper function to render a note in the sequence
-  const renderNoteInSequence = (
-    note: any,
-    index: number,
-    isHighlighted: boolean = false,
-  ) => {
-    const noteName =
-      note?.pitch !== undefined ? midiPitchToNoteName(note.pitch) : "N/A";
-    const position = note.relativePosition;
-    const isCurrentPosition = position === 0;
-
-    return (
-      <div
-        key={index}
-        className={`p-2 rounded flex items-center justify-between border ${
-          isHighlighted
-            ? "bg-blue-900/70 border-blue-700"
-            : isCurrentPosition
-              ? "bg-gray-800/90 border-gray-700"
-              : "bg-gray-900/70 border-gray-800"
-        } ${isCurrentPosition ? "font-bold" : ""}`}
-      >
-        <div className="flex items-center">
-          <span
-            className={`w-6 text-center ${
-              isCurrentPosition ? "text-white" : "text-gray-400"
-            }`}
-          >
-            {position}
-          </span>
-          <span className="ml-2 font-mono">{noteName}</span>
-        </div>
-        <div className="text-xs text-gray-400">{note.startTime.toFixed(3)}</div>
-      </div>
-    );
-  };
 
   return (
     <div

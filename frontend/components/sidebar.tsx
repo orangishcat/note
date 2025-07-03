@@ -30,7 +30,7 @@ export function Sidebar({
   return (
     <div
       className={cn(
-        "fixed top-0 left-0 h-full w-72 z-40 bg-gray-100 dark:bg-gray-800/50 backdrop-blur border-r dark:border-gray-700 " +
+        "fixed top-0 left-0 h-full w-72 z-40 bg-gray-100 dark:bg-gray-850 backdrop-blur border-r dark:border-gray-700 " +
           "transform transition-transform duration-200 ease-in-out xl:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full",
       )}

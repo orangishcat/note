@@ -56,7 +56,7 @@ export default function MusicXMLRenderer({
   const containerRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
-  const [totalPages, setTotalPages] = useState<number>(1);
+  const [, setTotalPages] = useState<number>(1);
   const [musicLines, setMusicLines] = useState<Element[]>([]);
   const linesPerPage = 4; // Number of music lines per page
   const lineHeight = useRef<number>(0);

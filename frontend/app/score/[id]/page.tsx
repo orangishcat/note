@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowLeftCircle,
   ArrowRightCircle,
+  BarChart2,
   Clock,
   Download,
   Eye,
@@ -18,7 +19,6 @@ import {
   Minimize2,
   Share2,
   SquareIcon,
-  BarChart2,
   Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -62,9 +62,8 @@ export default function ScorePage() {
     starred_users: [],
     user_id: "",
     $id: "",
-    name: "loading",
-    subtitle:
-      "you're not supposed to be seeing this. if you are, good for you.",
+    name: "Loading...",
+    subtitle: "",
     $createdAt: "",
     total_pages: 1,
   });
@@ -229,16 +228,21 @@ export default function ScorePage() {
 
   function NavContent() {
     return (
-      <div className="flex items-center gap-2 overflow-hidden">
-        <Link href="/" className="text-muted-foreground">
+      <div className="flex items-center text-xl gap-2">
+        <Link href="/" className="text-muted-foreground flex-shrink-0">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <span className="font-semibold truncate">{score.name}</span>
-        {score.subtitle && (
-          <span className="text-sm text-gray-500 dark:text-gray-400 truncate ml-2">
-            {score.subtitle}
+
+        <div className="flex-1 flex items-baseline gap-2 overflow-hidden">
+          <span className="font-semibold truncate whitespace-nowrap overflow-ellipsis max-w-xl">
+            {score.name}
           </span>
-        )}
+          {score.subtitle && (
+            <span className="text-gray-500 dark:text-gray-400 truncate whitespace-nowrap max-w-xs">
+              {score.subtitle}
+            </span>
+          )}
+        </div>
       </div>
     );
   }
@@ -270,9 +274,7 @@ export default function ScorePage() {
       const isIOS =
         /iPad|iPhone|iPod/.test(navigator.userAgent) &&
         !(window as any).MSStream;
-      const isSafari = /^((?!chrome|android).)*safari/i.test(
-        navigator.userAgent,
-      );
+      /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const isIOSChrome = isIOS && navigator.userAgent.includes("CriOS");
       const isIOSFirefox = isIOS && navigator.userAgent.includes("FxiOS");
 
@@ -353,17 +355,6 @@ export default function ScorePage() {
   };
 
   // Initialize the hook without pulling out start/stop
-  const { hasPermission } = useAudioRecorder({
-    isRecording,
-    ScoringResultType: scoringResultType,
-    NoteListType: noteListType,
-    onEditListChange: setEditList,
-    onPlayedNotesChange: setPlayedNotes,
-    refetchTypes,
-    scoreId: id as string,
-    notesId: score.notes_id as string,
-    onError: handleRecordingError,
-  });
 
   const toggleRecording = () => {
     log.debug(isRecording ? "Stopping recording" : "Starting recording");
@@ -645,13 +636,13 @@ export default function ScorePage() {
     return (
       <div
         ref={dockRef}
-        className={`fixed bottom-0 right-0 left-0 xl:left-72 transition-opacity duration-300 ${
+        className={`fixed bottom-0 right-0 left-0 xl:left-72 border-t border-gray-200 dark:border-gray-700 transition-opacity duration-300 ${
           showDock ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between bg-background dark:bg-gray-900 px-4 py-2">
+        <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-850 px-4 py-2">
           <div className="flex items-center gap-2">
             {/* Record button with compatibility indicator */}
             <BasicTooltip
@@ -675,13 +666,19 @@ export default function ScorePage() {
                     : recordingCompatible === false
                       ? "bg-amber-600"
                       : "bg-primary"
-                } text-white ${isSmallScreen ? "w-10 h-10" : "w-14 h-14"} rounded-full flex items-center justify-center`}
+                } text-white ${
+                  isSmallScreen ? "w-10 h-10" : "w-14 h-14"
+                } rounded-full flex items-center justify-center`}
                 disabled={recordingCompatible === false}
               >
                 {isRecording ? (
-                  <SquareIcon className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                  <SquareIcon
+                    className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                  />
                 ) : recordingCompatible === false ? (
-                  <AlertTriangle className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                  <AlertTriangle
+                    className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                  />
                 ) : (
                   <Mic className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
                 )}
@@ -704,7 +701,9 @@ export default function ScorePage() {
                 size="icon"
                 className="text-white"
               >
-                <BarChart2 className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                <BarChart2
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                />
               </Button>
             </BasicTooltip>
           </div>
@@ -718,10 +717,16 @@ export default function ScorePage() {
                 className="text-white"
                 disabled={currentPage <= 0}
               >
-                <ArrowLeftCircle className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                <ArrowLeftCircle
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                />
               </Button>
             </BasicTooltip>
-            <div className={`${isSmallScreen ? "px-1 text-sm" : "px-4"} text-white font-medium whitespace-nowrap`}>
+            <div
+              className={`${
+                isSmallScreen ? "px-1 text-sm" : "px-4"
+              } text-white font-medium whitespace-nowrap`}
+            >
               {currentDisplayPage} / {totalPages}
             </div>
             <BasicTooltip text="Next page">
@@ -731,23 +736,43 @@ export default function ScorePage() {
                 size="icon"
                 className="text-white"
               >
-                <ArrowRightCircle className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                <ArrowRightCircle
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                />
               </Button>
             </BasicTooltip>
             <BasicTooltip text="Reset zoom">
-              <Button variant="ghost" size="icon" ref={recenterButton} className="text-white">
-                <Fullscreen className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+              <Button
+                variant="ghost"
+                size="icon"
+                ref={recenterButton}
+                className="text-white"
+              >
+                <Fullscreen
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                />
               </Button>
             </BasicTooltip>
           </div>
 
           <div className="flex items-center gap-2">
-            <BasicTooltip text={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
-              <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="text-white">
+            <BasicTooltip
+              text={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleFullscreen}
+                className="text-white"
+              >
                 {isFullscreen ? (
-                  <Minimize2 className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                  <Minimize2
+                    className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                  />
                 ) : (
-                  <Maximize2 className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                  <Maximize2
+                    className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                  />
                 )}
               </Button>
             </BasicTooltip>
@@ -764,11 +789,17 @@ export default function ScorePage() {
                 }
                 className="text-white"
               >
-                <Download className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`} />
+                <Download
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`}
+                />
               </Button>
             </BasicTooltip>
             <BasicTooltip text="Star">
-              <Button variant="ghost" onClick={() => onStarToggle(score)} className="text-white">
+              <Button
+                variant="ghost"
+                onClick={() => onStarToggle(score)}
+                className="text-white"
+              >
                 <Star
                   className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"} ${
                     score.starred ? "text-yellow-400 fill-yellow-400" : ""
@@ -779,17 +810,28 @@ export default function ScorePage() {
             {!isSmallScreen && (
               <NotImplementedTooltip>
                 <Button variant="ghost" disabled className="text-white">
-                  <Share2 className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`} />
+                  <Share2
+                    className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`}
+                  />
                 </Button>
               </NotImplementedTooltip>
             )}
             {isFullscreen && (
               <BasicTooltip text={showDock ? "Hide controls" : "Show controls"}>
-                <Button variant="ghost" size="icon" onClick={toggleDockVisibility} className="text-white">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleDockVisibility}
+                  className="text-white"
+                >
                   {showDock ? (
-                    <EyeOff className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                    <EyeOff
+                      className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                    />
                   ) : (
-                    <Eye className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
+                    <Eye
+                      className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                    />
                   )}
                 </Button>
               </BasicTooltip>
@@ -843,8 +885,8 @@ export default function ScorePage() {
             isSmallScreen ? "p-2" : "p-4"
           } bg-white ${isFullscreen ? "dark:bg-gray-800" : "dark:bg-inherit"}`}
         >
-          <div className="flex gap-2 place-items-center overflow-hidden">
-            {isFullscreen ? (
+          <div className="flex gap-2 place-items-center justify-center overflow-hidden">
+            {isFullscreen && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -853,29 +895,7 @@ export default function ScorePage() {
               >
                 <Minimize2 className={isSmallScreen ? "h-4 w-4" : "h-5 w-5"} />
               </Button>
-            ) : (
-              <Link href="/" className="text-muted-foreground">
-                <ArrowLeft className={isSmallScreen ? "h-4 w-4" : "h-6 w-6"} />
-              </Link>
             )}
-            <p
-              className={`${
-                isFullscreen ? "text-xl text-white dark:text-white" : "text-2xl"
-              } ${isSmallScreen ? "text-sm" : ""} ml-1 truncate`}
-            >
-              {score.name}
-              {score.subtitle && !isSmallScreen && (
-                <span
-                  className={`${
-                    isFullscreen
-                      ? "text-gray-300 dark:text-gray-300"
-                      : "text-gray-500 dark:text-gray-400"
-                  } ml-2`}
-                >
-                  {score.subtitle}
-                </span>
-              )}
-            </p>
           </div>
         </div>
       </div>
@@ -886,9 +906,6 @@ export default function ScorePage() {
   if (isFullscreen) {
     return (
       <div className="w-full h-screen overflow-hidden bg-gray-900">
-        {/* Top bar */}
-        <TopBar />
-
         {/* Main score renderer - fills entire screen */}
         <div className="h-full w-full relative">
           {score && score.$id && score.file_id ? (
@@ -950,7 +967,10 @@ export default function ScorePage() {
             <div className="fixed bottom-20 right-4 bg-gray-800 text-white p-3 rounded shadow-lg z-50 text-sm">
               <div>Unstable Rate: {unstableRate.toFixed(3)}</div>
               <div>Accuracy: {accuracy}%</div>
-              <button className="mt-1 underline" onClick={() => setShowMetricsPanel(false)}>
+              <button
+                className="mt-1 underline"
+                onClick={() => setShowMetricsPanel(false)}
+              >
                 Close
               </button>
             </div>
@@ -1000,11 +1020,8 @@ export default function ScorePage() {
   return (
     <Layout navbarContent={<NavContent />}>
       <div className="relative h-[calc(100vh-5rem)]">
-        {/* Top bar - same in both modes */}
-        <TopBar />
-
         {/* Main score renderer - fills entire screen */}
-        <div className="h-full w-full pt-16 relative">
+        <div className="h-full w-full relative">
           {score && score.$id && score.file_id ? (
             score.is_mxl ? (
               <MusicXMLRenderer
