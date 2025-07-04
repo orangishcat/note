@@ -1,6 +1,5 @@
 from flask import request
 from appwrite.services.storage import Storage
-from loguru import logger
 from scoring import NoteList
 from scoring.edit_distance import find_ops
 from .. import get_user_client, misc_bucket
@@ -19,11 +18,15 @@ def process_recording(rec_id):
     notes_bytes = storage.get_file_view(misc_bucket, score_id)
     score_notes = NoteList()
     score_notes.ParseFromString(notes_bytes)
+    for idx, n in enumerate(score_notes.notes):
+        n.id = idx
 
     # fetch recording notes
     rec_bytes = storage.get_file_view(misc_bucket, rec_id)
     rec_notes = NoteList()
     rec_notes.ParseFromString(rec_bytes)
+    for idx, n in enumerate(rec_notes.notes):
+        n.id = idx
 
     ops, _ = find_ops(score_notes.notes, rec_notes.notes)
     ops.size.extend(score_notes.size)

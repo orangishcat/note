@@ -10,6 +10,8 @@ def note_copy(self, other):
     self.page = other.page
     self.track = other.track
     self.bbox = other.bbox
+    self.confidence = other.confidence
+    self.id = other.id
 
 
 if os.environ.get("DEBUG") == "not true":

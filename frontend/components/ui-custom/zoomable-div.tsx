@@ -97,13 +97,14 @@ export default function ZoomableDiv({
       outer.addEventListener("wheel", handleWheel, { passive: false });
     }
 
-    recenter.current?.addEventListener("click", handleRecenter);
+    const btn = recenter.current;
+    btn?.addEventListener("click", handleRecenter);
 
     return () => {
       if (outer) {
         outer.removeEventListener("wheel", handleWheel);
       }
-      recenter.current?.removeEventListener("click", handleRecenter);
+      btn?.removeEventListener("click", handleRecenter);
     };
   }, [recenter, scale, zoomContext]);
 

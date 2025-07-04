@@ -1,5 +1,5 @@
 // lib/audio-recorder.ts
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Message, Type } from "protobufjs";
 import api from "@/lib/network";
 import log from "./logger";
@@ -69,12 +69,15 @@ export function useAudioRecorder({
   const lastRequestTime = useRef(0);
   const MIN_INTERVAL = 2000;
 
-  const handleError = (error: unknown) => {
-    const msg = error?.message ?? String(error);
-    log.error("AudioRecorder Error:", error);
-    onError?.({ message: msg, details: error });
-    recorderRef.current = null;
-  };
+  const handleError = useCallback(
+    (error: unknown) => {
+      const msg = (error as Error)?.message ?? String(error);
+      log.error("AudioRecorder Error:", error);
+      onError?.({ message: msg, details: error });
+      recorderRef.current = null;
+    },
+    [onError],
+  );
 
   const cleanup = async () => {
     if (recorderRef.current) {
@@ -87,7 +90,7 @@ export function useAudioRecorder({
     recorderRef.current = null;
   };
 
-  async function startRecording() {
+  const startRecording = useCallback(async () => {
     if (typeof window === "undefined") return; // no-op on server
     if (Date.now() - lastRequestTime.current < MIN_INTERVAL) return;
     lastRequestTime.current = Date.now();
@@ -115,9 +118,9 @@ export function useAudioRecorder({
     } catch (e) {
       handleError(e);
     }
-  }
+  }, [MIN_INTERVAL, handleError]);
 
-  async function stopRecording() {
+  const stopRecording = useCallback(async () => {
     const recorder = recorderRef.current;
     if (!recorder) {
       log.warn("No recorder instance found on stop");
@@ -168,7 +171,15 @@ export function useAudioRecorder({
       streamRef.current = null;
       recorderRef.current = null;
     }
-  }
+  }, [
+    NoteListType,
+    ScoringResultType,
+    notesId,
+    onEditListChange,
+    onPlayedNotesChange,
+    onError,
+    scoreId,
+  ]);
 
   useEffect(() => {
     if (isRecording) startRecording();
@@ -176,7 +187,7 @@ export function useAudioRecorder({
     return () => {
       cleanup();
     };
-  }, [isRecording, scoreId, notesId]);
+  }, [isRecording, scoreId, notesId, startRecording, stopRecording]);
 
   return { hasPermission: !!streamRef.current };
 }

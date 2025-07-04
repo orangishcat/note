@@ -37,6 +37,8 @@ def extract_mxl_notes(mxl_bytes):
                 )
             )
     notes_info.sort(key=key)
+    for idx, n in enumerate(notes_info):
+        n.id = idx
     return notes_info
 
 
@@ -55,13 +57,18 @@ def extract_midi_notes(midi_file: str) -> NoteList:
                 start_time=note.start,
                 duration=note.end - note.start,
             )
+            note_info.id = len(notes_info.notes)
             notes_info.notes.append(note_info)
 
     notes_info.notes.sort(key=key)
+    for idx, n in enumerate(notes_info.notes):
+        n.id = idx
     return notes_info
 
 
 def extract_pb_notes(pb_bytes):
     (note_list := NoteList()).ParseFromString(pb_bytes)
     # note_list.notes.sort(key=key)
+    for idx, n in enumerate(note_list.notes):
+        n.id = idx
     return note_list

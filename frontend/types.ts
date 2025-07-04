@@ -8,6 +8,7 @@ export interface Note {
   track: number;
   bbox: number[];
   confidence: number;
+  id: number;
 }
 
 export interface NoteList {

@@ -137,12 +137,13 @@ export default function MusicXMLRenderer({
   // Handle page changes from parent component
   useEffect(() => {
     scrollToPage(currentPage);
-  }, [currentPage]);
+  }, [currentPage, scrollToPage]);
 
   // Scroll to specific page
-  const scrollToPage = (pageIndex: number) => {
-    const container = containerRef.current;
-    if (!container || musicLines.length === 0) return;
+  const scrollToPage = useCallback(
+    (pageIndex: number) => {
+      const container = containerRef.current;
+      if (!container || musicLines.length === 0) return;
 
     // Calculate position of the target music line
     const targetLineIndex = pageIndex * linesPerPage;
@@ -161,14 +162,16 @@ export default function MusicXMLRenderer({
       container.scrollTop + (rect.top - containerRect.top) - pageMargin;
 
     // Smooth scroll to the position
-    container.scrollTo({
-      top: scrollTop,
-      behavior: "smooth",
-    });
-  };
+      container.scrollTo({
+        top: scrollTop,
+        behavior: "smooth",
+      });
+    },
+    [musicLines, linesPerPage],
+  );
 
   // Identify and catalog music lines for pagination
-  const detectMusicLines = () => {
+  const detectMusicLines = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
 
@@ -245,9 +248,9 @@ export default function MusicXMLRenderer({
     } else {
       console.warn("Could not detect stafflines or measures for pagination");
     }
-  };
+  }, [linesPerPage, debug]);
 
-  const updateVisiblePages = () => {
+  const updateVisiblePages = useCallback(() => {
     const container = containerRef.current;
     if (!container || !osmdRef.current) return;
     const containerRect = container.getBoundingClientRect();
@@ -312,7 +315,7 @@ export default function MusicXMLRenderer({
         element.style.display = "";
       }
     }
-  };
+  }, [musicLines, linesPerPage, currentPage, scoreId, debug]);
 
   const clearDebugText = () => {
     document.querySelectorAll(".note-pitch-text").forEach((el) => el.remove());
@@ -488,7 +491,13 @@ export default function MusicXMLRenderer({
       console.error("Error processing MusicXML file:", error);
       setRenderError((error as Error).message);
     }
-  }, [musicXML, currentPage]);
+  }, [
+    musicXML,
+    currentPage,
+    detectMusicLines,
+    scrollToPage,
+    updateVisiblePages,
+  ]);
 
   useEffect(() => {
     if (!containerRef.current || !musicXML) return;
@@ -506,7 +515,7 @@ export default function MusicXMLRenderer({
     };
     container.addEventListener("scroll", handleScroll);
     return () => container.removeEventListener("scroll", handleScroll);
-  }, [musicLines]);
+  }, [musicLines, updateVisiblePages]);
 
   const handleRetry = () => {
     setRenderError(null);

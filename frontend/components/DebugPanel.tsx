@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScoringResult, Note, NoteList } from "@/types";
 import { Message } from "protobufjs";
 import ComparisonDialog from "@/components/ComparisonDialog";
@@ -147,7 +147,7 @@ const DebugPanel = ({
       bubbles: true,
     });
     document.dispatchEvent(event);
-  }, [showNoteNames]);
+  }, [showNoteNames, editList, redrawAnnotations]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -331,7 +331,7 @@ const DebugPanel = ({
     );
   };
 
-  const redrawAnnotations = () => {
+  const redrawAnnotations = useCallback(() => {
     if (!editList) {
       log.warn("No annotations to redraw");
       return;
@@ -346,7 +346,7 @@ const DebugPanel = ({
       });
       document.dispatchEvent(event);
     }, 50);
-  };
+  }, [editList, scoreId, currentPage, setEditList]);
 
   const disableDebugMode = () => {
     localStorage.removeItem("debug");

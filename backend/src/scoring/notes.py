@@ -27,6 +27,10 @@ class Note(betterproto.Message):
         default=5,
         metadata={"betterproto": betterproto.FieldMetadata(8, betterproto.TYPE_INT32)},
     )
+    id: int = dataclasses.field(
+        default=0,
+        metadata={"betterproto": betterproto.FieldMetadata(9, betterproto.TYPE_INT32)},
+    )
 
 
 @dataclass

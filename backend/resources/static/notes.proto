@@ -10,6 +10,7 @@ message Note {
     int32 track = 6;
     repeated int32 bbox = 7;
     int32 confidence = 8;
+    int32 id = 9;
 }
 
 message NoteList {

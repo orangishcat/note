@@ -35,6 +35,8 @@ def load_notes(notes_id) -> NoteList:
             with open(notes_path, "rb") as f:
                 notes = NoteList()
                 notes.ParseFromString(f.read())
+            for idx, n in enumerate(notes.notes):
+                n.id = idx
             return notes
 
         logger.info(
@@ -43,6 +45,8 @@ def load_notes(notes_id) -> NoteList:
 
     byte_content = Storage(get_user_client()).get_file_view(misc_bucket, notes_id)
     (notes := NoteList()).ParseFromString(byte_content)
+    for idx, n in enumerate(notes.notes):
+        n.id = idx
     return notes
 
 
@@ -62,12 +66,12 @@ def beam_transkun(audio_bytes):
 def run_transkun(audio_bytes, tmp_path):
     """Run Transkun on audio bytes and return NoteList."""
     if os.environ.get("BEAM_CLOUD") == "True":
-        logger.info(f"Using Beam for audio processing")
+        logger.info("Using Beam for audio processing")
         return beam_transkun.remote(audio_bytes)
     else:
         import replicate
 
-        logger.info(f"Using Replicate for audio processing")
+        logger.info("Using Replicate for audio processing")
 
         # Model version from env
         model_version = os.environ.get("TRANSKUN_VERSION")
@@ -92,6 +96,7 @@ def parse_rep_output(replica, page_sizes) -> NoteList:
             page=0,
             track=0,
         )
+        note.id = len(nl.notes)
         nl.notes.append(note)
     return nl
 
@@ -229,6 +234,9 @@ def receive():
                 document_id=notes_id,
                 data={"file_id": file_res["$id"]},
             )
+
+        for idx, n in enumerate(response_nl.notes):
+            n.id = idx
 
         # Serialize ScoringResult and NoteList with length prefix
         edit_bytes = ops.SerializeToString()

@@ -314,7 +314,7 @@ export function useEditDisplay(
         handleToggleNoteNames,
       );
     };
-  }, [editList]);
+  }, [editList, renderEditAnnotations]);
 
   // Type definition for label position tracking
   type LabelPosition = {
@@ -1066,7 +1066,7 @@ export function useEditDisplay(
     } catch (error) {
       log.error("Error rendering edit rectangles:", error);
     }
-  }, [currentPage, scoreId, editList]);
+  }, [currentPage, scoreId, editList, scoreNotes, setEditCount]);
 
   // Schedule a render for the next frame if needed
   useEffect(() => {
@@ -1129,6 +1129,7 @@ export function useEditDisplay(
     renderEditAnnotations,
     scoreId,
     editList,
+    zoomContext,
   ]);
 }
 

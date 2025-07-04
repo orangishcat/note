@@ -160,7 +160,7 @@ export default function ScorePage() {
     if (id) {
       fetchScore();
     }
-  }, [id, score.$id]);
+  }, [id, router, score.$id]);
 
   // Fetch score notes when score is loaded
   useEffect(() => {
