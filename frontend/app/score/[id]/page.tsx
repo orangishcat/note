@@ -903,7 +903,7 @@ export default function ScorePage() {
   // When in fullscreen mode
   if (isFullscreen) {
     return (
-      <div className="w-full h-screen overflow-hidden bg-gray-900">
+      <div className="w-full h-screen overflow-hidden pt-8 bg-gray-900">
         <TopBar />
         {/* Main score renderer - fills entire screen */}
         <div className="h-full w-full relative">

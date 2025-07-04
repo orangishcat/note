@@ -58,17 +58,6 @@ def upload():
     # Save file to disk
     file.save(temp_filepath)
 
-    # Save metadata in the cache
-    data[request.cookies["appwrite-session"]].append(
-        (
-            temp_filepath,
-            datetime.now(),
-            request.form.get("type"),
-            original_filename,
-            file.content_type,
-        )
-    )
-
     logger.info("Data cache length:", sum(len(arr) for arr in data.values()))
 
     return {"success": True}, 201
@@ -204,14 +193,9 @@ def cleanup_temp(interval=15 * 60):
         sleep(interval)
 
 
-def delete_temp_dir():
-    shutil.rmtree(TEMP_UPLOAD_FOLDER)
-
-
-# Start the cleanup thread only once
 ran = False
 if not ran:
     ran = True
     cleanup_thread = Thread(target=cleanup_temp, daemon=True)
     cleanup_thread.start()
-    atexit.register(delete_temp_dir)
+    atexit.register(lambda: shutil.rmtree(TEMP_UPLOAD_FOLDER))

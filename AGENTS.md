@@ -3,11 +3,13 @@
 For agents like OpenAI's Codex and more.
 
 - Respect `.editorconfig` while making changes.
+- Fix all eslint warnings and errors from `next lint` if modifying frontend code,
+- and fix all warnings and errors from `ruff check .` if modifying backend code.
 - Prefer `numpy` over pure Python, but only if the code can be optimized clearly
   and in an easily readable way.
 - Since the entire Next.js project is in the `frontend` directory, ensure to
   `cd frontend` before running npm commands.
-- Respect and fix all `next lint` warnings if possible
+- Use `notes_patch` for the protobuf types.
 - Appwrite database collection attributes:
   - Folder collection:
     - name: String

@@ -54,14 +54,14 @@ async def run_oemer_predictions(image_files):
 
 async def run_transkun_predictions(image_files, audio_files=None):
     """
-    Runs TRANSKUN predictions asynchronously for all image and audio files.
+    Runs transkun predictions asynchronously for all image and audio files.
 
     Args:
         image_files: List of tuples containing image file information
         audio_files: List of tuples containing audio file information
 
     Returns:
-        List of outputs from all TRANSKUN predictions
+        List of outputs from all transkun predictions
     """
     if audio_files is None:
         audio_files = []
@@ -76,7 +76,7 @@ async def run_transkun_predictions(image_files, audio_files=None):
             tasks.append(
                 tg.create_task(
                     replicate.async_run(
-                        os.environ["TRANSKUN_VERSION"], input={"image": encoded_image}
+                        os.environ["transkun_VERSION"], input={"image": encoded_image}
                     )
                 )
             )
@@ -89,7 +89,7 @@ async def run_transkun_predictions(image_files, audio_files=None):
             tasks.append(
                 tg.create_task(
                     replicate.async_run(
-                        os.environ["TRANSKUN_VERSION"], input={"audio": encoded_audio}
+                        os.environ["transkun_VERSION"], input={"audio": encoded_audio}
                     )
                 )
             )
@@ -106,9 +106,9 @@ async def run_transkun_predictions(image_files, audio_files=None):
 
 async def process_models(score_files, audio_files, score_filename, storage, user):
     """
-    Process both OEMER and TRANSKUN models concurrently.
+    Process both OEMER and transkun models concurrently.
 
-    Both tasks are started at the same time. We wait for TRANSKUN to complete
+    Both tasks are started at the same time. We wait for transkun to complete
     (waiting if necessary), then create/update the document with its results.
     Once both tasks have finished, we update the document with the OEMER results.
     """
@@ -123,20 +123,20 @@ async def process_models(score_files, audio_files, score_filename, storage, user
             if ext in image_extensions:
                 image_files.append(entry)
 
-        # If there are no image or audio files, exit early.
+        # If there are no image or audio files, exit early
         if not image_files and not audio_files:
             return
 
-        # Start both tasks concurrently.
+        # Start both tasks concurrently
         oemer_task = asyncio.create_task(run_oemer_predictions(image_files))
         transkun_task = asyncio.create_task(
             run_transkun_predictions(image_files, audio_files)
         )
 
-        # Wait for TRANSKUN to complete first (if it hasn't already finished).
+        # Wait for transkun to complete first (if it hasn't already finished)
         notes_transkun = await transkun_task
 
-        # Save TRANSKUN results as JSON and upload to storage.
+        # Save transkun results as JSON and upload to storage
         base_name = os.path.splitext(score_filename)[0]
         transkun_json = json.dumps(notes_transkun)
         transkun_filename = f"{base_name}.pb"
@@ -154,7 +154,7 @@ async def process_models(score_files, audio_files, score_filename, storage, user
             ],
         )
 
-        # Now wait for the OEMER task to complete concurrently.
+        # Now wait for the OEMER task to complete concurrently
         await oemer_task
 
     except Exception as ex:

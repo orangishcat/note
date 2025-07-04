@@ -3,3 +3,4 @@ numba
 loguru
 betterproto
 beam-client
+statsmodels
