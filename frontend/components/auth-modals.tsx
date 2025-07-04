@@ -120,10 +120,10 @@ export function AuthModal({
         if (context) context.setJustLogin(false);
       }, 1000);
       onClose();
-    } catch (error: unknown) {
+    } catch (error: any) {
       setShowCaptcha(false);
       setStatus("");
-      if (error?.type === "general_unauthorized") {
+      if (error.type === "general_unauthorized") {
         setError("Invalid email and password combination");
       } else {
         setError("Authentication failed. Please try again.");
@@ -336,7 +336,7 @@ export function ResetPasswordModal({
         setStatus("");
         onClose();
       }, 3000);
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("Password reset failed:", error);
       setStatus("");
       if (error.response?.status === 404) {

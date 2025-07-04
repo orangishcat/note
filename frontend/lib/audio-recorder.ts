@@ -1,8 +1,10 @@
 // lib/audio-recorder.ts
 import { useCallback, useEffect, useRef } from "react";
-import { Message, Type } from "protobufjs";
+import { Type } from "protobufjs";
 import api from "@/lib/network";
 import log from "./logger";
+import { RecordRTCPromisesHandler } from "recordrtc";
+import { NoteList, ScoringResult } from "@/types/proto-types";
 
 export interface RecordingError {
   message: string;
@@ -20,8 +22,8 @@ export interface AudioRecorderHookProps {
     ScoringResultType: Type | null;
     NoteListType: Type | null;
   }>;
-  onEditListChange: (editList: Message | null) => void;
-  onPlayedNotesChange: (playedNotes: Message | null) => void;
+  onEditListChange: (editList: ScoringResult | null) => void;
+  onPlayedNotesChange: (playedNotes: NoteList | null) => void;
   onError?: (error: RecordingError) => void;
 }
 
@@ -29,7 +31,7 @@ export function splitCombinedResponse(
   buffer: ArrayBuffer,
   ScoringResultType: Type,
   NoteListType: Type,
-): { editList: Message | null; playedNotes: Message | null } {
+): { editList: ScoringResult | null; playedNotes: NoteList | null } {
   try {
     const dataView = new Uint8Array(buffer);
     const editListSize = new DataView(dataView.slice(0, 4).buffer).getUint32(
@@ -41,11 +43,13 @@ export function splitCombinedResponse(
     const editListData = dataView.slice(4, 4 + editListSize);
     const playedNotesData = dataView.slice(4 + editListSize);
 
-    const editList = ScoringResultType.decode(editListData);
-    const playedNotes = NoteListType.decode(playedNotesData);
+    const editList = ScoringResultType.decode(editListData) as ScoringResult;
+    const playedNotes = NoteListType.decode(playedNotesData) as NoteList;
 
     log.debug(
-      `Decoded EditList (${(editList as Message).edits?.length ?? 0} edits), NoteList (${(playedNotes as Message).notes?.length ?? 0} notes)`,
+      `Decoded EditList (${editList.edits.length ?? 0} edits), NoteList (${
+        playedNotes.notes?.length ?? 0
+      } notes)`,
     );
     return { editList, playedNotes };
   } catch (error) {
@@ -64,7 +68,7 @@ export function useAudioRecorder({
   onPlayedNotesChange,
   onError,
 }: AudioRecorderHookProps) {
-  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recorderRef = useRef<RecordRTCPromisesHandler | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lastRequestTime = useRef(0);
   const MIN_INTERVAL = 2000;
@@ -143,8 +147,8 @@ export function useAudioRecorder({
 
       const buffer = response.data as ArrayBuffer;
       const fmt = response.headers["x-response-format"];
-      let editList: Message | null,
-        playedNotes: Message | null = null;
+      let editList: ScoringResult | null,
+        playedNotes: NoteList | null = null;
 
       if (fmt === "combined") {
         ({ editList, playedNotes } = splitCombinedResponse(
@@ -153,7 +157,9 @@ export function useAudioRecorder({
           NoteListType!,
         ));
       } else {
-        editList = ScoringResultType!.decode(new Uint8Array(buffer));
+        editList = ScoringResultType!.decode(
+          new Uint8Array(buffer),
+        ) as ScoringResult;
       }
 
       // Clone to avoid accidental mutations downstream

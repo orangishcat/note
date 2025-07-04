@@ -1,7 +1,7 @@
 import React from "react";
 import { Message } from "protobufjs";
 import { midiPitchToNoteName } from "@/lib/edit-display";
-import { Note } from "@/types";
+import { Note } from "@/types/proto-types";
 
 interface ComparisonDialogProps {
   isOpen: boolean;
@@ -12,10 +12,6 @@ interface ComparisonDialogProps {
   position?: number;
   playedNotes?: Message | null;
   scoreNotes?: Message | null;
-}
-
-interface PositionedNote extends Note {
-  index: number;
 }
 
 function extractNotes(message: Message | null | undefined): Note[] {
@@ -33,14 +29,11 @@ function sliceAround(
   notes: Note[],
   index: number | undefined,
   count: number,
-): PositionedNote[] {
+): Note[] {
   if (index === undefined) return [];
   const start = Math.max(0, index - count);
   const end = Math.min(notes.length, index + count + 1);
-  return notes.slice(start, end).map((n, i) => ({
-    ...n,
-    index: start + i,
-  }));
+  return notes.slice(start, end);
 }
 
 const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
@@ -58,7 +51,7 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
   const played = extractNotes(playedNotes);
   const score = extractNotes(scoreNotes);
 
-  const targetPos = targetNote?.t_pos ?? targetNote?.tPos ?? position ?? 0;
+  const targetPos = targetNote?.pitch;
 
   const playedSlice = sliceAround(played, position, 5);
   const scoreSlice = sliceAround(score, targetPos, 5);
@@ -68,13 +61,17 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
       <div className="bg-gray-800 text-white rounded p-4 w-96 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold mb-2">Edit Details</h2>
         <pre className="text-xs whitespace-pre-wrap break-all bg-gray-900 p-2 rounded">
-{JSON.stringify({ note, targetNote, editOperation, position }, null, 2)}
+          {JSON.stringify(
+            { note, targetNote, editOperation, position },
+            null,
+            2,
+          )}
         </pre>
         <h3 className="mt-4 font-semibold">Played Notes Near Start</h3>
         <ul className="text-sm mt-1 space-y-1">
           {playedSlice.map((n) => (
-            <li key={n.index} className="flex justify-between">
-              <span className="font-mono">{n.index}</span>
+            <li key={n.id} className="flex justify-between">
+              <span className="font-mono">{n.id}</span>
               <span>{midiPitchToNoteName(n.pitch)}</span>
               <span className="text-gray-400">{n.startTime.toFixed(3)}</span>
             </li>
@@ -83,8 +80,8 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
         <h3 className="mt-4 font-semibold">Score Notes Near Target</h3>
         <ul className="text-sm mt-1 space-y-1">
           {scoreSlice.map((n) => (
-            <li key={n.index} className="flex justify-between">
-              <span className="font-mono">{n.index}</span>
+            <li key={n.id} className="flex justify-between">
+              <span className="font-mono">{n.id}</span>
               <span>{midiPitchToNoteName(n.pitch)}</span>
               <span className="text-gray-400">{n.startTime.toFixed(3)}</span>
             </li>

@@ -1,6 +1,7 @@
 pre-commit
 numba
 loguru
+protobuf
 betterproto
 beam-client
 statsmodels

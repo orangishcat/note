@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useRef } from "react";
 import log from "./logger";
 import { Message } from "protobufjs";
-import { ScoringResult, Note, NoteList } from "@/types";
+import { ScoringResult, Note, NoteList, Edit } from "@/types/proto-types";
 import { ZoomContext } from "@/app/providers";
 
 // Define EditOperation enum
@@ -261,11 +261,11 @@ export function drawAnnotation(
  * Hook to handle displaying edits on a score
  */
 export function useEditDisplay(
-  editList: ScoringResult,
+  editList: ScoringResult | null,
   currentPage: number,
   scoreId: string,
   setEditCount: (count: number) => void,
-  scoreNotes?: NoteList,
+  scoreNotes: NoteList | null,
 ) {
   const lastRenderTimeRef = useRef<number>(0);
   const MIN_RENDER_INTERVAL = 200; // Increased from 100ms to 200ms
@@ -314,7 +314,7 @@ export function useEditDisplay(
         handleToggleNoteNames,
       );
     };
-  }, [editList, renderEditAnnotations]);
+  }, [editList]);
 
   // Type definition for label position tracking
   type LabelPosition = {
@@ -1140,8 +1140,8 @@ export function useEditEventHandlers(
   scoreId: string,
   fileId: string | undefined,
   setCurrentPage: (page: number) => void,
-  setEditList: (editList: Message | null) => void,
-  editList: Message | null,
+  setEditList: (editList: ScoringResult | null) => void,
+  editList: ScoringResult | null,
   currentPage: number,
 ) {
   const lastEventTimeRef = useRef<number>(0);

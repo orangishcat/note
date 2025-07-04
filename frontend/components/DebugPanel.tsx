@@ -1,26 +1,13 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ScoringResult, Note, NoteList } from "@/types";
-import { Message } from "protobufjs";
+import { ScoringResult, Note, NoteList } from "@/types/proto-types";
 import ComparisonDialog from "@/components/ComparisonDialog";
 import log from "@/lib/logger";
 import { splitCombinedResponse } from "@/lib/audio-recorder";
 import api from "@/lib/network";
 import { initProtobufTypes } from "@/lib/proto";
-
-interface DebugPanelProps {
-  scoreId: string;
-  editList: Message | null;
-  setEditList: (e: Message | null) => void;
-  playedNotes: Message | null;
-  scoreNotes: Message | null;
-  currentPage: number;
-  editsOnPage: number;
-  setPlayedNotes: (p: Message | null) => void;
-  confidenceFilter: number;
-  setConfidenceFilter: (v: number) => void;
-}
+import { DebugPanelProps } from "@/types/debugpanel-types";
 
 const TestTypeSelector = ({
   isOpen,
@@ -101,10 +88,15 @@ const DebugPanel = ({
   const [currentTestType, setCurrentTestType] = useState("spider_dance_played");
   const [comparisonData, setComparisonData] = useState<{
     note: Note | null;
-    targetNote?: Note;
-    editOperation?: string;
-    position?: number;
-  }>({ note: null });
+    targetNote: Note | null;
+    editOperation: string;
+    position: number;
+  }>({
+    note: null,
+    targetNote: null,
+    editOperation: "",
+    position: 0,
+  });
   const [comparisonNoteCount, setComparisonNoteCount] = useState<number>(15);
   const [localConf, setLocalConf] = useState(confidenceFilter);
   const dragStartPos = useRef({ x: 0, y: 0 });
@@ -147,7 +139,7 @@ const DebugPanel = ({
       bubbles: true,
     });
     document.dispatchEvent(event);
-  }, [showNoteNames, editList, redrawAnnotations]);
+  }, [showNoteNames, editList]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -256,8 +248,7 @@ const DebugPanel = ({
 
             // Also update played notes if available
             if (receivedPlayedNotes) {
-              const noteCount =
-                (receivedPlayedNotes as NoteList).notes?.length || 0;
+              const noteCount = receivedPlayedNotes.notes?.length || 0;
               log.debug(
                 `Successfully decoded test response with ${noteCount} played notes`,
               );
@@ -484,25 +475,27 @@ const DebugPanel = ({
           </div>
         </div>
       </div>
-      {showComparisonDialog && (
-        <ComparisonDialog
-          isOpen={showComparisonDialog}
-          onClose={closeComparisonDialog}
-          note={comparisonData.note}
-          targetNote={comparisonData.targetNote}
-          editOperation={comparisonData.editOperation}
-          position={comparisonData.position}
-          playedNotes={playedNotes}
-          scoreNotes={scoreNotes}
-        />
-      )}
+      {showComparisonDialog &&
+        comparisonData.note &&
+        comparisonData.targetNote && (
+          <ComparisonDialog
+            isOpen={showComparisonDialog}
+            onClose={closeComparisonDialog}
+            note={comparisonData.note}
+            targetNote={comparisonData.targetNote}
+            editOperation={comparisonData.editOperation}
+            position={comparisonData.position}
+            playedNotes={playedNotes}
+            scoreNotes={scoreNotes}
+          />
+        )}
       <TestTypeSelector
         isOpen={showTestTypeSelector}
         onClose={() => setShowTestTypeSelector(false)}
         onSelectTestType={(t) => {
           setCurrentTestType(t);
           setShowTestTypeSelector(false);
-          sendTestRequest();
+          void sendTestRequest();
         }}
       />
     </div>

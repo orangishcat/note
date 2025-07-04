@@ -29,10 +29,10 @@ import { useQuery } from "@tanstack/react-query";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import axios from "axios";
 import ImageScoreRenderer from "@/components/image-score-renderer";
-import { Message, Type } from "protobufjs";
+import { Type } from "protobufjs";
 import log from "@/lib/logger";
 import { useEditEventHandlers, useEditDisplay } from "@/lib/edit-display";
-import { Edit, ScoringResult, NoteList } from "@/types";
+import { Edit, ScoringResult, NoteList } from "@/types/proto-types";
 
 import { useToast } from "@/components/ui/toast";
 import { databases, storage } from "@/lib/appwrite";
@@ -43,6 +43,7 @@ import RecordingsModal from "@/components/RecordingsModal";
 
 // Add a global type declaration to prevent TypeScript errors
 declare global {
+  // noinspection JSUnusedGlobalSymbols
   interface Window {
     lastRefetchTime?: number;
   }
@@ -72,9 +73,9 @@ export default function ScorePage() {
     $permissions: [],
     total_pages: 1,
   });
-  const [editList, setEditList] = useState<Message | null>(null);
-  const [playedNotes, setPlayedNotes] = useState<Message | null>(null);
-  const [scoreNotes, setScoreNotes] = useState<Message | null>(null);
+  const [editList, setEditList] = useState<ScoringResult | null>(null);
+  const [playedNotes, setPlayedNotes] = useState<NoteList | null>(null);
+  const [scoreNotes, setScoreNotes] = useState<NoteList | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false); // Default false for server rendering
@@ -124,9 +125,8 @@ export default function ScorePage() {
 
   // Initialize protobuf types on component mount if not already initialized
   useEffect(() => {
-    if (!protobufTypeCache.initialized && !protobufTypeCache.initializing) {
-      refetchTypes();
-    }
+    if (!protobufTypeCache.initialized && !protobufTypeCache.initializing)
+      void refetchTypes();
   }, []);
 
   // Fetch the score scores
@@ -157,9 +157,7 @@ export default function ScorePage() {
       }
     }
 
-    if (id) {
-      fetchScore();
-    }
+    if (id) void fetchScore();
   }, [id, router, score.$id]);
 
   // Fetch score notes when score is loaded
@@ -189,11 +187,11 @@ export default function ScorePage() {
 
         // Decode the notes
         const dataView = new Uint8Array(buffer);
-        const notes = noteListType.decode(dataView);
+        const notes = noteListType.decode(dataView) as NoteList;
 
         log.debug(
           `Successfully decoded score notes with ${
-            (notes as NoteList).notes?.length || 0
+            notes.notes?.length || 0
           } notes`,
         );
         setScoreNotes(notes);
@@ -208,7 +206,7 @@ export default function ScorePage() {
       }
     };
 
-    fetchScoreNotes();
+    void fetchScoreNotes();
   }, [score?.$id, score?.notes_id, scoreNotes, noteListType]);
 
   const filteredEditList = useMemo(() => {
@@ -221,7 +219,7 @@ export default function ScorePage() {
         obj.edits?.filter(
           (e: Edit) => (e.sChar?.confidence ?? 5) >= confidenceThreshold,
         ) ?? [],
-    };
+    } as ScoringResult;
   }, [editList, confidenceThreshold]);
 
   const unstableRate = (editList as ScoringResult)?.unstableRate ?? 0;
@@ -532,9 +530,9 @@ export default function ScorePage() {
 
   const toggleFullscreen = () => {
     if (!isFullscreen) {
-      document.documentElement.requestFullscreen?.();
+      void document.documentElement.requestFullscreen?.();
     } else {
-      document.exitFullscreen?.();
+      void document.exitFullscreen?.();
     }
     setIsFullscreen(!isFullscreen);
   };
@@ -840,7 +838,9 @@ export default function ScorePage() {
             scoreId={id as string}
             onLoad={(buf) => {
               if (!scoringResultType) return;
-              const decoded = scoringResultType.decode(new Uint8Array(buf));
+              const decoded = scoringResultType.decode(
+                new Uint8Array(buf),
+              ) as ScoringResult;
               setEditList(decoded);
             }}
           />
@@ -929,7 +929,7 @@ export default function ScorePage() {
                     return;
                   }
                   window.lastRefetchTime = Date.now();
-                  refetch();
+                  void refetch();
                 }}
                 isFullscreen={isFullscreen}
                 currentPage={currentPage}
@@ -952,7 +952,7 @@ export default function ScorePage() {
                     return;
                   }
                   window.lastRefetchTime = Date.now();
-                  refetch();
+                  void refetch();
                 }}
                 isFullscreen={isFullscreen}
                 currentPage={currentPage}
@@ -1043,7 +1043,7 @@ export default function ScorePage() {
                     return;
                   }
                   window.lastRefetchTime = Date.now();
-                  refetch();
+                  void refetch();
                 }}
                 currentPage={currentPage}
                 pagesPerView={1}
@@ -1065,7 +1065,7 @@ export default function ScorePage() {
                     return;
                   }
                   window.lastRefetchTime = Date.now();
-                  refetch();
+                  void refetch();
                 }}
                 currentPage={currentPage}
                 pagesPerView={1}

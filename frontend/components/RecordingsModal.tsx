@@ -4,25 +4,7 @@ import { databases } from "@/lib/appwrite";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/network";
 import log from "@/lib/logger";
-import { ScoringResult } from "@/types";
-
-interface AppwriteWindow extends Window {
-  AppwriteQuery?: { equal: (k: string, v: string) => unknown };
-}
-
-interface RecordingsModalProps {
-  open: boolean;
-  onClose: () => void;
-  scoreId: string;
-  onLoad: (editList: ScoringResult) => void;
-}
-
-interface RecordingDoc {
-  $id: string;
-  $createdAt: string;
-  user_id: string;
-  file_id: string;
-}
+import { RecordingDoc, RecordingsModalProps } from "@/types/recording-types";
 
 const RecordingsModal: React.FC<RecordingsModalProps> = ({
   open,
@@ -45,17 +27,6 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
         const res = await databases.listDocuments(
           process.env.NEXT_PUBLIC_DATABASE!,
           process.env.NEXT_PUBLIC_RECORDINGS_COLLECTION!,
-          (() => {
-            const w: AppwriteWindow = window;
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-            return (
-              [
-                w.AppwriteQuery?.equal
-                  ? w.AppwriteQuery.equal("score_id", scoreId)
-                  : undefined,
-              ] as unknown[]
-            ).filter(Boolean);
-          })(),
         );
         setRecs(res.documents as RecordingDoc[]);
       } catch (e) {
@@ -68,7 +39,7 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
   const viewRecording = async (id: string) => {
     try {
       const res = await api.post(`/process-recording/${id}?score=${scoreId}`);
-      onLoad(res.data as ScoringResult);
+      onLoad(res.data);
       onClose();
     } catch (e) {
       log.error("process recording failed", e);

@@ -2,11 +2,9 @@ import numpy as np
 from loguru import logger
 from numba import njit
 from numpy._typing import NDArray
-from torch.fx.experimental.symbolic_shapes import lru_cache
 
 from scoring import extract_midi_notes, extract_pb_notes
 from timer import timeit
-
 from .notes_patch import *
 
 OCTAVE_CHECK_SECS = 0.1
@@ -227,13 +225,14 @@ def postprocess(edit_list: ScoringResult, s_times, s_pitches):
     return edit_list
 
 
-def find_ops(s: list[Note], t: list[Note]) -> tuple[ScoringResult, list[tuple[int, int]]]:
+def find_ops(
+    s: list[Note], t: list[Note]
+) -> tuple[ScoringResult, list[tuple[int, int]]]:
     """
     Computes the minimum edit distance (by pitch) from s → t,
     allowing free trimming at start/end of s, and returns a tuple of:
     - ScoringResult: the edit operations
     - list[tuple[int, int]]: aligned indices of notes (s_index, t_index)
-    Now accelerated with Numba and supports move/swap ops up to 5 positions away.
     """
     n, m = len(s), len(t)
 

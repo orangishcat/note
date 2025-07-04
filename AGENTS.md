@@ -24,3 +24,6 @@ For agents like OpenAI's Codex and more.
     - audio_file_id: String
     - notes_id: String
     - mime_type: String
+  - Recordings collection:
+    - user_id: String
+    - file_id: String

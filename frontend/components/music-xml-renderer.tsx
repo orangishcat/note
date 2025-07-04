@@ -137,7 +137,7 @@ export default function MusicXMLRenderer({
   // Handle page changes from parent component
   useEffect(() => {
     scrollToPage(currentPage);
-  }, [currentPage, scrollToPage]);
+  }, [currentPage]);
 
   // Scroll to specific page
   const scrollToPage = useCallback(
@@ -145,23 +145,23 @@ export default function MusicXMLRenderer({
       const container = containerRef.current;
       if (!container || musicLines.length === 0) return;
 
-    // Calculate position of the target music line
-    const targetLineIndex = pageIndex * linesPerPage;
-    if (targetLineIndex >= musicLines.length) return;
+      // Calculate position of the target music line
+      const targetLineIndex = pageIndex * linesPerPage;
+      if (targetLineIndex >= musicLines.length) return;
 
-    const targetLine =
-      musicLines[Math.min(targetLineIndex, musicLines.length - 1)];
-    if (!targetLine) return;
+      const targetLine =
+        musicLines[Math.min(targetLineIndex, musicLines.length - 1)];
+      if (!targetLine) return;
 
-    // Get the bounding rectangle of the target line
-    const rect = targetLine.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
+      // Get the bounding rectangle of the target line
+      const rect = targetLine.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
 
-    // Calculate scroll position with margin
-    const scrollTop =
-      container.scrollTop + (rect.top - containerRect.top) - pageMargin;
+      // Calculate scroll position with margin
+      const scrollTop =
+        container.scrollTop + (rect.top - containerRect.top) - pageMargin;
 
-    // Smooth scroll to the position
+      // Smooth scroll to the position
       container.scrollTo({
         top: scrollTop,
         behavior: "smooth",

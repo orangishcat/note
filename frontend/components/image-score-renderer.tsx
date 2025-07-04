@@ -51,12 +51,12 @@ export default function ImageScoreRenderer({
 
   // New state for dynamic height calculation
   const [containerHeight, setContainerHeight] = useState<string>("100%");
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   // Get zoom context
   const zoomContext = useContext(ZoomContext);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const scoreContainerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
@@ -340,38 +340,33 @@ export default function ImageScoreRenderer({
     (direction: "prev" | "next") => {
       if (isAnimating) return;
 
-    setAnimationDirection(direction);
-    setIsAnimating(true);
+      setAnimationDirection(direction);
+      setIsAnimating(true);
 
-    let newPageIndex;
-    if (direction === "prev" && currentPageIndex > 0) {
-      newPageIndex = currentPageIndex - 1;
-    } else if (direction === "next" && currentPageIndex < totalViews - 1) {
-      newPageIndex = currentPageIndex + 1;
-    } else {
-      setIsAnimating(false);
-      setAnimationDirection(null);
-      return;
-    }
+      let newPageIndex;
+      if (direction === "prev" && currentPageIndex > 0) {
+        newPageIndex = currentPageIndex - 1;
+      } else if (direction === "next" && currentPageIndex < totalViews - 1) {
+        newPageIndex = currentPageIndex + 1;
+      } else {
+        setIsAnimating(false);
+        setAnimationDirection(null);
+        return;
+      }
 
-    setTransitionPage(newPageIndex);
+      setTransitionPage(newPageIndex);
 
-    setTimeout(() => {
-      setCurrentPageIndex(newPageIndex);
-      setIsAnimating(false);
-      setAnimationDirection(null);
-      setTransitionPage(null);
+      setTimeout(() => {
+        setCurrentPageIndex(newPageIndex);
+        setIsAnimating(false);
+        setAnimationDirection(null);
+        setTransitionPage(null);
 
-      // Notify parent about page change
-      notifyPageChange(newPageIndex);
+        // Notify parent about page change
+        notifyPageChange(newPageIndex);
       }, 300); // Match with CSS transition duration
     },
-    [
-      isAnimating,
-      currentPageIndex,
-      totalViews,
-      notifyPageChange,
-    ],
+    [isAnimating, currentPageIndex, totalViews],
   );
 
   // Function to notify parent about page changes
@@ -450,24 +445,24 @@ export default function ImageScoreRenderer({
     (e: WheelEvent) => {
       if (isAnimating) return;
 
-    // Handle horizontal scrolling for navigation
-    if (Math.abs(e.deltaX) > 20 && !e.ctrlKey && !e.metaKey) {
-      e.preventDefault();
+      // Handle horizontal scrolling for navigation
+      if (Math.abs(e.deltaX) > 20 && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
 
-      // Handle macOS momentum scroll by only allowing one navigation per gesture
-      if (!isProcessingScroll.current) {
-        isProcessingScroll.current = true;
+        // Handle macOS momentum scroll by only allowing one navigation per gesture
+        if (!isProcessingScroll.current) {
+          isProcessingScroll.current = true;
 
-        // Determine direction and navigate
-        navigatePages(e.deltaX > 0 ? "next" : "prev");
+          // Determine direction and navigate
+          navigatePages(e.deltaX > 0 ? "next" : "prev");
 
-        // Debounce to prevent multiple triggers during momentum scrolling
-        // The 500ms timeout helps ensure we catch the entire momentum scroll sequence
-        setTimeout(() => {
-          isProcessingScroll.current = false;
-        }, 500);
+          // Debounce to prevent multiple triggers during momentum scrolling
+          // The 500ms timeout helps ensure we catch the entire momentum scroll sequence
+          setTimeout(() => {
+            isProcessingScroll.current = false;
+          }, 500);
+        }
       }
-    }
     },
     [isAnimating, navigatePages],
   );
@@ -490,13 +485,13 @@ export default function ImageScoreRenderer({
     (e: TouchEvent) => {
       if (isAnimating) return;
 
-    const swipeThreshold = 50;
-    const diff = touchEndX.current - touchStartX.current;
+      const swipeThreshold = 50;
+      const diff = touchEndX.current - touchStartX.current;
 
-    if (Math.abs(diff) > swipeThreshold) {
-      navigatePages(diff > 0 ? "prev" : "next");
-      e.preventDefault();
-    }
+      if (Math.abs(diff) > swipeThreshold) {
+        navigatePages(diff > 0 ? "prev" : "next");
+        e.preventDefault();
+      }
     },
     [isAnimating, navigatePages],
   );
@@ -506,13 +501,14 @@ export default function ImageScoreRenderer({
     (e: MouseEvent) => {
       if (isAnimating) return;
 
-    isDragging.current = true;
-    mouseStartX.current = e.clientX;
+      isDragging.current = true;
+      mouseStartX.current = e.clientX;
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  },
-    [isAnimating, handleMouseMove, handleMouseUp]);
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [isAnimating],
+  );
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging.current) return;

@@ -1,4 +1,6 @@
-export interface Note {
+import { Message } from "protobufjs";
+
+export interface Note extends Message {
   pitch: number;
   startTime: number;
   duration: number;
@@ -11,7 +13,7 @@ export interface Note {
   id: number;
 }
 
-export interface NoteList {
+export interface NoteList extends Message {
   notes: Note[];
   size: number[];
 }
@@ -22,7 +24,7 @@ export enum EditOperation {
   DELETE = 2,
 }
 
-export interface Edit {
+export interface Edit extends Message {
   operation: EditOperation;
   pos: number;
   sChar: Note;
@@ -30,22 +32,15 @@ export interface Edit {
   tPos: number;
 }
 
-export interface TempoSection {
+export interface TempoSection extends Message {
   startIndex: number;
   endIndex: number;
   tempo: number;
 }
 
-export interface ScoringResult {
+export interface ScoringResult extends Message {
   edits: Edit[];
   size: number[];
   unstableRate: number;
   tempoSections: TempoSection[];
-}
-
-export interface Recording {
-  $id: string;
-  $createdAt: string;
-  user_id: string;
-  file_id: string;
 }

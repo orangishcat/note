@@ -1,10 +1,19 @@
 {
   "root": true,
   "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint"],
+  "parserOptions": {
+    "project": "./tsconfig.json",
+    "sourceType": "module"
+  },
+  "plugins": ["@typescript-eslint", "tsc"],
   "extends": [
     "next/core-web-vitals",
     "next/typescript",
     "plugin:@typescript-eslint/recommended"
-  ]
+  ],
+  "rules": {
+    // Run the TypeScript compiler and report ANY diagnostic as an ESLint error:
+    "tsc/config": ["error", { "configFile": "./tsconfig.json" }],
+    "@typescript-eslint/no-explicit-any": "off"
+  }
 }
