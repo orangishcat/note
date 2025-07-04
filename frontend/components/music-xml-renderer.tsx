@@ -15,10 +15,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import api from "@/lib/network";
+import type { Models } from "appwrite";
 
-export interface MusicScore {
+export interface MusicScore extends Models.Document {
   /** Appwrite document identifier */
   $id: string;
+  // $collectionId, $databaseId and other metadata inherited from Document
   name: string;
   subtitle: string;
   user_id: string;
@@ -571,4 +573,3 @@ export default function MusicXMLRenderer({
     </div>
   );
 }
-

@@ -82,7 +82,7 @@ export default function FileManager() {
   );
 
   useEffect(() => {
-    if (context?.justLogin) refetchScores();
+    if (context?.justLogin) void refetchScores();
   }, [context?.justLogin, refetchScores]);
 
   // Check for login parameter in URL and open login modal if present
@@ -104,7 +104,7 @@ export default function FileManager() {
 
   const qc = useQueryClient();
   const invalidateScores = () => {
-    qc.invalidateQueries({ queryKey: ["scores"] });
+    void qc.invalidateQueries({ queryKey: ["scores"] });
   };
 
   const [lastStarTime, setLastStarTime] = useState(0);
@@ -330,6 +330,7 @@ function ScoreCard({
     >
       <Link href={`/score/${$id}`} key={$id}>
         <div className="aspect-[4/3] overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={
               preview_id

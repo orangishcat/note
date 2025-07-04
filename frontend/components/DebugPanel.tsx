@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { EditList, Note } from "@/types";
+import { ScoringResult, Note, NoteList } from "@/types";
 import { Message } from "protobufjs";
 import ComparisonDialog from "@/components/ComparisonDialog";
 import log from "@/lib/logger";
@@ -223,7 +223,9 @@ const DebugPanel = ({
           throw new Error(`Server returned status ${response.status}`);
         const { ScoringResultType, NoteListType } = await initProtobufTypes();
         if (!ScoringResultType || !NoteListType)
-          throw new Error("Failed to initialize ScoringResultType or NoteListType");
+          throw new Error(
+            "Failed to initialize ScoringResultType or NoteListType",
+          );
         const buffer = response.data;
         const dataView = new Uint8Array(buffer);
 
@@ -243,7 +245,8 @@ const DebugPanel = ({
             splitCombinedResponse(buffer, ScoringResultType, NoteListType);
 
           if (editList) {
-            const editCount = (editList as EditList).edits?.length || 0;
+            const editCount =
+              (editList as unknown as ScoringResult).edits?.length || 0;
             log.debug(
               `Successfully decoded test response with ${editCount} edits`,
             );
@@ -275,7 +278,8 @@ const DebugPanel = ({
           // Legacy format - just decode EditList
           log.debug("Using legacy format (ScoringResult only)");
           const decoded = ScoringResultType.decode(dataView);
-          const editCount = (decoded as EditList).edits?.length || 0;
+          const editCount =
+            (decoded as unknown as ScoringResult).edits?.length || 0;
           log.debug(
             `Successfully decoded test response with ${editCount} edits`,
           );
@@ -430,7 +434,9 @@ const DebugPanel = ({
           <p>Page: {currentPage}</p>
           <p>
             Edits: {editsOnPage}/
-            {editList ? (editList as EditList).edits?.length || 0 : 0}
+            {editList
+              ? (editList as unknown as ScoringResult).edits?.length || 0
+              : 0}
           </p>
           <div className="mt-2 flex flex-col gap-1">
             <label className="text-gray-300 text-xs flex justify-between items-center">

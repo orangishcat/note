@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useRef } from "react";
 import log from "./logger";
 import { Message } from "protobufjs";
-import { EditList, Note, NoteList } from "@/types";
+import { ScoringResult, Note, NoteList } from "@/types";
 import { ZoomContext } from "@/app/providers";
 
 // Define EditOperation enum
@@ -62,7 +62,7 @@ export function drawAnnotation(
   scoreContainer: Element,
   note: Note,
   color: string,
-  editList: EditList,
+  editList: ScoringResult,
   currentPage: number,
   zoomLevel?: number,
   isTarget: boolean = false,
@@ -261,11 +261,11 @@ export function drawAnnotation(
  * Hook to handle displaying edits on a score
  */
 export function useEditDisplay(
-  editList: Message | null,
+  editList: ScoringResult,
   currentPage: number,
   scoreId: string,
   setEditCount: (count: number) => void,
-  scoreNotes?: Message | null,
+  scoreNotes?: NoteList,
 ) {
   const lastRenderTimeRef = useRef<number>(0);
   const MIN_RENDER_INTERVAL = 200; // Increased from 100ms to 200ms
@@ -353,7 +353,7 @@ export function useEditDisplay(
       return;
     }
 
-    const pageSizes = (editList as EditList).size as number[];
+    const pageSizes = editList.size as number[];
     if (!pageSizes || !Array.isArray(pageSizes)) {
       log.error("Invalid or missing page sizes in notes scores");
       return;
@@ -454,28 +454,23 @@ export function useEditDisplay(
 
     try {
       // Check if editList has necessary properties
-      if (
-        !(editList as EditList).edits ||
-        !Array.isArray((editList as EditList).edits)
-      ) {
+      if (!editList.edits || !Array.isArray(editList.edits)) {
         log.error("Invalid editList structure - missing edits array");
         return;
       }
 
       // Filter edits for current page
-      const filteredEdits = (editList as EditList).edits?.filter(
-        (edit: Edit) => {
-          if (
-            !edit ||
-            !edit.sChar ||
-            edit.sChar.page === undefined ||
-            edit.sChar.page === null
-          ) {
-            return false;
-          }
-          return Number(edit.sChar.page) === Number(currentPage);
-        },
-      );
+      const filteredEdits = editList.edits?.filter((edit: Edit) => {
+        if (
+          !edit ||
+          !edit.sChar ||
+          edit.sChar.page === undefined ||
+          edit.sChar.page === null
+        ) {
+          return false;
+        }
+        return Number(edit.sChar.page) === Number(currentPage);
+      });
 
       // Track logged page dimensions to avoid repeating
       const loggedPageDimensions = new Set<number>();
@@ -1015,14 +1010,14 @@ export function useEditDisplay(
       }
 
       // Draw tempo sections
-      if (scoreNotes && (editList as EditList).tempoSections) {
-        const sections = (editList as EditList).tempoSections as {
+      if (scoreNotes && editList.tempoSections) {
+        const sections = editList.tempoSections as {
           startIndex: number;
           endIndex: number;
         }[];
         sections.forEach((ts) => {
-          const startNote = (scoreNotes as NoteList).notes?.[ts.startIndex];
-          const endNote = (scoreNotes as NoteList).notes?.[ts.endIndex];
+          const startNote = scoreNotes.notes?.[ts.startIndex];
+          const endNote = scoreNotes.notes?.[ts.endIndex];
           if (!startNote || !endNote) return;
           if (Number(startNote.page) !== Number(currentPage)) return;
 

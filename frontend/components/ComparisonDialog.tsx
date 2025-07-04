@@ -73,7 +73,7 @@ function roundDuration(duration: number | undefined): string {
 }
 
 // Function to deeply inspect object to find t_pos
-const inspectForTargetPos = (obj: Record<string, unknown>, path = ""): string[] => {
+const inspectForTargetPos = (obj: Note, path = ""): string[] => {
   if (!obj || typeof obj !== "object") return [];
 
   const results: string[] = [];
@@ -180,13 +180,14 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
   }, []);
 
   // Extract notes from protobuf messages safely
-const extractNotes = (messageObj: Message | null | undefined): Note[] => {
+  const extractNotes = (messageObj: Message | null | undefined): Note[] => {
     if (!messageObj) return [];
 
     // Try different ways to access notes
     try {
       // First try direct property access
-      const directNotes = (messageObj as Record<string, unknown>).notes as Note[] | undefined;
+      const directNotes = (messageObj as unknown as Record<string, unknown>)
+        .notes as Note[] | undefined;
       if (Array.isArray(directNotes)) {
         log.debug("Found notes via direct access", {
           count: directNotes.length,
@@ -206,10 +207,15 @@ const extractNotes = (messageObj: Message | null | undefined): Note[] => {
       }
 
       // Try accessing as object with get method
-      if (typeof (messageObj as Record<string, unknown>).get === "function") {
-        const notesViaGet = (messageObj as {
-          get: (field: string) => unknown;
-        }).get("notes");
+      if (
+        typeof (messageObj as unknown as Record<string, unknown>).get ===
+        "function"
+      ) {
+        const notesViaGet = (
+          messageObj as unknown as {
+            get: (field: string) => unknown;
+          }
+        ).get("notes");
         if (Array.isArray(notesViaGet)) {
           log.debug("Found notes via get method", {
             count: notesViaGet.length,
@@ -232,7 +238,8 @@ const extractNotes = (messageObj: Message | null | undefined): Note[] => {
     log.debug("scoreNotes structure:", {
       isMessage: true,
       hasToJSON:
-        typeof (scoreNotes as Record<string, unknown>).toJSON === "function",
+        typeof (scoreNotes as unknown as Record<string, unknown>).toJSON ===
+        "function",
       keys: Object.keys(scoreNotes),
     });
   }
@@ -241,7 +248,8 @@ const extractNotes = (messageObj: Message | null | undefined): Note[] => {
     log.debug("playedNotes structure:", {
       isMessage: true,
       hasToJSON:
-        typeof (playedNotes as Record<string, unknown>).toJSON === "function",
+        typeof (playedNotes as unknown as Record<string, unknown>).toJSON ===
+        "function",
       keys: Object.keys(playedNotes),
     });
   }
@@ -281,68 +289,6 @@ const extractNotes = (messageObj: Message | null | undefined): Note[] => {
       },
     );
   }
-
-  // Function to safely find target position
-  const findTargetPosition = (): number | undefined => {
-    if (editOperation === "DELETE") {
-      // For DELETE operations, check all possible locations
-      if (note?.t_pos !== undefined) return note.t_pos;
-      if (note?.sChar?.t_pos !== undefined) return note.sChar.t_pos;
-      if (note?.tPos !== undefined) return note.tPos;
-      if (note?.pos !== undefined && note?.pos !== editPosition)
-        return note.pos;
-      if (note?.position !== undefined && note?.position !== editPosition)
-        return note.position;
-
-      // Check numeric fields
-      const posFields = inspectForTargetPos(note);
-      if (posFields.length > 0) {
-        log.debug("Found potential target position fields:", { posFields });
-
-        // Get the first field that contains "t_pos" or "tpos"
-        const tPosField = posFields.find(
-          (field) =>
-            field.toLowerCase().includes("t_pos") ||
-            field.toLowerCase().includes("tpos") ||
-            field.toLowerCase().includes("target"),
-        );
-
-        if (tPosField) {
-          const value = Number(tPosField.split(":")[1].trim());
-          if (!isNaN(value)) {
-            log.debug(
-              `Using field ${tPosField} with value ${value} as target position`,
-            );
-            return value;
-          }
-        }
-      }
-
-      // Log that we couldn't find the target position
-      log.warn("Could not find target position for DELETE operation", {
-        editOperation,
-        noteKeys: note ? Object.keys(note) : [],
-        hasNote: !!note,
-      });
-
-      // Default to same as edit position for DELETE
-      return editPosition;
-    } else if (editOperation === "SUBSTITUTE" || editOperation === "INSERT") {
-      // For SUBSTITUTE/INSERT, prefer target note's position
-      if (targetNote?.t_pos !== undefined) return targetNote.t_pos;
-      if (targetNote?.tPos !== undefined) return targetNote.tPos;
-
-      // Fallback to source note's target positions
-      if (note?.t_pos !== undefined) return note.t_pos;
-      if (note?.tPos !== undefined) return note.tPos;
-
-      // Default to same as edit position for these operations
-      return editPosition;
-    }
-
-    // Default case, just use edit position
-    return editPosition;
-  };
 
   // Calculate positions
   const sourcePosition = editPosition;

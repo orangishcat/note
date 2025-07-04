@@ -1,33 +1,45 @@
 export interface Note {
-  [key: string]: unknown;
-}
+  pitch: number;
+  startTime: number;
+  duration: number;
+  velocity: number;
 
-export interface Edit {
-  sChar?: {
-    confidence?: number;
-    t_pos?: number;
-  };
-  t_pos?: number;
-  tPos?: number;
-  page?: number;
-  pitch?: number;
-  duration?: number;
-  pos?: number;
-  position?: number;
-  [key: string]: unknown;
-}
-
-export interface EditList {
-  edits?: Edit[];
-  unstableRate?: number;
-  size?: unknown;
-  tempoSections?: { startIndex: number; endIndex: number }[];
-  [key: string]: unknown;
+  page: number;
+  track: number;
+  bbox: number[];
+  confidence: number;
 }
 
 export interface NoteList {
-  notes?: Note[];
-  [key: string]: unknown;
+  notes: Note[];
+  size: number[];
+}
+
+export enum EditOperation {
+  INSERT = 0,
+  SUBSTITUTE = 1,
+  DELETE = 2,
+}
+
+export interface Edit {
+  operation: EditOperation;
+  pos: number;
+  sChar: Note;
+  tChar: Note;
+  tPos: number;
+}
+
+export interface TempoSection {
+  startIndex: number;
+  endIndex: number;
+  tempo: number;
+}
+
+export interface ScoringResult {
+  edits: Edit[];
+  size: number[];
+  unstableRate: number;
+  tempoSections: TempoSection[];
 }
 
 export interface Recording {

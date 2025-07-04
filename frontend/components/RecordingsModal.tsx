@@ -4,7 +4,7 @@ import { databases } from "@/lib/appwrite";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/network";
 import log from "@/lib/logger";
-import { EditList } from "@/types";
+import { ScoringResult } from "@/types";
 
 interface AppwriteWindow extends Window {
   AppwriteQuery?: { equal: (k: string, v: string) => unknown };
@@ -14,7 +14,7 @@ interface RecordingsModalProps {
   open: boolean;
   onClose: () => void;
   scoreId: string;
-  onLoad: (editList: EditList) => void;
+  onLoad: (editList: ScoringResult) => void;
 }
 
 interface RecordingDoc {
@@ -68,7 +68,7 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
   const viewRecording = async (id: string) => {
     try {
       const res = await api.post(`/process-recording/${id}?score=${scoreId}`);
-      onLoad(res.data as EditList);
+      onLoad(res.data as ScoringResult);
       onClose();
     } catch (e) {
       log.error("process recording failed", e);

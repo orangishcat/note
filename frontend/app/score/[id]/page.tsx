@@ -32,7 +32,7 @@ import ImageScoreRenderer from "@/components/image-score-renderer";
 import { Message, Type } from "protobufjs";
 import log from "@/lib/logger";
 import { useEditEventHandlers, useEditDisplay } from "@/lib/edit-display";
-import { Edit, EditList, NoteList } from "@/types";
+import { Edit, ScoringResult, NoteList } from "@/types";
 
 import { useToast } from "@/components/ui/toast";
 import { databases, storage } from "@/lib/appwrite";
@@ -62,10 +62,14 @@ export default function ScorePage() {
     starred: false,
     starred_users: [],
     user_id: "",
+    $collectionId: "",
+    $databaseId: "",
     $id: "",
     name: "Loading...",
     subtitle: "",
     $createdAt: "",
+    $updatedAt: "",
+    $permissions: [],
     total_pages: 1,
   });
   const [editList, setEditList] = useState<Message | null>(null);
@@ -209,7 +213,7 @@ export default function ScorePage() {
 
   const filteredEditList = useMemo(() => {
     if (!editList) return null;
-    const obj: EditList = editList as EditList;
+    const obj: ScoringResult = editList as ScoringResult;
 
     return {
       ...obj,
@@ -220,10 +224,10 @@ export default function ScorePage() {
     };
   }, [editList, confidenceThreshold]);
 
-  const unstableRate = (editList as EditList)?.unstableRate ?? 0;
+  const unstableRate = (editList as ScoringResult)?.unstableRate ?? 0;
   const accuracy = useMemo(() => {
     if (!filteredEditList || !scoreNotes) return 0;
-    const numEdits = (filteredEditList as EditList).edits?.length || 0;
+    const numEdits = (filteredEditList as ScoringResult).edits?.length || 0;
     const total = (scoreNotes as NoteList).notes?.length || 1;
     return ((1 - numEdits / total) * 100).toFixed(1);
   }, [filteredEditList, scoreNotes]);
