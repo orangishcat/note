@@ -1,4 +1,10 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { AxiosProgressEvent } from "axios";
 import JSZip from "jszip";
 import Image from "next/image";
@@ -134,7 +140,7 @@ export default function ImageScoreRenderer({
     return () => {
       window.removeEventListener("resize", adjustForSmallScreens);
     };
-  }, [scoreId, zoomContext]);
+  }, [scoreId, zoomContext, defaultScale]);
 
   // Fetch score file using React Query
   const {
@@ -253,7 +259,7 @@ export default function ImageScoreRenderer({
     // Set a new timeout to prevent multiple rapid refetches
     debouncedRefetch.current = setTimeout(() => {
       log.debug(`Safely refetching score file for ${scoreId}`);
-      refetchScoreFile();
+      void refetchScoreFile();
       debouncedRefetch.current = null;
     }, 1000); // 1 second debounce
   };
@@ -330,8 +336,9 @@ export default function ImageScoreRenderer({
   const totalViews = Math.ceil(imageUrls.length / pagesPerView);
 
   // Navigation function for page turning
-  const navigatePages = (direction: "prev" | "next") => {
-    if (isAnimating) return;
+  const navigatePages = useCallback(
+    (direction: "prev" | "next") => {
+      if (isAnimating) return;
 
     setAnimationDirection(direction);
     setIsAnimating(true);
@@ -357,36 +364,46 @@ export default function ImageScoreRenderer({
 
       // Notify parent about page change
       notifyPageChange(newPageIndex);
-    }, 300); // Match with CSS transition duration
-  };
+      }, 300); // Match with CSS transition duration
+    },
+    [
+      isAnimating,
+      currentPageIndex,
+      totalViews,
+      notifyPageChange,
+    ],
+  );
 
   // Function to notify parent about page changes
-  const notifyPageChange = (pageIndex: number) => {
-    if (typeof window !== "undefined") {
-      log.debug(`Notifying page change to ${pageIndex}`);
-      const event = new CustomEvent("score:pageChange", {
-        detail: {
-          scoreId,
-          currentPage: pageIndex,
-        },
-        bubbles: true,
-      });
-      document.dispatchEvent(event);
-
-      // Force redraw of any page-specific annotations
-      setTimeout(() => {
-        log.debug(`Requesting redraw for page ${pageIndex}`);
-        const redrawEvent = new CustomEvent("score:redrawAnnotations", {
+  const notifyPageChange = useCallback(
+    (pageIndex: number) => {
+      if (typeof window !== "undefined") {
+        log.debug(`Notifying page change to ${pageIndex}`);
+        const event = new CustomEvent("score:pageChange", {
           detail: {
             scoreId,
             currentPage: pageIndex,
           },
           bubbles: true,
         });
-        document.dispatchEvent(redrawEvent);
-      }, 500); // Increased delay to ensure page render is complete
-    }
-  };
+        document.dispatchEvent(event);
+
+        // Force redraw of any page-specific annotations
+        setTimeout(() => {
+          log.debug(`Requesting redraw for page ${pageIndex}`);
+          const redrawEvent = new CustomEvent("score:redrawAnnotations", {
+            detail: {
+              scoreId,
+              currentPage: pageIndex,
+            },
+            bubbles: true,
+          });
+          document.dispatchEvent(redrawEvent);
+        }, 500); // Increased delay to ensure page render is complete
+      }
+    },
+    [scoreId],
+  );
 
   // Sync with external currentPage prop if provided
   useEffect(() => {
@@ -408,26 +425,30 @@ export default function ImageScoreRenderer({
         notifyPageChange(safeCurrentPage);
       }
     }
-  }, [currentPage, totalViews, currentPageIndex]);
+  }, [currentPage, totalViews, currentPageIndex, notifyPageChange]);
 
   // Event handlers for navigation
 
   // Keyboard handler for arrow key navigation
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (isAnimating) return;
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (isAnimating) return;
 
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-      // Prevent default behavior (like scrolling)
-      e.preventDefault();
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        // Prevent default behavior (like scrolling)
+        e.preventDefault();
 
-      // Navigate to previous or next page
-      navigatePages(e.key === "ArrowLeft" ? "prev" : "next");
-    }
-  };
+        // Navigate to previous or next page
+        navigatePages(e.key === "ArrowLeft" ? "prev" : "next");
+      }
+    },
+    [isAnimating, navigatePages],
+  );
 
   // Wheel handler - horizontal scrolling for page navigation
-  const handleWheel = (e: WheelEvent) => {
-    if (isAnimating) return;
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
+      if (isAnimating) return;
 
     // Handle horizontal scrolling for navigation
     if (Math.abs(e.deltaX) > 20 && !e.ctrlKey && !e.metaKey) {
@@ -447,7 +468,9 @@ export default function ImageScoreRenderer({
         }, 500);
       }
     }
-  };
+    },
+    [isAnimating, navigatePages],
+  );
 
   // Touch handlers for swipe navigation
   const handleTouchStart = (e: TouchEvent) => {
@@ -463,8 +486,9 @@ export default function ImageScoreRenderer({
     }
   };
 
-  const handleTouchEnd = (e: TouchEvent) => {
-    if (isAnimating) return;
+  const handleTouchEnd = useCallback(
+    (e: TouchEvent) => {
+      if (isAnimating) return;
 
     const swipeThreshold = 50;
     const diff = touchEndX.current - touchStartX.current;
@@ -473,25 +497,29 @@ export default function ImageScoreRenderer({
       navigatePages(diff > 0 ? "prev" : "next");
       e.preventDefault();
     }
-  };
+    },
+    [isAnimating, navigatePages],
+  );
 
   // Mouse drag handlers for page navigation
-  const handleMouseDown = (e: MouseEvent) => {
-    if (isAnimating) return;
+  const handleMouseDown = useCallback(
+    (e: MouseEvent) => {
+      if (isAnimating) return;
 
     isDragging.current = true;
     mouseStartX.current = e.clientX;
 
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
-  };
+  },
+    [isAnimating, handleMouseMove, handleMouseUp]);
 
-  const handleMouseMove = (e: MouseEvent) => {
+  const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging.current) return;
     mouseCurrentX.current = e.clientX;
-  };
+  }, []);
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     if (!isDragging.current) return;
 
     const dragThreshold = 50;
@@ -504,7 +532,7 @@ export default function ImageScoreRenderer({
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("mouseup", handleMouseUp);
     isDragging.current = false;
-  };
+  }, [navigatePages, handleMouseMove]);
 
   // Scale change handler from ZoomableDiv
   const handleScaleChange = (scale: number) => {
@@ -589,7 +617,19 @@ export default function ImageScoreRenderer({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [currentPageIndex, totalViews, currentScale, isAnimating, scoreId]);
+  }, [
+    currentPageIndex,
+    totalViews,
+    currentScale,
+    isAnimating,
+    scoreId,
+    handleKeyDown,
+    handleMouseDown,
+    handleMouseUp,
+    handleMouseMove,
+    handleTouchEnd,
+    handleWheel,
+  ]);
 
   if (error) {
     return (
@@ -663,7 +703,10 @@ export default function ImageScoreRenderer({
 
   return (
     <div
-      ref={wrapperRef}
+      ref={(el) => {
+        wrapperRef.current = el;
+        containerRef.current = el;
+      }}
       id={`score-${scoreId}`}
       className="overflow-x-hidden flex flex-col place-items-center relative"
       style={{

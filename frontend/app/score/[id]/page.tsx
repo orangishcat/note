@@ -213,9 +213,10 @@ export default function ScorePage() {
 
     return {
       ...obj,
-      edits: obj.edits?.filter(
-        (e: Edit) => (e.sChar?.confidence ?? 5) >= confidenceThreshold,
-      ) ?? [],
+      edits:
+        obj.edits?.filter(
+          (e: Edit) => (e.sChar?.confidence ?? 5) >= confidenceThreshold,
+        ) ?? [],
     };
   }, [editList, confidenceThreshold]);
 
@@ -274,7 +275,7 @@ export default function ScorePage() {
       // Check for iOS and Safari
       const isIOS =
         /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-        !((window as unknown as { MSStream?: unknown }).MSStream);
+        !(window as unknown as { MSStream?: unknown }).MSStream;
       /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const isIOSChrome = isIOS && navigator.userAgent.includes("CriOS");
       const isIOSFirefox = isIOS && navigator.userAgent.includes("FxiOS");
@@ -336,7 +337,7 @@ export default function ScorePage() {
     hasShownCompatibilityToast.current = true;
     const isIOS =
       /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-      !((window as unknown as { MSStream?: unknown }).MSStream);
+      !(window as unknown as { MSStream?: unknown }).MSStream;
 
     // Use setTimeout to break potential render loops
     setTimeout(() => {
@@ -794,7 +795,11 @@ export default function ScorePage() {
             </BasicTooltip>
             {!isSmallScreen && (
               <NotImplementedTooltip>
-                <Button variant="ghost" disabled className="text-gray-900 dark:text-white">
+                <Button
+                  variant="ghost"
+                  disabled
+                  className="text-gray-900 dark:text-white"
+                >
                   <Share2
                     className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`}
                   />
@@ -958,7 +963,7 @@ export default function ScorePage() {
           <ControlDock />
 
           {showMetricsPanel && (
-            <div className="fixed bottom-20 right-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-3 rounded shadow-lg z-50 text-sm">
+            <div className="fixed bottom-20 right-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-3 rounded shadow-lg z-50 text-base">
               <div>Unstable Rate: {unstableRate.toFixed(3)}</div>
               <div>Accuracy: {accuracy}%</div>
               <button

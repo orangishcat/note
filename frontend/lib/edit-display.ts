@@ -360,7 +360,9 @@ export function useEditDisplay(
     }
 
     // Get the score container more reliably - first look for .score-container, then fallback to other elements
-    let scoreContainer = document.querySelector(".score-container");
+    let scoreContainer = document.querySelector(
+      `#score-${scoreId} .score-container`,
+    );
 
     if (!scoreContainer) {
       // If specific container not found, try the main image container
@@ -452,23 +454,28 @@ export function useEditDisplay(
 
     try {
       // Check if editList has necessary properties
-      if (!(editList as EditList).edits || !Array.isArray((editList as EditList).edits)) {
+      if (
+        !(editList as EditList).edits ||
+        !Array.isArray((editList as EditList).edits)
+      ) {
         log.error("Invalid editList structure - missing edits array");
         return;
       }
 
       // Filter edits for current page
-      const filteredEdits = (editList as EditList).edits?.filter((edit: Edit) => {
-        if (
-          !edit ||
-          !edit.sChar ||
-          edit.sChar.page === undefined ||
-          edit.sChar.page === null
-        ) {
-          return false;
-        }
-        return Number(edit.sChar.page) === Number(currentPage);
-      });
+      const filteredEdits = (editList as EditList).edits?.filter(
+        (edit: Edit) => {
+          if (
+            !edit ||
+            !edit.sChar ||
+            edit.sChar.page === undefined ||
+            edit.sChar.page === null
+          ) {
+            return false;
+          }
+          return Number(edit.sChar.page) === Number(currentPage);
+        },
+      );
 
       // Track logged page dimensions to avoid repeating
       const loggedPageDimensions = new Set<number>();

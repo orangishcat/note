@@ -6,6 +6,10 @@ import api from "@/lib/network";
 import log from "@/lib/logger";
 import { EditList } from "@/types";
 
+interface AppwriteWindow extends Window {
+  AppwriteQuery?: { equal: (k: string, v: string) => unknown };
+}
+
 interface RecordingsModalProps {
   open: boolean;
   onClose: () => void;
@@ -41,25 +45,30 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
         const res = await databases.listDocuments(
           process.env.NEXT_PUBLIC_DATABASE!,
           process.env.NEXT_PUBLIC_RECORDINGS_COLLECTION!,
-          [
-            (window as unknown as { AppwriteQuery?: { equal: (k: string, v: string) => unknown } }).AppwriteQuery?.equal
-              ? (window as unknown as { AppwriteQuery: { equal: (k: string, v: string) => unknown } }).AppwriteQuery.equal("score_id", scoreId)
-              : undefined,
-          ].filter(Boolean) as unknown[],
+          (() => {
+            const w: AppwriteWindow = window;
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+            return (
+              [
+                w.AppwriteQuery?.equal
+                  ? w.AppwriteQuery.equal("score_id", scoreId)
+                  : undefined,
+              ] as unknown[]
+            ).filter(Boolean);
+          })(),
         );
         setRecs(res.documents as RecordingDoc[]);
       } catch (e) {
         log.error("Failed fetching recordings", e);
       }
     }
-    fetchRecs();
+    void fetchRecs();
   }, [open, scoreId]);
-
 
   const viewRecording = async (id: string) => {
     try {
       const res = await api.post(`/process-recording/${id}?score=${scoreId}`);
-      onLoad(res.data);
+      onLoad(res.data as EditList);
       onClose();
     } catch (e) {
       log.error("process recording failed", e);
@@ -69,7 +78,7 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
   if (!visible) return null;
   return (
     <div
-      className={`fixed bottom-20 left-12 z-50 w-80 min-w-64 min-h-16 rounded-md bg-gray-800/90 p-2 text-white shadow-lg ${
+      className={`fixed bottom-20 right-4 z-50 w-80 min-w-64 min-h-20 rounded-md bg-gray-800/90 p-2 text-white shadow-lg ${
         open ? "animate-slide-in-up" : "animate-slide-out-down"
       }`}
       onAnimationEnd={() => {
@@ -86,7 +95,7 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
           ✕
         </button>
       </div>
-      <div className="mt-7 max-h-60 overflow-auto space-y-2">
+      <div className="mt-7 max-h-60 overflow-auto space-y-2 min-h-12">
         {recs.length === 0 ? (
           <div className="text-center text-gray-300 italic">
             No recordings yet
@@ -95,7 +104,7 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
           recs.map((r) => (
             <div
               key={r.$id}
-              className="flex justify-between items-center bg-gray-700/40 p-1 rounded"
+              className="flex justify-between items-center bg-gray-700/40 p-2 rounded h-12"
             >
               <span className="text-xs">
                 {new Date(r.$createdAt).toLocaleString()}
@@ -103,7 +112,7 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => viewRecording(r.file_id)}
+                onClick={() => void viewRecording(r.file_id)}
               >
                 View
               </Button>
@@ -116,4 +125,3 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
 };
 
 export default RecordingsModal;
-
