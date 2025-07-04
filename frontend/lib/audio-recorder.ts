@@ -7,7 +7,7 @@ import log from "./logger";
 export interface RecordingError {
   message: string;
   code?: string;
-  details?: any;
+  details?: unknown;
 }
 
 export interface AudioRecorderHookProps {
@@ -45,9 +45,7 @@ export function splitCombinedResponse(
     const playedNotes = NoteListType.decode(playedNotesData);
 
     log.debug(
-      `Decoded EditList (${(editList as any).edits
-        ?.length} edits), NoteList (${(playedNotes as any).notes
-        ?.length} notes)`,
+      `Decoded EditList (${(editList as Message).edits?.length ?? 0} edits), NoteList (${(playedNotes as Message).notes?.length ?? 0} notes)`,
     );
     return { editList, playedNotes };
   } catch (error) {
@@ -66,12 +64,12 @@ export function useAudioRecorder({
   onPlayedNotesChange,
   onError,
 }: AudioRecorderHookProps) {
-  const recorderRef = useRef<any>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lastRequestTime = useRef(0);
   const MIN_INTERVAL = 2000;
 
-  const handleError = (error: any) => {
+  const handleError = (error: unknown) => {
     const msg = error?.message ?? String(error);
     log.error("AudioRecorder Error:", error);
     onError?.({ message: msg, details: error });

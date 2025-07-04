@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/modal";
 import { Lock, Mail, User } from "lucide-react";
 import HCaptcha from "@hcaptcha/react-hcaptcha";
-import { AccountContext, AccountView } from "@/app/providers";
+import { AccountContext } from "@/app/providers";
 
 import { account } from "@/lib/appwrite";
 
@@ -120,7 +120,7 @@ export function AuthModal({
         if (context) context.setJustLogin(false);
       }, 1000);
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       setShowCaptcha(false);
       setStatus("");
       if (error?.type === "general_unauthorized") {
@@ -336,7 +336,7 @@ export function ResetPasswordModal({
         setStatus("");
         onClose();
       }, 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Password reset failed:", error);
       setStatus("");
       if (error.response?.status === 404) {
@@ -368,7 +368,7 @@ export function ResetPasswordModal({
         <ModalHeader className="border-b border-gray-200 dark:border-gray-700 pb-4">
           <ModalTitle className="font-bold">Reset Password</ModalTitle>
           <ModalDescription>
-            Enter your email address and we'll send you a link to reset your
+            Enter your email address and we&#39;ll send you a link to reset your
             password.
           </ModalDescription>
         </ModalHeader>

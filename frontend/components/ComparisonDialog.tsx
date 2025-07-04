@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { Message } from "protobufjs";
 import { midiPitchToNoteName } from "@/lib/edit-display";
 import log from "@/lib/logger";
+import { Note } from "@/types";
 
 // Types for the comparison dialog props
 interface ComparisonDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  note: any; // Source note
-  targetNote?: any; // Target note (for substitutions)
+  note: Note; // Source note
+  targetNote?: Note; // Target note (for substitutions)
   editOperation?: string; // Operation type as string (INSERT, DELETE, SUBSTITUTE)
   position?: number; // Position of the edit in the sequence
   playedNotes?: Message | null; // The played notes from recording
@@ -25,11 +26,11 @@ type Position = {
 
 // Helper function to get notes around a position
 function getNotesAroundPosition(
-  notes: any[] | null,
+  notes: Note[] | null,
   position: number | undefined,
   count: number = 10,
   isTarget: boolean = false,
-): any[] {
+): Note[] {
   if (!notes || notes.length === 0) {
     log.debug("getNotesAroundPosition: No notes provided or empty array");
     return [];
@@ -72,7 +73,7 @@ function roundDuration(duration: number | undefined): string {
 }
 
 // Function to deeply inspect object to find t_pos
-const inspectForTargetPos = (obj: any, path = ""): string[] => {
+const inspectForTargetPos = (obj: Record<string, unknown>, path = ""): string[] => {
   if (!obj || typeof obj !== "object") return [];
 
   const results: string[] = [];
@@ -179,13 +180,13 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
   }, []);
 
   // Extract notes from protobuf messages safely
-  const extractNotes = (messageObj: Message | null | undefined): any[] => {
+const extractNotes = (messageObj: Message | null | undefined): Note[] => {
     if (!messageObj) return [];
 
     // Try different ways to access notes
     try {
-      // First try direct access as any
-      const directNotes = (messageObj as any).notes;
+      // First try direct property access
+      const directNotes = (messageObj as Record<string, unknown>).notes as Note[] | undefined;
       if (Array.isArray(directNotes)) {
         log.debug("Found notes via direct access", {
           count: directNotes.length,
@@ -205,8 +206,10 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
       }
 
       // Try accessing as object with get method
-      if (typeof (messageObj as any).get === "function") {
-        const notesViaGet = (messageObj as any).get("notes");
+      if (typeof (messageObj as Record<string, unknown>).get === "function") {
+        const notesViaGet = (messageObj as {
+          get: (field: string) => unknown;
+        }).get("notes");
         if (Array.isArray(notesViaGet)) {
           log.debug("Found notes via get method", {
             count: notesViaGet.length,
@@ -228,7 +231,8 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
   if (scoreNotes) {
     log.debug("scoreNotes structure:", {
       isMessage: true,
-      hasToJSON: typeof (scoreNotes as any).toJSON === "function",
+      hasToJSON:
+        typeof (scoreNotes as Record<string, unknown>).toJSON === "function",
       keys: Object.keys(scoreNotes),
     });
   }
@@ -236,7 +240,8 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
   if (playedNotes) {
     log.debug("playedNotes structure:", {
       isMessage: true,
-      hasToJSON: typeof (playedNotes as any).toJSON === "function",
+      hasToJSON:
+        typeof (playedNotes as Record<string, unknown>).toJSON === "function",
       keys: Object.keys(playedNotes),
     });
   }

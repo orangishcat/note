@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { EditList, Note } from "@/types";
 import { Message } from "protobufjs";
 import ComparisonDialog from "@/components/ComparisonDialog";
 import log from "@/lib/logger";
@@ -99,8 +100,8 @@ const DebugPanel = ({
   const [showTestTypeSelector, setShowTestTypeSelector] = useState(false);
   const [currentTestType, setCurrentTestType] = useState("spider_dance_played");
   const [comparisonData, setComparisonData] = useState<{
-    note: any;
-    targetNote?: any;
+    note: Note | null;
+    targetNote?: Note;
     editOperation?: string;
     position?: number;
   }>({ note: null });
@@ -242,7 +243,7 @@ const DebugPanel = ({
             splitCombinedResponse(buffer, ScoringResultType, NoteListType);
 
           if (editList) {
-            const editCount = (editList as any).edits?.length || 0;
+            const editCount = (editList as EditList).edits?.length || 0;
             log.debug(
               `Successfully decoded test response with ${editCount} edits`,
             );
@@ -252,7 +253,8 @@ const DebugPanel = ({
 
             // Also update played notes if available
             if (receivedPlayedNotes) {
-              const noteCount = (receivedPlayedNotes as any).notes?.length || 0;
+              const noteCount =
+                (receivedPlayedNotes as NoteList).notes?.length || 0;
               log.debug(
                 `Successfully decoded test response with ${noteCount} played notes`,
               );
@@ -262,7 +264,7 @@ const DebugPanel = ({
             // Set success status message
             setTestStatus({
               message: `Success! Received ${editCount} edits and ${
-                (receivedPlayedNotes as any)?.notes?.length || 0
+                (receivedPlayedNotes as NoteList)?.notes?.length || 0
               } notes`,
               isError: false,
             });
@@ -273,7 +275,7 @@ const DebugPanel = ({
           // Legacy format - just decode EditList
           log.debug("Using legacy format (ScoringResult only)");
           const decoded = ScoringResultType.decode(dataView);
-          const editCount = (decoded as any).edits?.length || 0;
+          const editCount = (decoded as EditList).edits?.length || 0;
           log.debug(
             `Successfully decoded test response with ${editCount} edits`,
           );
@@ -428,7 +430,7 @@ const DebugPanel = ({
           <p>Page: {currentPage}</p>
           <p>
             Edits: {editsOnPage}/
-            {editList ? (editList as any).edits?.length || 0 : 0}
+            {editList ? (editList as EditList).edits?.length || 0 : 0}
           </p>
           <div className="mt-2 flex flex-col gap-1">
             <label className="text-gray-300 text-xs flex justify-between items-center">

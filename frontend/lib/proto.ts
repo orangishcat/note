@@ -60,7 +60,7 @@ export async function initProtobufTypes(): Promise<{
     };
 
     return { ScoringResultType, NoteListType };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error("Error initializing protobuf types:", error);
     protobufTypeCache = {
       ScoringResultType: null,

@@ -39,6 +39,12 @@ export default function AccountDropdown() {
           </div>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <a href="/settings" className="w-full">
+            Settings
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() =>
             logOut().then(() => {
@@ -57,3 +63,5 @@ export default function AccountDropdown() {
     ""
   );
 }
+
+

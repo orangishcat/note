@@ -57,11 +57,11 @@ export default function FileManager() {
   } = useQuery({
     queryKey: ["scores"],
     queryFn: async () => {
-      const res = await databases.listDocuments(
+      const res = await databases.listDocuments<MusicScore>(
         process.env.NEXT_PUBLIC_DATABASE!,
         process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
       );
-      return (res.documents as any[]).map(
+      return res.documents.map(
         (doc) =>
           ({
             ...doc,

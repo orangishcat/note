@@ -31,8 +31,9 @@ import axios from "axios";
 import ImageScoreRenderer from "@/components/image-score-renderer";
 import { Message, Type } from "protobufjs";
 import log from "@/lib/logger";
-import { setupEditEventHandlers, useEditDisplay } from "@/lib/edit-display";
-import { RecordingError, useAudioRecorder } from "@/lib/audio-recorder";
+import { useEditEventHandlers, useEditDisplay } from "@/lib/edit-display";
+import { Edit, EditList, NoteList } from "@/types";
+
 import { useToast } from "@/components/ui/toast";
 import { databases, storage } from "@/lib/appwrite";
 import { initProtobufTypes, protobufTypeCache } from "@/lib/proto";
@@ -188,7 +189,7 @@ export default function ScorePage() {
 
         log.debug(
           `Successfully decoded score notes with ${
-            (notes as any).notes?.length || 0
+            (notes as NoteList).notes?.length || 0
           } notes`,
         );
         setScoreNotes(notes);
@@ -208,21 +209,21 @@ export default function ScorePage() {
 
   const filteredEditList = useMemo(() => {
     if (!editList) return null;
-    const obj: any = editList;
+    const obj: EditList = editList as EditList;
 
     return {
       ...obj,
-      edits: obj.edits.filter(
-        (e: any) => (e.sChar?.confidence ?? 5) >= confidenceThreshold,
-      ),
+      edits: obj.edits?.filter(
+        (e: Edit) => (e.sChar?.confidence ?? 5) >= confidenceThreshold,
+      ) ?? [],
     };
   }, [editList, confidenceThreshold]);
 
-  const unstableRate = (editList as any)?.unstableRate ?? 0;
+  const unstableRate = (editList as EditList)?.unstableRate ?? 0;
   const accuracy = useMemo(() => {
     if (!filteredEditList || !scoreNotes) return 0;
-    const numEdits = (filteredEditList as any).edits.length || 0;
-    const total = (scoreNotes as any).notes?.length || 1;
+    const numEdits = (filteredEditList as EditList).edits?.length || 0;
+    const total = (scoreNotes as NoteList).notes?.length || 1;
     return ((1 - numEdits / total) * 100).toFixed(1);
   }, [filteredEditList, scoreNotes]);
 
@@ -257,7 +258,7 @@ export default function ScorePage() {
   );
 
   // Setup event handlers for page changes and annotation redraws
-  setupEditEventHandlers(
+  useEditEventHandlers(
     id as string,
     score?.file_id,
     setCurrentPage,
@@ -273,7 +274,7 @@ export default function ScorePage() {
       // Check for iOS and Safari
       const isIOS =
         /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-        !(window as any).MSStream;
+        !((window as unknown as { MSStream?: unknown }).MSStream);
       /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const isIOSChrome = isIOS && navigator.userAgent.includes("CriOS");
       const isIOSFirefox = isIOS && navigator.userAgent.includes("FxiOS");
@@ -318,42 +319,6 @@ export default function ScorePage() {
   }, [isClient]);
 
   // Handle recording errors with more detail
-  const handleRecordingError = (error: RecordingError) => {
-    log.error("Recording error:", error);
-
-    // Reset recording state when an error occurs
-    setIsRecording(false);
-
-    // Show error toast with more iOS-specific help
-    const isIOS =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-
-    if (error.code === "not_supported" && isIOS) {
-      addToast({
-        title: "Recording Not Available",
-        description:
-          "On iOS, please use Safari and make sure the site has microphone permissions. Try opening directly from Safari, not from an app.",
-        type: "error",
-        duration: 8000,
-      });
-    } else if (error.code === "permission_denied") {
-      addToast({
-        title: "Microphone Access Denied",
-        description:
-          "Please allow microphone access to use recording features.",
-        type: "error",
-        duration: 5000,
-      });
-    } else {
-      addToast({
-        title: "Recording Failed",
-        description: error.message,
-        type: "error",
-        duration: 5000,
-      });
-    }
-  };
-
   // Initialize the hook without pulling out start/stop
 
   const toggleRecording = () => {
@@ -370,7 +335,8 @@ export default function ScorePage() {
 
     hasShownCompatibilityToast.current = true;
     const isIOS =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+      /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+      !((window as unknown as { MSStream?: unknown }).MSStream);
 
     // Use setTimeout to break potential render loops
     setTimeout(() => {
@@ -484,17 +450,19 @@ export default function ScorePage() {
     }
 
     const handleMouseMove = () => {
-      // Always show the top controls on mouse movement
+      // Always show the controls on mouse movement
       setShowControls(true);
+      setShowDock(true);
 
       // Clear any existing timeout
       if (mouseMoveTimeoutRef.current) {
         clearTimeout(mouseMoveTimeoutRef.current);
       }
 
-      // Set a timeout to hide the top bar (dock stays visible)
+      // Set a timeout to hide the controls and dock
       mouseMoveTimeoutRef.current = setTimeout(() => {
         setShowControls(false);
+        setShowDock(false);
       }, 3000);
     };
 
@@ -506,6 +474,7 @@ export default function ScorePage() {
 
         // Show controls on any touch
         setShowControls(true);
+        setShowDock(true);
 
         // Re-show dock if touch is near the bottom of the screen
         if (!showDock && touch.clientY > window.innerHeight - 150) {
@@ -517,9 +486,10 @@ export default function ScorePage() {
           clearTimeout(mouseMoveTimeoutRef.current);
         }
 
-        // Set timeout to hide top controls
+        // Set timeout to hide controls and dock
         mouseMoveTimeoutRef.current = setTimeout(() => {
           setShowControls(false);
+          setShowDock(false);
         }, 3000);
       }
     };
@@ -528,9 +498,10 @@ export default function ScorePage() {
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("touchmove", handleTouchMove as EventListener);
 
-    // Initialize timeout for top bar hiding (dock stays visible)
+    // Initialize timeout for hiding controls and dock
     mouseMoveTimeoutRef.current = setTimeout(() => {
       setShowControls(false);
+      setShowDock(false);
     }, 3000);
 
     // Cleanup function
@@ -555,6 +526,11 @@ export default function ScorePage() {
   }, []);
 
   const toggleFullscreen = () => {
+    if (!isFullscreen) {
+      document.documentElement.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
     setIsFullscreen(!isFullscreen);
   };
 
@@ -608,7 +584,11 @@ export default function ScorePage() {
 
   // Toggle dock visibility
   const toggleDockVisibility = () => {
-    setShowDock(!showDock);
+    const newState = !showDock;
+    setShowDock(newState);
+    if (!newState) {
+      setShowControls(false);
+    }
   };
 
   // Floating dock of controls for both fullscreen and normal mode
@@ -636,14 +616,16 @@ export default function ScorePage() {
     return (
       <div
         ref={dockRef}
-        className={`fixed bottom-0 right-0 left-0 xl:left-72 border-t border-gray-200 dark:border-gray-700 transition-opacity duration-300 ${
+        className={`fixed bottom-0 right-0 left-0 ${
+          isFullscreen ? "" : "xl:left-72"
+        } border-t border-gray-200 dark:border-gray-700 transition-opacity duration-300 ${
           showDock ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-850 px-4 py-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             {/* Record button with compatibility indicator */}
             <BasicTooltip
               text={
@@ -689,23 +671,26 @@ export default function ScorePage() {
                 onClick={() => setShowRecordingsModal(!showRecordingsModal)}
                 variant="ghost"
                 size="icon"
-                className="text-white"
+                className="text-gray-900 dark:text-white"
               >
                 <Clock className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
               </Button>
             </BasicTooltip>
-            <BasicTooltip text="Previous metrics">
+            <BasicTooltip text="Metrics">
               <Button
                 onClick={() => setShowMetricsPanel(!showMetricsPanel)}
                 variant="ghost"
                 size="icon"
-                className="text-white"
+                className="text-gray-900 dark:text-white"
               >
                 <BarChart2
                   className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
                 />
               </Button>
             </BasicTooltip>
+            <div className="text-xs text-gray-900 dark:text-gray-300 ml-2">
+              {accuracy}% / {unstableRate.toFixed(3)}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -714,7 +699,7 @@ export default function ScorePage() {
                 onClick={goToPrevPage}
                 variant="ghost"
                 size="icon"
-                className="text-white"
+                className="text-gray-900 dark:text-white"
                 disabled={currentPage <= 0}
               >
                 <ArrowLeftCircle
@@ -725,7 +710,7 @@ export default function ScorePage() {
             <div
               className={`${
                 isSmallScreen ? "px-1 text-sm" : "px-4"
-              } text-white font-medium whitespace-nowrap`}
+              } text-gray-900 dark:text-white font-medium whitespace-nowrap`}
             >
               {currentDisplayPage} / {totalPages}
             </div>
@@ -734,7 +719,7 @@ export default function ScorePage() {
                 onClick={goToNextPage}
                 variant="ghost"
                 size="icon"
-                className="text-white"
+                className="text-gray-900 dark:text-white"
               >
                 <ArrowRightCircle
                   className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
@@ -746,7 +731,7 @@ export default function ScorePage() {
                 variant="ghost"
                 size="icon"
                 ref={recenterButton}
-                className="text-white"
+                className="text-gray-900 dark:text-white"
               >
                 <Fullscreen
                   className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
@@ -763,7 +748,7 @@ export default function ScorePage() {
                 variant="ghost"
                 size="icon"
                 onClick={toggleFullscreen}
-                className="text-white"
+                className="text-gray-900 dark:text-white"
               >
                 {isFullscreen ? (
                   <Minimize2
@@ -787,7 +772,7 @@ export default function ScorePage() {
                     ),
                   )
                 }
-                className="text-white"
+                className="text-gray-900 dark:text-white"
               >
                 <Download
                   className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`}
@@ -798,7 +783,7 @@ export default function ScorePage() {
               <Button
                 variant="ghost"
                 onClick={() => onStarToggle(score)}
-                className="text-white"
+                className="text-gray-900 dark:text-white"
               >
                 <Star
                   className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"} ${
@@ -809,7 +794,7 @@ export default function ScorePage() {
             </BasicTooltip>
             {!isSmallScreen && (
               <NotImplementedTooltip>
-                <Button variant="ghost" disabled className="text-white">
+                <Button variant="ghost" disabled className="text-gray-900 dark:text-white">
                   <Share2
                     className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`}
                   />
@@ -822,7 +807,7 @@ export default function ScorePage() {
                   variant="ghost"
                   size="icon"
                   onClick={toggleDockVisibility}
-                  className="text-white"
+                  className="text-gray-900 dark:text-white"
                 >
                   {showDock ? (
                     <EyeOff
@@ -885,7 +870,7 @@ export default function ScorePage() {
             isSmallScreen ? "p-2" : "p-4"
           } bg-white ${isFullscreen ? "dark:bg-gray-800" : "dark:bg-inherit"}`}
         >
-          <div className="flex gap-2 place-items-center justify-center overflow-hidden">
+          <div className="flex gap-2 items-center overflow-hidden">
             {isFullscreen && (
               <Button
                 variant="ghost"
@@ -895,6 +880,14 @@ export default function ScorePage() {
               >
                 <Minimize2 className={isSmallScreen ? "h-4 w-4" : "h-5 w-5"} />
               </Button>
+            )}
+            <span className="font-semibold truncate whitespace-nowrap overflow-ellipsis max-w-xl">
+              {score.name}
+            </span>
+            {score.subtitle && (
+              <span className="text-gray-500 dark:text-gray-400 truncate whitespace-nowrap max-w-xs">
+                {score.subtitle}
+              </span>
             )}
           </div>
         </div>
@@ -906,6 +899,7 @@ export default function ScorePage() {
   if (isFullscreen) {
     return (
       <div className="w-full h-screen overflow-hidden bg-gray-900">
+        <TopBar />
         {/* Main score renderer - fills entire screen */}
         <div className="h-full w-full relative">
           {score && score.$id && score.file_id ? (
@@ -964,7 +958,7 @@ export default function ScorePage() {
           <ControlDock />
 
           {showMetricsPanel && (
-            <div className="fixed bottom-20 right-4 bg-gray-800 text-white p-3 rounded shadow-lg z-50 text-sm">
+            <div className="fixed bottom-20 right-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-3 rounded shadow-lg z-50 text-sm">
               <div>Unstable Rate: {unstableRate.toFixed(3)}</div>
               <div>Accuracy: {accuracy}%</div>
               <button
@@ -1003,7 +997,7 @@ export default function ScorePage() {
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="bg-gray-800/50 backdrop-blur-sm text-white rounded-full w-12 h-12 shadow-lg"
+                  className="bg-white/90 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white rounded-full w-12 h-12 shadow-lg"
                   onClick={() => setShowDock(true)}
                 >
                   <Eye className="h-6 w-6" />

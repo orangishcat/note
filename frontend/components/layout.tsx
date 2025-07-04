@@ -43,7 +43,7 @@ export function Layout({ children, navbarContent }: LayoutProps) {
   };
 
   return (
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-background dark:text-white">
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-gray-900 dark:text-white">
       <div className="xl:ml-72 transition-all duration-200">
         <Navbar onMenuClick={toggleSidebar}>{navbarContent}</Navbar>
       </div>

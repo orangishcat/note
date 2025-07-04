@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useRef } from "react";
 import log from "./logger";
 import { Message } from "protobufjs";
+import { EditList, Note, NoteList } from "@/types";
 import { ZoomContext } from "@/app/providers";
 
 // Define EditOperation enum
@@ -59,19 +60,19 @@ function areEditListsEqual(a: Message | null, b: Message | null): boolean {
  */
 export function drawAnnotation(
   scoreContainer: Element,
-  note: any,
+  note: Note,
   color: string,
-  editList: any,
+  editList: EditList,
   currentPage: number,
   zoomLevel?: number,
   isTarget: boolean = false,
-  targetNote?: any, // Pass the target note for substitutions
+  targetNote?: Note, // Pass the target note for substitutions
   editOperation?: EditOperation,
   position?: number, // Add position parameter
 ) {
   // Constants for logging
   const MAX_INVALID_BBOX_LOGS = 10;
-  let invalidBboxLogged = 0;
+  const invalidBboxLogged = 0;
 
   // Get page sizes from editList
   const pageSizes = editList.size;
@@ -352,7 +353,7 @@ export function useEditDisplay(
       return;
     }
 
-    const pageSizes = (editList as any).size;
+    const pageSizes = (editList as EditList).size as number[];
     if (!pageSizes || !Array.isArray(pageSizes)) {
       log.error("Invalid or missing page sizes in notes scores");
       return;
@@ -451,13 +452,13 @@ export function useEditDisplay(
 
     try {
       // Check if editList has necessary properties
-      if (!(editList as any).edits || !Array.isArray((editList as any).edits)) {
+      if (!(editList as EditList).edits || !Array.isArray((editList as EditList).edits)) {
         log.error("Invalid editList structure - missing edits array");
         return;
       }
 
       // Filter edits for current page
-      const filteredEdits = (editList as any).edits.filter((edit: any) => {
+      const filteredEdits = (editList as EditList).edits?.filter((edit: Edit) => {
         if (
           !edit ||
           !edit.sChar ||
@@ -479,7 +480,7 @@ export function useEditDisplay(
       setEditCount(filteredEdits.length);
 
       // First, collect all notes that need labels for position planning
-      const notesWithLabels: any[] = [];
+      const notesWithLabels: { note: Note; sourceNote: Note }[] = [];
 
       // Process each edit operation and collect target notes that need labels
       for (const edit of filteredEdits) {
@@ -516,7 +517,7 @@ export function useEditDisplay(
       // Process each edit operation
       for (const edit of filteredEdits) {
         const note = edit.sChar;
-        let pageIndex = note?.page;
+        const pageIndex = note?.page;
 
         // Ensure pageSize exists and is valid
         if (
@@ -1007,11 +1008,14 @@ export function useEditDisplay(
       }
 
       // Draw tempo sections
-      if (scoreNotes && (editList as any).tempoSections) {
-        const sections = (editList as any).tempoSections as any[];
-        sections.forEach((ts: any) => {
-          const startNote = (scoreNotes as any).notes?.[ts.startIndex];
-          const endNote = (scoreNotes as any).notes?.[ts.endIndex];
+      if (scoreNotes && (editList as EditList).tempoSections) {
+        const sections = (editList as EditList).tempoSections as {
+          startIndex: number;
+          endIndex: number;
+        }[];
+        sections.forEach((ts) => {
+          const startNote = (scoreNotes as NoteList).notes?.[ts.startIndex];
+          const endNote = (scoreNotes as NoteList).notes?.[ts.endIndex];
           if (!startNote || !endNote) return;
           if (Number(startNote.page) !== Number(currentPage)) return;
 
@@ -1129,7 +1133,7 @@ export function useEditDisplay(
 /**
  * Setup event handlers for edit display
  */
-export function setupEditEventHandlers(
+export function useEditEventHandlers(
   scoreId: string,
   fileId: string | undefined,
   setCurrentPage: (page: number) => void,

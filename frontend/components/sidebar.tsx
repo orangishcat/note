@@ -36,7 +36,7 @@ export function Sidebar({
       )}
     >
       <div className="flex items-center justify-between p-4">
-        <h1 className="text-xl font-bold dark:text-white">Note</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Note</h1>
         <Button
           variant="ghost"
           size="icon"

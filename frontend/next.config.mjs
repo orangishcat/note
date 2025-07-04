@@ -22,9 +22,16 @@ const nextConfig = {
 
   // 2. External image configuration for Appwrite
   images: {
-    // -- Parse the Appwrite endpoint into components
+    // -- Parse the Appwrite endpoint into components. Fallback to the default
+    // Appwrite cloud endpoint if the env variable isn't defined to avoid URL
+    // construction errors during linting or builds.
     remotePatterns: [
-      new URL(`${process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT}/**?project=**`),
+      new URL(
+        `${
+          process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ??
+          "https://cloud.appwrite.io/v1"
+        }/**?project=**`
+      ),
     ],
   },
 };

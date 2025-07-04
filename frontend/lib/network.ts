@@ -1,7 +1,6 @@
 import axios from "axios";
 import log from "./logger";
 import { account } from "./appwrite";
-import { useQuery } from "@tanstack/react-query";
 
 const api = axios.create({
   baseURL: "/api",

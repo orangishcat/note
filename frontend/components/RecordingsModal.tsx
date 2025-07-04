@@ -4,12 +4,13 @@ import { databases } from "@/lib/appwrite";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/network";
 import log from "@/lib/logger";
+import { EditList } from "@/types";
 
 interface RecordingsModalProps {
   open: boolean;
   onClose: () => void;
   scoreId: string;
-  onLoad: (editList: any) => void;
+  onLoad: (editList: EditList) => void;
 }
 
 interface RecordingDoc {
@@ -26,6 +27,12 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
   onLoad,
 }) => {
   const [recs, setRecs] = useState<RecordingDoc[]>([]);
+  const [visible, setVisible] = useState(open);
+
+  useEffect(() => {
+    if (open) setVisible(true);
+    else setTimeout(() => setVisible(false), 300);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -35,12 +42,12 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
           process.env.NEXT_PUBLIC_DATABASE!,
           process.env.NEXT_PUBLIC_RECORDINGS_COLLECTION!,
           [
-            (window as any).AppwriteQuery?.equal
-              ? (window as any).AppwriteQuery.equal("score_id", scoreId)
+            (window as unknown as { AppwriteQuery?: { equal: (k: string, v: string) => unknown } }).AppwriteQuery?.equal
+              ? (window as unknown as { AppwriteQuery: { equal: (k: string, v: string) => unknown } }).AppwriteQuery.equal("score_id", scoreId)
               : undefined,
-          ].filter(Boolean) as any,
+          ].filter(Boolean) as unknown[],
         );
-        setRecs(res.documents as any);
+        setRecs(res.documents as RecordingDoc[]);
       } catch (e) {
         log.error("Failed fetching recordings", e);
       }
@@ -59,10 +66,15 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
     }
   };
 
-  if (!open) return null;
+  if (!visible) return null;
   return (
     <div
-      className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 rounded-md bg-gray-800/90 p-2 text-white shadow-lg"
+      className={`fixed bottom-20 left-12 z-50 w-80 min-w-64 min-h-16 rounded-md bg-gray-800/90 p-2 text-white shadow-lg ${
+        open ? "animate-slide-in-up" : "animate-slide-out-down"
+      }`}
+      onAnimationEnd={() => {
+        if (!open) setVisible(false);
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="absolute left-0 right-0 top-0 flex h-7 items-center rounded-t-md bg-gray-700/80 px-2">
@@ -104,3 +116,4 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
 };
 
 export default RecordingsModal;
+

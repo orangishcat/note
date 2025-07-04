@@ -1,7 +1,7 @@
 import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Bell, Grid, Menu, Moon, Sun, User } from "lucide-react";
+import { Bell, Menu, Moon, Sun, User } from "lucide-react";
 import AccountDropdown from "@/components/ui-custom/account-dropdown";
 import { AuthModal, ResetPasswordModal } from "@/components/auth-modals";
 import Link from "next/link";
@@ -127,9 +127,6 @@ export function Navbar({
               ))}
           </Button>
           <Button variant="ghost" size="icon">
-            <Grid className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon">
             <Bell className="h-4 w-4" />
           </Button>
           {/* If user is logged in, display their name and email; otherwise show the auth button */}
@@ -141,7 +138,7 @@ export function Navbar({
               className="rounded-full"
               onClick={handleAuthClick}
             >
-              <User className="h-6 w-6 text-white" />
+              <User className="h-6 w-6 text-gray-900 dark:text-white" />
             </Button>
           )}
         </div>
@@ -160,3 +157,4 @@ export function Navbar({
     </>
   );
 }
+

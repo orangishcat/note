@@ -535,7 +535,7 @@ export default function MusicXMLRenderer({
         <div
           ref={containerRef}
           className={cn(
-            "border flex flex-col p-2 overflow-auto",
+            "border border-gray-300 dark:border-gray-700 rounded-md flex flex-col p-2 overflow-auto",
             !(isError || renderError) && "bg-gray-50",
           )}
           style={{
@@ -571,3 +571,4 @@ export default function MusicXMLRenderer({
     </div>
   );
 }
+
