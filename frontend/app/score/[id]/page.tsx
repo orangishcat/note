@@ -31,8 +31,8 @@ import axios from "axios";
 import ImageScoreRenderer from "@/components/image-score-renderer";
 import { Type } from "protobufjs";
 import log from "@/lib/logger";
-import { useEditEventHandlers, useEditDisplay } from "@/lib/edit-display";
-import { Edit, ScoringResult, NoteList } from "@/types/proto-types";
+import { useEditDisplay, useEditEventHandlers } from "@/lib/edit-display";
+import { Edit, NoteList, ScoringResult } from "@/types/proto-types";
 
 import { useToast } from "@/components/ui/toast";
 import { databases, storage } from "@/lib/appwrite";
@@ -40,6 +40,7 @@ import { initProtobufTypes, protobufTypeCache } from "@/lib/proto";
 import DebugPanel from "@/components/DebugPanel";
 import api from "@/lib/network";
 import RecordingsModal from "@/components/RecordingsModal";
+import { useAudioRecorder } from "@/lib/audio-recorder";
 
 // Add a global type declaration to prevent TypeScript errors
 declare global {
@@ -128,6 +129,26 @@ export default function ScorePage() {
     if (!protobufTypeCache.initialized && !protobufTypeCache.initializing)
       void refetchTypes();
   }, []);
+
+  useAudioRecorder({
+    isRecording,
+    ScoringResultType: scoringResultType,
+    NoteListType: noteListType,
+    scoreId: id as string,
+    notesId: score.notes_id || "",
+    refetchTypes,
+    onEditListChange: setEditList,
+    onPlayedNotesChange: setPlayedNotes,
+    onError: (err) => {
+      log.error("Recording error:", err);
+      addToast({
+        title: "Recording Error",
+        description: err.message,
+        type: "error",
+      });
+      setIsRecording(false);
+    },
+  });
 
   // Fetch the score scores
   useEffect(() => {
@@ -222,11 +243,11 @@ export default function ScorePage() {
     } as ScoringResult;
   }, [editList, confidenceThreshold]);
 
-  const unstableRate = (editList as ScoringResult)?.unstableRate ?? 0;
+  const unstableRate = editList?.unstableRate ?? 0;
   const accuracy = useMemo(() => {
-    if (!filteredEditList || !scoreNotes) return 0;
-    const numEdits = (filteredEditList as ScoringResult).edits?.length || 0;
-    const total = (scoreNotes as NoteList).notes?.length || 1;
+    if (!filteredEditList || !scoreNotes) return 100;
+    const numEdits = filteredEditList.edits?.length || 0;
+    const total = scoreNotes.notes?.length || 1;
     return ((1 - numEdits / total) * 100).toFixed(1);
   }, [filteredEditList, scoreNotes]);
 
@@ -278,7 +299,6 @@ export default function ScorePage() {
       const isIOS =
         /iPad|iPhone|iPod/.test(navigator.userAgent) &&
         !(window as unknown as { MSStream?: unknown }).MSStream;
-      /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const isIOSChrome = isIOS && navigator.userAgent.includes("CriOS");
       const isIOSFirefox = isIOS && navigator.userAgent.includes("FxiOS");
 
@@ -679,20 +699,22 @@ export default function ScorePage() {
                 <Clock className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
               </Button>
             </BasicTooltip>
-            <BasicTooltip text="Metrics">
-              <Button
-                onClick={() => setShowMetricsPanel(!showMetricsPanel)}
-                variant="ghost"
-                size="icon"
-                className="text-gray-900 dark:text-white"
-              >
-                <BarChart2
-                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
-                />
-              </Button>
-            </BasicTooltip>
-            <div className="text-xs text-gray-900 dark:text-gray-300 ml-2">
-              {accuracy}% / {unstableRate.toFixed(3)}
+            <div className="flex items-center gap-2">
+              <BasicTooltip text="Metrics">
+                <Button
+                  onClick={() => setShowMetricsPanel(!showMetricsPanel)}
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-900 dark:text-white"
+                >
+                  <BarChart2
+                    className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                  />
+                </Button>
+              </BasicTooltip>
+              <div className="text-xl text-gray-500 dark:text-gray-400">
+                {accuracy}% / {unstableRate} UR
+              </div>
             </div>
           </div>
 

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { Type } from "protobufjs";
 import api from "@/lib/network";
 import log from "./logger";
-import { RecordRTCPromisesHandler } from "recordrtc";
+import type { RecordRTCPromisesHandler } from "recordrtc";
 import { NoteList, ScoringResult } from "@/types/proto-types";
 
 export interface RecordingError {

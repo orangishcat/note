@@ -134,11 +134,6 @@ export default function MusicXMLRenderer({
     }
   }, [musicLines, scoreId]);
 
-  // Handle page changes from parent component
-  useEffect(() => {
-    scrollToPage(currentPage);
-  }, [currentPage]);
-
   // Scroll to specific page
   const scrollToPage = useCallback(
     (pageIndex: number) => {
@@ -169,6 +164,11 @@ export default function MusicXMLRenderer({
     },
     [musicLines, linesPerPage],
   );
+
+  // Handle page changes from parent component
+  useEffect(() => {
+    scrollToPage(currentPage);
+  }, [currentPage, scrollToPage]);
 
   // Identify and catalog music lines for pagination
   const detectMusicLines = useCallback(() => {

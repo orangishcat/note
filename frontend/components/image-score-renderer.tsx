@@ -335,6 +335,36 @@ export default function ImageScoreRenderer({
   // Calculate the total number of views based on page count and pagesPerView
   const totalViews = Math.ceil(imageUrls.length / pagesPerView);
 
+  const notifyPageChange = useCallback(
+    (pageIndex: number) => {
+      if (typeof window !== "undefined") {
+        log.debug(`Notifying page change to ${pageIndex}`);
+        const event = new CustomEvent("score:pageChange", {
+          detail: {
+            scoreId,
+            currentPage: pageIndex,
+          },
+          bubbles: true,
+        });
+        document.dispatchEvent(event);
+
+        // Force redraw of any page-specific annotations
+        setTimeout(() => {
+          log.debug(`Requesting redraw for page ${pageIndex}`);
+          const redrawEvent = new CustomEvent("score:redrawAnnotations", {
+            detail: {
+              scoreId,
+              currentPage: pageIndex,
+            },
+            bubbles: true,
+          });
+          document.dispatchEvent(redrawEvent);
+        }, 500); // Increased delay to ensure page render is complete
+      }
+    },
+    [scoreId],
+  );
+
   // Navigation function for page turning
   const navigatePages = useCallback(
     (direction: "prev" | "next") => {
@@ -366,38 +396,7 @@ export default function ImageScoreRenderer({
         notifyPageChange(newPageIndex);
       }, 300); // Match with CSS transition duration
     },
-    [isAnimating, currentPageIndex, totalViews],
-  );
-
-  // Function to notify parent about page changes
-  const notifyPageChange = useCallback(
-    (pageIndex: number) => {
-      if (typeof window !== "undefined") {
-        log.debug(`Notifying page change to ${pageIndex}`);
-        const event = new CustomEvent("score:pageChange", {
-          detail: {
-            scoreId,
-            currentPage: pageIndex,
-          },
-          bubbles: true,
-        });
-        document.dispatchEvent(event);
-
-        // Force redraw of any page-specific annotations
-        setTimeout(() => {
-          log.debug(`Requesting redraw for page ${pageIndex}`);
-          const redrawEvent = new CustomEvent("score:redrawAnnotations", {
-            detail: {
-              scoreId,
-              currentPage: pageIndex,
-            },
-            bubbles: true,
-          });
-          document.dispatchEvent(redrawEvent);
-        }, 500); // Increased delay to ensure page render is complete
-      }
-    },
-    [scoreId],
+    [isAnimating, currentPageIndex, totalViews, notifyPageChange],
   );
 
   // Sync with external currentPage prop if provided
@@ -497,19 +496,6 @@ export default function ImageScoreRenderer({
   );
 
   // Mouse drag handlers for page navigation
-  const handleMouseDown = useCallback(
-    (e: MouseEvent) => {
-      if (isAnimating) return;
-
-      isDragging.current = true;
-      mouseStartX.current = e.clientX;
-
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    },
-    [isAnimating],
-  );
-
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging.current) return;
     mouseCurrentX.current = e.clientX;
@@ -529,6 +515,19 @@ export default function ImageScoreRenderer({
     document.removeEventListener("mouseup", handleMouseUp);
     isDragging.current = false;
   }, [navigatePages, handleMouseMove]);
+
+  const handleMouseDown = useCallback(
+    (e: MouseEvent) => {
+      if (isAnimating) return;
+
+      isDragging.current = true;
+      mouseStartX.current = e.clientX;
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [isAnimating, handleMouseMove, handleMouseUp],
+  );
 
   // Scale change handler from ZoomableDiv
   const handleScaleChange = (scale: number) => {

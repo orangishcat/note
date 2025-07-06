@@ -288,34 +288,6 @@ export function useEditDisplay(
   const prevPageRef = useRef<number>(currentPage);
   const renderRequestedRef = useRef<boolean>(false);
 
-  // Listen for note name display toggle events
-  useEffect(() => {
-    const handleToggleNoteNames = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      showNoteNames = customEvent.detail.showNoteNames;
-
-      // Request a redraw when the setting changes
-      if (editList) {
-        if (!renderRequestedRef.current) {
-          renderRequestedRef.current = true;
-          requestAnimationFrame(() => {
-            renderEditAnnotations();
-            renderRequestedRef.current = false;
-          });
-        }
-      }
-    };
-
-    document.addEventListener("debug:toggleNoteNames", handleToggleNoteNames);
-
-    return () => {
-      document.removeEventListener(
-        "debug:toggleNoteNames",
-        handleToggleNoteNames,
-      );
-    };
-  }, [editList]);
-
   // Type definition for label position tracking
   type LabelPosition = {
     x: number;
@@ -1131,6 +1103,33 @@ export function useEditDisplay(
     editList,
     zoomContext,
   ]);
+  // Listen for note name display toggle events
+  useEffect(() => {
+    const handleToggleNoteNames = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      showNoteNames = customEvent.detail.showNoteNames;
+
+      // Request a redraw when the setting changes
+      if (editList) {
+        if (!renderRequestedRef.current) {
+          renderRequestedRef.current = true;
+          requestAnimationFrame(() => {
+            renderEditAnnotations();
+            renderRequestedRef.current = false;
+          });
+        }
+      }
+    };
+
+    document.addEventListener("debug:toggleNoteNames", handleToggleNoteNames);
+
+    return () => {
+      document.removeEventListener(
+        "debug:toggleNoteNames",
+        handleToggleNoteNames,
+      );
+    };
+  }, [editList, renderEditAnnotations]);
 }
 
 /**

@@ -130,6 +130,23 @@ const DebugPanel = ({
     }
   }, [position]);
 
+  const redrawAnnotations = useCallback(() => {
+    if (!editList) {
+      log.warn("No annotations to redraw");
+      return;
+    }
+    const temp = editList;
+    setEditList(null);
+    setTimeout(() => {
+      setEditList(temp);
+      const event = new CustomEvent("score:redrawAnnotations", {
+        detail: { scoreId, currentPage },
+        bubbles: true,
+      });
+      document.dispatchEvent(event);
+    }, 50);
+  }, [editList, scoreId, currentPage, setEditList]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     localStorage.setItem("debugShowNoteNames", String(showNoteNames));
@@ -139,7 +156,7 @@ const DebugPanel = ({
       bubbles: true,
     });
     document.dispatchEvent(event);
-  }, [showNoteNames, editList]);
+  }, [showNoteNames, editList, redrawAnnotations]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -321,23 +338,6 @@ const DebugPanel = ({
       </div>
     );
   };
-
-  const redrawAnnotations = useCallback(() => {
-    if (!editList) {
-      log.warn("No annotations to redraw");
-      return;
-    }
-    const temp = editList;
-    setEditList(null);
-    setTimeout(() => {
-      setEditList(temp);
-      const event = new CustomEvent("score:redrawAnnotations", {
-        detail: { scoreId, currentPage },
-        bubbles: true,
-      });
-      document.dispatchEvent(event);
-    }, 50);
-  }, [editList, scoreId, currentPage, setEditList]);
 
   const disableDebugMode = () => {
     localStorage.removeItem("debug");
