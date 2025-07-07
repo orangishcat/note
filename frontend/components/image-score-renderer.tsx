@@ -30,15 +30,21 @@ if (typeof window !== "undefined") {
   });
 }
 
+export interface ImageScoreRendererProps extends MusicXMLRendererProps {
+  displayMode?: "paged" | "scroll";
+}
+
 export default function ImageScoreRenderer({
   scoreId,
   recenter,
   currentPage,
   pagesPerView = 1,
   isFullscreen,
-}: MusicXMLRendererProps) {
+  displayMode = "paged",
+}: ImageScoreRendererProps) {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const targetPageRef = useRef(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [currentScale, setCurrentScale] = useState(1);
@@ -366,37 +372,44 @@ export default function ImageScoreRenderer({
   );
 
   // Navigation function for page turning
-  const navigatePages = useCallback(
-    (direction: "prev" | "next") => {
-      if (isAnimating) return;
-
-      setAnimationDirection(direction);
+  const startAnimation = useCallback(
+    (newIndex: number, dir: "prev" | "next") => {
+      setAnimationDirection(dir);
       setIsAnimating(true);
-
-      let newPageIndex;
-      if (direction === "prev" && currentPageIndex > 0) {
-        newPageIndex = currentPageIndex - 1;
-      } else if (direction === "next" && currentPageIndex < totalViews - 1) {
-        newPageIndex = currentPageIndex + 1;
-      } else {
-        setIsAnimating(false);
-        setAnimationDirection(null);
-        return;
-      }
-
-      setTransitionPage(newPageIndex);
-
+      setTransitionPage(newIndex);
       setTimeout(() => {
-        setCurrentPageIndex(newPageIndex);
+        setCurrentPageIndex(newIndex);
         setIsAnimating(false);
         setAnimationDirection(null);
         setTransitionPage(null);
-
-        // Notify parent about page change
-        notifyPageChange(newPageIndex);
-      }, 300); // Match with CSS transition duration
+        notifyPageChange(newIndex);
+        if (targetPageRef.current !== newIndex) {
+          const nextDir = targetPageRef.current > newIndex ? "next" : "prev";
+          startAnimation(targetPageRef.current, nextDir);
+        }
+      }, 300);
     },
-    [isAnimating, currentPageIndex, totalViews, notifyPageChange],
+    [notifyPageChange],
+  );
+
+  useEffect(() => {
+    targetPageRef.current = currentPageIndex;
+  }, [currentPageIndex]);
+
+  const navigatePages = useCallback(
+    (direction: "prev" | "next") => {
+      let newTarget = targetPageRef.current;
+      if (direction === "prev" && newTarget > 0) {
+        newTarget -= 1;
+      } else if (direction === "next" && newTarget < totalViews - 1) {
+        newTarget += 1;
+      }
+      targetPageRef.current = newTarget;
+      if (!isAnimating) {
+        startAnimation(newTarget, direction);
+      }
+    },
+    [isAnimating, totalViews, startAnimation],
   );
 
   // Sync with external currentPage prop if provided
@@ -407,6 +420,7 @@ export default function ImageScoreRenderer({
 
       if (safeCurrentPage !== currentPageIndex) {
         setCurrentPageIndex(safeCurrentPage);
+        targetPageRef.current = safeCurrentPage;
 
         // Don't animate distant page jumps
         if (Math.abs(safeCurrentPage - currentPageIndex) > 1) {
@@ -664,6 +678,51 @@ export default function ImageScoreRenderer({
             ? `Downloading score data... ${loadingProgress}%`
             : `Processing images... ${loadingProgress}%`}
         </p>
+      </div>
+    );
+  }
+
+  if (displayMode === "scroll") {
+    return (
+      <div
+        ref={(el) => {
+          wrapperRef.current = el;
+          containerRef.current = el;
+        }}
+        id={`score-${scoreId}`}
+        className="overflow-y-auto flex flex-col items-center relative"
+        style={{ height: containerHeight, transition: "height 0.3s ease" }}
+      >
+        <ZoomableDiv
+          recenter={recenter}
+          onScaleChange={handleScaleChange}
+          defaultScale={defaultScale}
+        >
+          <div
+            ref={scoreContainerRef}
+            className="score-container relative bg-white flex flex-col items-center"
+            style={{ width: "800px" }}
+          >
+            {imageUrls.map((url, index) => (
+              <div
+                key={`scroll-${index}`}
+                className="page-container relative"
+                style={{ width: "800px", height: "1000px" }}
+              >
+                <Image
+                  src={url}
+                  draggable={false}
+                  layout="fill"
+                  objectFit="contain"
+                  alt={`Score page ${index + 1}`}
+                  style={{ display: "block" }}
+                  onError={() => safeRefetchScoreFile()}
+                  onLoad={() => handleImageLoad(index)}
+                />
+              </div>
+            ))}
+          </div>
+        </ZoomableDiv>
       </div>
     );
   }

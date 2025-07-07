@@ -17,14 +17,13 @@ import {
   Maximize2,
   Mic,
   Minimize2,
-  Share2,
+  Settings,
   SquareIcon,
   Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/layout";
 import MusicXMLRenderer, { MusicScore } from "@/components/music-xml-renderer";
-import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
 import { useQuery } from "@tanstack/react-query";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import axios from "axios";
@@ -78,6 +77,7 @@ export default function ScorePage() {
   const [playedNotes, setPlayedNotes] = useState<NoteList | null>(null);
   const [scoreNotes, setScoreNotes] = useState<NoteList | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
+  const [displayMode, setDisplayMode] = useState<"paged" | "scroll">("paged");
   const [isRecording, setIsRecording] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false); // Default false for server rendering
   const [editsOnPage, setEditsOnPage] = useState(0);
@@ -95,10 +95,22 @@ export default function ScorePage() {
     // Initialize debug mode from localStorage only on client
     setIsDebugMode(!!localStorage.getItem("debug"));
 
+    // Initialize display mode from localStorage
+    setDisplayMode(
+      localStorage.getItem("score.displayAllPages") === "true"
+        ? "scroll"
+        : "paged",
+    );
+
     // Add storage event listener for debug mode toggle
     const handleStorageChange = () => {
       const debugEnabled = !!localStorage.getItem("debug");
       setIsDebugMode(debugEnabled);
+      setDisplayMode(
+        localStorage.getItem("score.displayAllPages") === "true"
+          ? "scroll"
+          : "paged",
+      );
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -818,17 +830,18 @@ export default function ScorePage() {
               </Button>
             </BasicTooltip>
             {!isSmallScreen && (
-              <NotImplementedTooltip>
+              <BasicTooltip text="Score settings">
                 <Button
                   variant="ghost"
-                  disabled
+                  size="icon"
+                  onClick={() => router.push("/settings?tab=score")}
                   className="text-gray-900 dark:text-white"
                 >
-                  <Share2
+                  <Settings
                     className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`}
                   />
                 </Button>
-              </NotImplementedTooltip>
+              </BasicTooltip>
             )}
             {isFullscreen && (
               <BasicTooltip text={showDock ? "Hide controls" : "Show controls"}>
@@ -979,6 +992,7 @@ export default function ScorePage() {
                 isFullscreen={isFullscreen}
                 currentPage={currentPage}
                 pagesPerView={1}
+                displayMode={displayMode}
               />
             )
           ) : (
@@ -1091,6 +1105,7 @@ export default function ScorePage() {
                 }}
                 currentPage={currentPage}
                 pagesPerView={1}
+                displayMode={displayMode}
               />
             )
           ) : (

@@ -13,6 +13,7 @@ export enum EditOperation {
 
 // Global state for showing note names
 let showNoteNames = false;
+let containerRetryCount = 0;
 
 // Function to convert MIDI pitch to note name
 export function midiPitchToNoteName(midiPitch: number): string {
@@ -331,26 +332,22 @@ export function useEditDisplay(
       return;
     }
 
-    // Get the score container more reliably - first look for .score-container, then fallback to other elements
-    let scoreContainer = document.querySelector(
-      `#score-${scoreId} .score-container`,
-    );
+    const selector = `#score-${scoreId} .score-container`;
+    const scoreContainer = document.querySelector(selector);
 
     if (!scoreContainer) {
-      // If specific container not found, try the main image container
-      scoreContainer = document.querySelector(
-        `#score-${scoreId} .zoomable-content`,
-      );
-      if (!scoreContainer) {
-        // Final fallback - any container within the score view
-        scoreContainer = document.querySelector(`#score-${scoreId}`);
+      if (containerRetryCount < 5) {
+        containerRetryCount += 1;
+        setTimeout(() => renderEditAnnotations(), 100);
+      } else {
+        log.error(
+          `No score container found for page ${currentPage}, selector: ${selector}`,
+        );
+        containerRetryCount = 0;
       }
-    }
-
-    // If still no container, log error and return
-    if (!scoreContainer) {
-      log.error(`No score container found for page ${currentPage}`);
       return;
+    } else {
+      containerRetryCount = 0;
     }
 
     // Log zoom level for debugging
@@ -1129,7 +1126,8 @@ export function useEditDisplay(
         handleToggleNoteNames,
       );
     };
-  }, [editList, renderEditAnnotations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renderEditAnnotations]);
 }
 
 /**
@@ -1234,5 +1232,6 @@ export function useEditEventHandlers(
         handleRedrawAnnotations,
       );
     };
-  }, [scoreId, fileId, editList, currentPage, setCurrentPage, setEditList]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoreId, fileId, setCurrentPage, setEditList]);
 }
