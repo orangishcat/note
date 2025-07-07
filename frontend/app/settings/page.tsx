@@ -3,6 +3,7 @@
 import { useContext, useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { User, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Layout } from "@/components/layout";
@@ -37,19 +38,43 @@ export default function SettingsPage() {
     window.dispatchEvent(new Event("storage"));
   };
 
+  const tabs = [
+    { value: "account", label: "Account", icon: <User className="h-4 w-4" /> },
+    { value: "score", label: "Score", icon: <FileText className="h-4 w-4" /> },
+  ];
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const index = tabs.findIndex((t) => t.value === tab);
+    if (e.deltaY > 0 && index < tabs.length - 1) {
+      setTab(tabs[index + 1].value);
+    } else if (e.deltaY < 0 && index > 0) {
+      setTab(tabs[index - 1].value);
+    }
+  };
+
   return (
-    <Layout navbarContent={<span className="font-semibold">Settings</span>}>
-      <div className="p-6 flex">
+    <Layout
+      navbarContent={<span className="font-semibold">Settings</span>}
+      hideSidebar
+    >
+      <div className="flex p-6">
         <Tabs value={tab} onValueChange={setTab} className="flex w-full">
-          <TabsList className="flex-col w-48 mr-8 space-y-2 bg-transparent p-0">
-            <TabsTrigger className="w-full justify-start" value="account">
-              Account
-            </TabsTrigger>
-            <TabsTrigger className="w-full justify-start" value="score">
-              Score
-            </TabsTrigger>
+          <TabsList
+            onWheel={handleWheel}
+            className="flex max-h-[calc(100vh-5rem)] w-56 flex-col gap-1 overflow-y-auto rounded-lg bg-gray-100 p-2 dark:bg-gray-850 mr-8"
+          >
+            {tabs.map((t) => (
+              <TabsTrigger
+                key={t.value}
+                className="flex w-full items-center gap-3 justify-start rounded-md px-3 py-2 text-sm data-[state=active]:bg-accent-100 data-[state=active]:text-accent-800 dark:data-[state=active]:bg-accent-700 dark:data-[state=active]:text-white"
+                value={t.value}
+              >
+                {t.icon}
+                {t.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
-          <div className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             <TabsContent value="account" className="space-y-6">
               {account ? (
                 <div className="space-y-4 max-w-md">

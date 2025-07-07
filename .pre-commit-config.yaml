@@ -28,10 +28,3 @@ repos:
       - id: markdownlint-cli2
         args: ["--fix"]
         files: \.(md|markdown|mdown|myst)$
-
-  - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.28.0
-    hooks:
-      - id: eslint
-        args: ["--fix"]
-        files: \.[jt]sx?$

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "DEBUG=\"msw:*\" playwright test",
     "clean:deps": "npx depcheck --oneline | xargs -r npm uninstall && npm prune"
   },
   "dependencies": {
@@ -38,6 +39,7 @@
     "webrtc-adapter": "^9.0.3"
   },
   "devDependencies": {
+    "@next/env": "^15.4.0-canary.115",
     "@playwright/test": "^1.51.1",
     "@types/react": "^18.3.20",
     "@types/react-dom": "^18.3.6",

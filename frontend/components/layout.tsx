@@ -5,13 +5,19 @@ import { AuthModalContext } from "@/app/providers";
 import { setAuthModalOpener, setNavigateFunction } from "@/lib/network";
 import { useRouter } from "next/navigation";
 import log from "loglevel";
+import { cn } from "@/lib/utils";
 
 export interface LayoutProps {
   children: ReactNode;
   navbarContent?: ReactNode;
+  hideSidebar?: boolean;
 }
 
-export function Layout({ children, navbarContent }: LayoutProps) {
+export function Layout({
+  children,
+  navbarContent,
+  hideSidebar = false,
+}: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const authModalContext = useContext(AuthModalContext);
   const router = useRouter();
@@ -44,15 +50,27 @@ export function Layout({ children, navbarContent }: LayoutProps) {
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-gray-900 dark:text-white">
-      <div className="xl:ml-72 transition-all duration-200">
+      <div
+        className={cn(
+          hideSidebar ? "" : "xl:ml-72",
+          "transition-all duration-200",
+        )}
+      >
         <Navbar onMenuClick={toggleSidebar}>{navbarContent}</Navbar>
       </div>
       <div className="flex overflow-auto">
-        <Sidebar
-          isOpen={isSidebarOpen}
-          onCloseAction={() => setIsSidebarOpen(false)}
-        />
-        <main className="flex-1 xl:ml-72 transition-all duration-200">
+        {!hideSidebar && (
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onCloseAction={() => setIsSidebarOpen(false)}
+          />
+        )}
+        <main
+          className={cn(
+            "flex-1 transition-all duration-200",
+            hideSidebar ? "" : "xl:ml-72",
+          )}
+        >
           {children}
         </main>
       </div>

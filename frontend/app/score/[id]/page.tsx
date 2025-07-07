@@ -200,7 +200,6 @@ export default function ScorePage() {
         setScore(response as unknown as MusicScore);
       } catch (error) {
         log.error("Error fetching score:", error);
-        router.push("/");
       }
     }
 
@@ -474,7 +473,6 @@ export default function ScorePage() {
         log.error("Error in React Query fetch:", error);
         if (axios.isAxiosError(error) && error.response?.status === 404) {
           log.error(`Score with ID ${id} not found`);
-          router.push("/");
         }
         return null;
       }
