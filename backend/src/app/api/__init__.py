@@ -3,6 +3,7 @@ from flask import Blueprint, abort, g
 from loguru import logger
 
 from .util import *
+from .scoring import audio
 
 admin_client = get_client().set_key(os.environ["API_KEY"])
 admin_account = Account(admin_client)
@@ -44,7 +45,5 @@ def logged_in():
 
     return wrapper
 
-
-from .scoring import audio
 
 needs_login.register_blueprint(audio)

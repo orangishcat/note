@@ -1158,21 +1158,25 @@ export function useEditEventHandlers(
         `Received page change event for scoreId ${eventScoreId}, page ${eventPage}`,
       );
       if (eventScoreId === scoreId || eventScoreId === fileId) {
-        log.debug(
-          `Page change accepted for our score. Setting page to ${eventPage}`,
-        );
-        setCurrentPage(eventPage);
+        if (
+          eventPage !== undefined &&
+          Number(eventPage) !== Number(currentPage)
+        ) {
+          log.debug(
+            `Page change accepted for our score. Setting page to ${eventPage}`,
+          );
+          setCurrentPage(eventPage);
 
-        // Force redraw after a short delay to ensure page has rendered
-        setTimeout(() => {
-          if (editList) {
-            log.debug("Forcing redraw after page change");
-            // Force redraw by removing and re-adding the editList
-            const tempEditList = editList;
-            setEditList(null);
-            setTimeout(() => setEditList(tempEditList), 50);
-          }
-        }, 150);
+          // Force redraw after a short delay to ensure page has rendered
+          setTimeout(() => {
+            if (editList) {
+              log.debug("Forcing redraw after page change");
+              const tempEditList = editList;
+              setEditList(null);
+              setTimeout(() => setEditList(tempEditList), 50);
+            }
+          }, 150);
+        }
       }
     };
 
@@ -1207,7 +1211,10 @@ export function useEditEventHandlers(
             setEditList(null);
             setTimeout(() => setEditList(tempEditList), 50);
           }, 150);
-        } else {
+        } else if (
+          eventPage === undefined ||
+          Number(eventPage) === Number(currentPage)
+        ) {
           log.debug(`Already on correct page ${currentPage}, forcing redraw`);
           const tempEditList = editList;
           setEditList(null);

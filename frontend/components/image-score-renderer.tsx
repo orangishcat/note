@@ -32,6 +32,7 @@ if (typeof window !== "undefined") {
 
 export interface ImageScoreRendererProps extends MusicXMLRendererProps {
   displayMode?: "paged" | "scroll";
+  verticalLoading?: boolean;
 }
 
 export default function ImageScoreRenderer({
@@ -41,6 +42,7 @@ export default function ImageScoreRenderer({
   pagesPerView = 1,
   isFullscreen,
   displayMode = "paged",
+  verticalLoading = false,
 }: ImageScoreRendererProps) {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -667,12 +669,21 @@ export default function ImageScoreRenderer({
     return (
       <div className="flex flex-col items-center justify-center text-center p-4 h-full">
         <h1 className="text-xl my-4">Loading score...</h1>
-        <div className="w-64 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 my-4">
-          <div
-            className="bg-primary h-2.5 rounded-full transition-all duration-300"
-            style={{ width: `${loadingProgress}%` }}
-          ></div>
-        </div>
+        {verticalLoading ? (
+          <div className="h-64 bg-gray-200 rounded-full w-2.5 dark:bg-gray-700 my-4">
+            <div
+              className="bg-primary w-2.5 rounded-full transition-all duration-300"
+              style={{ height: `${loadingProgress}%` }}
+            ></div>
+          </div>
+        ) : (
+          <div className="w-64 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 my-4">
+            <div
+              className="bg-primary h-2.5 rounded-full transition-all duration-300"
+              style={{ width: `${loadingProgress}%` }}
+            ></div>
+          </div>
+        )}
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {loadingProgress < 90
             ? `Downloading score data... ${loadingProgress}%`

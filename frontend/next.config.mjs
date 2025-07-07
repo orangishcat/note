@@ -34,6 +34,9 @@ const nextConfig = {
       ),
     ],
   },
+  experimental: {
+    testProxy: true,
+  },
 };
 
 export default nextConfig;

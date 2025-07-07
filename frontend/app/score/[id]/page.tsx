@@ -1,7 +1,13 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -39,7 +45,7 @@ import { initProtobufTypes, protobufTypeCache } from "@/lib/proto";
 import DebugPanel from "@/components/DebugPanel";
 import api from "@/lib/network";
 import RecordingsModal from "@/components/RecordingsModal";
-import { useAudioRecorder } from "@/lib/audio-recorder";
+import { useAudioRecorder, type RecordingError } from "@/lib/audio-recorder";
 
 // Add a global type declaration to prevent TypeScript errors
 declare global {
@@ -78,6 +84,7 @@ export default function ScorePage() {
   const [scoreNotes, setScoreNotes] = useState<NoteList | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [displayMode, setDisplayMode] = useState<"paged" | "scroll">("paged");
+  const [verticalLoading, setVerticalLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false); // Default false for server rendering
   const [editsOnPage, setEditsOnPage] = useState(0);
@@ -101,6 +108,7 @@ export default function ScorePage() {
         ? "scroll"
         : "paged",
     );
+    setVerticalLoading(localStorage.getItem("score.verticalLoad") === "true");
 
     // Add storage event listener for debug mode toggle
     const handleStorageChange = () => {
@@ -111,6 +119,7 @@ export default function ScorePage() {
           ? "scroll"
           : "paged",
       );
+      setVerticalLoading(localStorage.getItem("score.verticalLoad") === "true");
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -136,6 +145,19 @@ export default function ScorePage() {
     return result;
   };
 
+  const handleRecordingError = useCallback(
+    (err: RecordingError) => {
+      log.error("Recording error:", err);
+      addToast({
+        title: "Recording Error",
+        description: err.message,
+        type: "error",
+      });
+      setIsRecording(false);
+    },
+    [addToast],
+  );
+
   // Initialize protobuf types on component mount if not already initialized
   useEffect(() => {
     if (!protobufTypeCache.initialized && !protobufTypeCache.initializing)
@@ -151,15 +173,7 @@ export default function ScorePage() {
     refetchTypes,
     onEditListChange: setEditList,
     onPlayedNotesChange: setPlayedNotes,
-    onError: (err) => {
-      log.error("Recording error:", err);
-      addToast({
-        title: "Recording Error",
-        description: err.message,
-        type: "error",
-      });
-      setIsRecording(false);
-    },
+    onError: handleRecordingError,
   });
 
   // Fetch the score scores
@@ -993,6 +1007,7 @@ export default function ScorePage() {
                 currentPage={currentPage}
                 pagesPerView={1}
                 displayMode={displayMode}
+                verticalLoading={verticalLoading}
               />
             )
           ) : (
@@ -1106,6 +1121,7 @@ export default function ScorePage() {
                 currentPage={currentPage}
                 pagesPerView={1}
                 displayMode={displayMode}
+                verticalLoading={verticalLoading}
               />
             )
           ) : (

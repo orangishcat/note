@@ -88,7 +88,7 @@ def compute_dp(s_pitches, t_pitches):
 def backtrack(dp, s, t, s_pitches, t_pitches):
     edit_list = ScoringResult()
     aligned_indices = []
-    n, m = s_pitches.shape[0], t_pitches.shape[0]
+    m = t_pitches.shape[0]
     i = int(np.argmin(dp[:, m]))
     j = m
     while i > 0 and j > 0:
