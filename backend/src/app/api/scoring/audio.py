@@ -181,16 +181,6 @@ def receive():
         ops.unstable_rate = unstable
         ops.tempo_sections.extend(sections)
 
-        # Optional debug dump
-        if os.environ.get("DEBUG") == "True":
-
-            def _join(m):
-                return " ".join(m.group().split())
-
-            with open("debug_info/last_edits.json", "w") as f:
-                j = json.dumps(aligned_idx, ensure_ascii=False, indent=4)
-                f.write(re.sub(r"(?<=\[)[^\[\]]+(?=])", _join, j))
-
         # Build response NoteList
         if is_test:
             response_nl = NoteList()
@@ -243,6 +233,19 @@ def receive():
         notes_bytes = response_nl.SerializeToString()
         payload = struct.pack(">I", len(edit_bytes)) + edit_bytes + notes_bytes
         logger.info(f"Serialized payload size: {len(payload)} bytes")
+
+        # Optional debug dump
+        if os.environ.get("DEBUG") == "True":
+
+            def _join(m):
+                return " ".join(m.group().split())
+
+            with open("debug_info/last_edits.json", "w") as f:
+                j = json.dumps(aligned_idx, ensure_ascii=False, indent=4)
+                f.write(re.sub(r"(?<=\[)[^\[\]]+(?=])", _join, j))
+
+            with open("debug_info/last_pb.pb", "wb") as f:
+                f.write(payload)
 
         # Return protobuf binary
         res = Response(payload, mimetype="application/protobuf")
