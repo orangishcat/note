@@ -20,7 +20,7 @@ repos:
     rev: 1.8.3
     hooks:
       - id: bandit
-        files: ^baπckend/src/.*\.py$
+        files: ^backend/src/.*\.py$
 
   - repo: https://github.com/DavidAnson/markdownlint-cli2
     rev: v0.12.1

@@ -45,7 +45,7 @@ function readResource(...segments: string[]) {
   return fs.readFileSync(path.join(resources, ...segments));
 }
 const getHandlers = [
-  http.get(/.*\/databases\/.*\/collections\/.*\/documents\/.*/, () =>
+  http.get(/.*\/databases\/.*\/collections\/.*\/documents(?:\/.*)?/, () =>
     HttpResponse.json(documentResponse),
   ),
   http.get(

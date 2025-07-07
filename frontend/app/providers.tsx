@@ -7,34 +7,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { persistQueryClient } from "@tanstack/query-persist-client-core";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { ToastProvider } from "@/components/ui/toast";
-
-export interface AccountView {
-  user_id: string;
-  username: string;
-  email: string;
-}
-
-interface AccountContextType {
-  accountView: AccountView | null;
-  setAccount: (newValue: AccountView | null) => void;
-  justLogin: boolean;
-  setJustLogin: (b: boolean) => void;
-}
-
-// Auth modal context for opening the login modal from anywhere
-interface AuthModalContextType {
-  isOpen: boolean;
-  openAuthModal: (type: "login" | "signup") => void;
-  closeAuthModal: () => void;
-  authType: "login" | "signup";
-}
-
-// Zoom context for storing and sharing zoom levels
-interface ZoomContextType {
-  zoomLevels: Record<string, number>;
-  setZoomLevel: (scoreId: string, scale: number) => void;
-  getZoomLevel: (scoreId: string) => number;
-}
+import {
+  AccountContextType,
+  AccountView,
+  AuthModalContextType,
+  ZoomContextType,
+} from "@/types/provider-types";
 
 export const AccountContext = React.createContext<AccountContextType | null>(
   null,

@@ -29,6 +29,10 @@ export default [
             '.vercel',
             'next-env.d.ts',
             'certificates',
+            'eslint.config.mjs',
+            'next.config.mjs',
+            'postcss.config.mjs',
+            'global-setup.js',
         ],
     },
     // Extend Next.js and TypeScript shareable configs:
