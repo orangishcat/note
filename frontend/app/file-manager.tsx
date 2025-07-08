@@ -22,7 +22,7 @@ import {
 import { AccountContext, AuthModalContext } from "@/app/providers";
 import { TooltipArrow } from "@radix-ui/react-tooltip";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MusicScore } from "@/components/music-xml-renderer";
+import { MusicScore } from "@/types/score-types";
 import FileOptionsDropdown from "@/components/ui-custom/file-options-dropdown";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import { useSearchParams } from "next/navigation";

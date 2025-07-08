@@ -6,7 +6,8 @@ import AccountDropdown from "@/components/ui-custom/account-dropdown";
 import { AuthModal, ResetPasswordModal } from "@/components/auth-modals";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { AccountContext, AccountView, AuthModalContext } from "@/app/providers";
+import { AccountContext, AuthModalContext } from "@/app/providers";
+import type { AccountView } from "@/types/provider-types";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { account } from "@/lib/appwrite";
@@ -157,4 +158,3 @@ export function Navbar({
     </>
   );
 }
-

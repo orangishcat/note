@@ -265,6 +265,7 @@ export function useEditDisplay(
   editList: ScoringResult | null,
   currentPage: number,
   scoreId: string,
+  scoreFileId: string,
   setEditCount: (count: number) => void,
   scoreNotes: NoteList | null,
 ) {
@@ -332,7 +333,7 @@ export function useEditDisplay(
       return;
     }
 
-    const selector = `#score-${scoreId} .score-container`;
+    const selector = `#score-${scoreFileId} .score-container`;
     const scoreContainer = document.querySelector(selector);
 
     if (!scoreContainer) {

@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/layout";
-import MusicXMLRenderer, { MusicScore } from "@/components/music-xml-renderer";
+import MusicXMLRenderer from "@/components/music-xml-renderer";
 import { useQuery } from "@tanstack/react-query";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import axios from "axios";
@@ -46,6 +46,7 @@ import DebugPanel from "@/components/DebugPanel";
 import api from "@/lib/network";
 import RecordingsModal from "@/components/RecordingsModal";
 import { useAudioRecorder, type RecordingError } from "@/lib/audio-recorder";
+import { MusicScore } from "@/types/score-types";
 
 // Add a global type declaration to prevent TypeScript errors
 declare global {
@@ -168,7 +169,7 @@ export default function ScorePage() {
     isRecording,
     ScoringResultType: scoringResultType,
     NoteListType: noteListType,
-    scoreId: id as string,
+    scoreId: id,
     notesId: score.notes_id || "",
     refetchTypes,
     onEditListChange: setEditList,
@@ -301,14 +302,15 @@ export default function ScorePage() {
   useEditDisplay(
     filteredEditList,
     currentPage,
-    id as string,
+    id,
+    score.file_id,
     setEditsOnPage,
     scoreNotes,
   );
 
   // Setup event handlers for page changes and annotation redraws
   useEditEventHandlers(
-    id as string,
+    id,
     score?.file_id,
     setCurrentPage,
     setEditList,
@@ -882,7 +884,7 @@ export default function ScorePage() {
           <RecordingsModal
             open={showRecordingsModal}
             onClose={() => setShowRecordingsModal(false)}
-            scoreId={id as string}
+            scoreId={id}
             onLoad={(buf) => {
               if (!scoringResultType) return;
               const decoded = scoringResultType.decode(
@@ -1031,7 +1033,7 @@ export default function ScorePage() {
           {/* Debug panel - only render on client side */}
           {isClient && isDebugMode && (
             <DebugPanel
-              scoreId={id as string}
+              scoreId={id}
               editList={filteredEditList}
               setEditList={setEditList}
               playedNotes={playedNotes}
@@ -1132,7 +1134,7 @@ export default function ScorePage() {
           {/* Debug panel - only render on client side */}
           {isClient && isDebugMode && (
             <DebugPanel
-              scoreId={id as string}
+              scoreId={id}
               editList={filteredEditList}
               setEditList={setEditList}
               playedNotes={playedNotes}

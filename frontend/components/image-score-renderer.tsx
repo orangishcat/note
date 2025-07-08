@@ -9,7 +9,10 @@ import { AxiosProgressEvent } from "axios";
 import JSZip from "jszip";
 import Image from "next/image";
 import ZoomableDiv from "@/components/ui-custom/zoomable-div";
-import { MusicXMLRendererProps } from "@/components/music-xml-renderer";
+import {
+  ImageScoreRendererProps,
+  MusicXMLRendererProps,
+} from "@/types/score-types";
 import { useQuery } from "@tanstack/react-query";
 import log from "@/lib/logger";
 import api from "@/lib/network";
@@ -28,11 +31,6 @@ if (typeof window !== "undefined") {
     });
     blobCache.clear();
   });
-}
-
-export interface ImageScoreRendererProps extends MusicXMLRendererProps {
-  displayMode?: "paged" | "scroll";
-  verticalLoading?: boolean;
 }
 
 export default function ImageScoreRenderer({

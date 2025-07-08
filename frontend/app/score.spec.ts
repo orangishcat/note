@@ -21,10 +21,28 @@ if (
 }
 
 const resources = path.resolve(__dirname, "../../backend/resources");
-const scoreId = "67b58d01944eef23f546";
+const logHandlers = false;
 
-const documentResponse = {
-  $id: scoreId,
+const accountResponse = {
+  $id: "67b267e2002cb21103ff",
+  $createdAt: "2025-02-28T22:33:57.460+00:00",
+  $updatedAt: "2025-07-03T22:25:43.711+00:00",
+  name: "orangishcat",
+  registration: "2025-02-16T22:33:57.458+00:00",
+  status: true,
+  labels: [],
+  email: "testemail@gmail.com",
+  phone: "",
+  emailVerification: false,
+  phoneVerification: false,
+  mfa: false,
+  prefs: {},
+  targets: [],
+  accessedAt: "2025-07-07 23:15:03.548",
+};
+
+const doc = {
+  $id: "67b58d01944eef23f546",
   name: "Spider Dance",
   subtitle: "Toby Fox (arr. Lattice)",
   user_id: "test-user",
@@ -45,8 +63,11 @@ function readResource(...segments: string[]) {
   return fs.readFileSync(path.join(resources, ...segments));
 }
 const getHandlers = [
-  http.get(/.*\/databases\/.*\/collections\/.*\/documents(?:\/.*)?/, () =>
-    HttpResponse.json(documentResponse),
+  http.get(/.*\/databases\/.*\/collections\/.*\/documents$/, () =>
+    HttpResponse.json({ documents: [] }),
+  ),
+  http.get(/.*\/databases\/.*\/collections\/.*\/documents\/.*$/, () =>
+    HttpResponse.json(doc),
   ),
   http.get(
     /.*\/storage\/buckets\/.*\/files\/spiderdance_notes\/download.*/,
@@ -69,12 +90,16 @@ const getHandlers = [
         headers: { "Content-Type": "text/plain" },
       }),
   ),
+  http.get(/.*\/account$/, () => HttpResponse.json(accountResponse)),
+  http.post(/.*\/account\/jwt$/, () => HttpResponse.json({ jwt: "dummy" })),
 ];
 
-console.log(
-  "Handlers: ",
-  getHandlers.map((h) => h.info.path),
-);
+if (logHandlers) {
+  console.log(
+    "Handlers: ",
+    getHandlers.map((h) => h.info.path),
+  );
+}
 
 test.beforeEach(async ({ page }) => {
   // Log any requests that fail to even send
@@ -95,16 +120,82 @@ test.beforeEach(async ({ page }) => {
       );
     }
   });
+
+  // Log page errors
+  page.on("pageerror", (err) => {
+    console.error("PAGE ERROR:", err);
+  });
+
+  // Log console errors
+  page.on("console", (msg) => {
+    if (msg.type() === "error") {
+      console.error("CONSOLE ERROR:", msg.text());
+    }
+  });
+
+  await page.route("https://cloud.appwrite.io/v1/account", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(accountResponse),
+    }),
+  );
+  await page.route("https://cloud.appwrite.io/v1/account/jwts", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ jwt: "dummy" }),
+    }),
+  );
+  await page.route("**/api/audio/receive", (route) => {
+    console.log("Intercepted audio request", route.request().url());
+    route.fulfill({
+      status: 200,
+      body: readResource("scores", "last_pb.pb"),
+      headers: {
+        "Content-Type": "application/protobuf",
+        "X-Response-Format": "combined",
+      },
+    });
+  });
+  await page.route("**/static/notes.proto*", (route) =>
+    route.fulfill({
+      status: 200,
+      body: readResource("static", "notes.proto"),
+      headers: { "Content-Type": "text/plain" },
+    }),
+  );
+  await page.route(
+    /https:\/\/cloud\.appwrite\.io\/v1\/storage\/buckets\/.*\/files\/.*\/download.*/,
+    (route) => {
+      const url = route.request().url();
+      if (url.includes("spiderdance_notes")) {
+        route.fulfill({
+          status: 200,
+          body: readResource("scores", "spiderdance_notes.pb"),
+          headers: { "Content-Type": "application/octet-stream" },
+        });
+      } else if (url.includes("67e2455bf1eaa75ff360")) {
+        route.fulfill({
+          status: 200,
+          body: readResource("scores", "67e2455bf1eaa75ff360.zip"),
+          headers: { "Content-Type": "application/zip" },
+        });
+      } else {
+        route.fulfill({ status: 200, body: "" });
+      }
+    },
+  );
 });
 
 // --- 1) Page-load spec, with infinite-loop guard ---
-test("score page loads successfully without infinite custom-event loops", async ({
+test("score page loads successfully without infinite redraw annotation loops", async ({
   page,
   msw,
 }) => {
   msw.use(...getHandlers);
 
-  // Count how many times our custom-event log appears
+  // Count how many times our redraw annotation log appears
   let customEventCount = 0;
   page.on("console", (msg) => {
     const text = msg.text();
@@ -113,10 +204,19 @@ test("score page loads successfully without infinite custom-event loops", async 
     }
   });
 
-  await page.goto(`http://localhost:3000/score/${scoreId}`);
-  await page.getByRole("img").first().waitFor();
-  await expect(page.getByText(documentResponse.name)).toBeVisible();
-  await expect(page.getByText(documentResponse.subtitle)).toBeVisible();
+  await page.goto(`http://localhost:3000/score/${doc.$id}`);
+  const img = page.getByRole("img", { name: "Score page 1" });
+  await img.waitFor();
+  const loaded = await img.evaluate(
+    (el) =>
+      (el as HTMLImageElement).complete &&
+      (el as HTMLImageElement).naturalWidth > 0,
+  );
+  expect(loaded).toBe(true);
+
+  await page.locator(`#score-${doc.file_id} .score-container`).waitFor();
+  await expect(page.getByText(doc.name)).toBeVisible();
+  await expect(page.getByText(doc.subtitle)).toBeVisible();
 
   expect(
     customEventCount,
@@ -124,7 +224,21 @@ test("score page loads successfully without infinite custom-event loops", async 
   ).toBeLessThan(8);
 });
 
-// --- 2) Notes-API spec (unchanged) ---
+// --- 2) notes.proto loads automatically ---
+test("notes.proto is fetched on page load", async ({ page, msw }) => {
+  msw.use(...getHandlers);
+
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (res) => res.url().includes("/static/notes.proto") && res.ok(),
+    ),
+    page.goto(`http://localhost:3000/score/${doc.$id}`),
+  ]);
+
+  expect(response.ok()).toBe(true);
+});
+
+// --- 3) Notes-API spec ---
 test("notes API returns protobuf with combined format header", async ({
   page,
   msw,
@@ -144,7 +258,7 @@ test("notes API returns protobuf with combined format header", async ({
     ),
   );
 
-  await page.goto(`http://localhost:3000/score/${scoreId}`);
+  await page.goto(`http://localhost:3000/score/${doc.$id}`);
 
   const res = await page.evaluate(async () => {
     const r = await fetch("/api/audio/receive", {
@@ -161,4 +275,67 @@ test("notes API returns protobuf with combined format header", async ({
   expect(res.ok).toBe(true);
   expect(res.status).toBe(200);
   expect(res.fmt).toBe("combined");
+});
+
+// --- 4) Debug panel interaction ---
+test("debug panel filters edits by confidence", async ({ page, msw }) => {
+  msw.use(
+    ...getHandlers,
+    http.post(
+      /\/api\/audio\/receive$/,
+      () =>
+        new HttpResponse(readResource("scores", "last_pb.pb"), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/protobuf",
+            "X-Response-Format": "combined",
+          },
+        }),
+    ),
+  );
+
+  await page.addInitScript(() => {
+    localStorage.setItem("debug", "true");
+  });
+
+  await page.goto(`http://localhost:3000/score/${doc.$id}`);
+
+  const img = page.getByRole("img").first();
+  await img.waitFor();
+
+  await expect(page.getByText("Debug Panel")).toBeVisible();
+
+  await Promise.all([
+    page.waitForResponse(
+      (res) => res.url().includes("/api/audio/receive") && res.ok(),
+    ),
+    page.getByRole("button", { name: "Send Test Request" }).click(),
+  ]);
+
+  const editsText = page.getByText(/Edits:/);
+  const getTotal = async () => {
+    const txt = await editsText.innerText();
+    const match = txt.match(/\d+\/\d+/);
+    return match ? parseInt(match[0].split("/")[1], 10) : 0;
+  };
+
+  await expect.poll(getTotal, { timeout: 15000 }).toBeGreaterThan(120);
+
+  const slider = page.locator('input[type="range"]').nth(1);
+  await slider.evaluate((el) => {
+    (el as HTMLInputElement).value = "5";
+    el.dispatchEvent(new Event("mouseup", { bubbles: true }));
+  });
+
+  const editsAfterChange = await getTotal();
+  expect(editsAfterChange).toBeGreaterThan(60);
+  expect(editsAfterChange).toBeLessThan(100);
+
+  await slider.evaluate((el) => {
+    (el as HTMLInputElement).value = "3";
+    el.dispatchEvent(new Event("mouseup", { bubbles: true }));
+  });
+
+  const editsBack = await getTotal();
+  expect(editsBack).toBeGreaterThan(120);
 });

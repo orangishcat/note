@@ -1,10 +1,4 @@
-import React, {
-  RefObject,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   GraphicalNote,
   IOSMDOptions,
@@ -15,37 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import api from "@/lib/network";
-import type { Models } from "appwrite";
-
-export interface MusicScore extends Models.Document {
-  /** Appwrite document identifier */
-  $id: string;
-  // $collectionId, $databaseId and other metadata inherited from Document
-  name: string;
-  subtitle: string;
-  user_id: string;
-  file_id?: string;
-  notes_id?: string;
-  preview_id?: string;
-  audio_file_id?: string;
-  mime_type: string;
-  starred_users: string[];
-  /** Optional helper properties */
-  $createdAt: string;
-  total_pages?: number;
-  is_mxl?: boolean;
-  starred?: boolean;
-  folder?: string;
-}
-
-export interface MusicXMLRendererProps {
-  scoreId: string;
-  recenter: RefObject<HTMLButtonElement>;
-  retry: () => void;
-  isFullscreen?: boolean;
-  pagesPerView: number; // New optional prop to control 1 or 2 pages per view
-  currentPage: number;
-}
+import { MusicXMLRendererProps } from "@/types/score-types";
 
 export default function MusicXMLRenderer({
   scoreId,
