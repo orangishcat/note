@@ -1036,7 +1036,7 @@ export function useEditDisplay(
     } catch (error) {
       log.error("Error rendering edit rectangles:", error);
     }
-  }, [currentPage, scoreId, editList, scoreNotes, setEditCount]);
+  }, [currentPage, scoreFileId, editList, scoreNotes, setEditCount]);
 
   // Schedule a render for the next frame if needed
   useEffect(() => {
@@ -1069,7 +1069,14 @@ export function useEditDisplay(
         });
       }
     }
-  }, [editList, currentPage, scoreId, scoreNotes, renderEditAnnotations]);
+  }, [
+    editList,
+    currentPage,
+    scoreId,
+    scoreFileId,
+    scoreNotes,
+    renderEditAnnotations,
+  ]);
 
   // Listen for zoom changes and trigger redraw when needed
   useEffect(() => {
@@ -1180,65 +1187,13 @@ export function useEditEventHandlers(
         }
       }
     };
-
-    const handleRedrawAnnotations = (event: Event) => {
-      const currentTime = Date.now();
-      if (currentTime - lastEventTimeRef.current < MIN_EVENT_INTERVAL) return;
-      lastEventTimeRef.current = currentTime;
-
-      const customEvent = event as CustomEvent;
-      const { scoreId: eventScoreId, currentPage: eventPage } =
-        customEvent.detail;
-
-      log.debug(
-        `Received redraw annotations for scoreId ${eventScoreId}, page ${eventPage}`,
-      );
-      if ((eventScoreId === scoreId || eventScoreId === fileId) && editList) {
-        log.debug(`Redraw accepted for our score with edits`);
-
-        if (
-          eventPage !== undefined &&
-          Number(eventPage) !== Number(currentPage)
-        ) {
-          log.debug(
-            `Setting current page to ${eventPage} (was ${currentPage})`,
-          );
-          setCurrentPage(eventPage);
-
-          // Force redraw after a short delay to ensure page has rendered
-          setTimeout(() => {
-            log.debug("Forcing redraw after page change from redraw event");
-            const tempEditList = editList;
-            setEditList(null);
-            setTimeout(() => setEditList(tempEditList), 50);
-          }, 150);
-        } else if (
-          eventPage === undefined ||
-          Number(eventPage) === Number(currentPage)
-        ) {
-          log.debug(`Already on correct page ${currentPage}, forcing redraw`);
-          const tempEditList = editList;
-          setEditList(null);
-          setTimeout(() => setEditList(tempEditList), 50);
-        }
-      }
-    };
-
     log.debug(
       `Setting up page change and redraw event listeners for scoreId ${scoreId}`,
     );
     document.addEventListener("score:pageChange", handlePageChange);
-    document.addEventListener(
-      "score:redrawAnnotations",
-      handleRedrawAnnotations,
-    );
 
     return () => {
       document.removeEventListener("score:pageChange", handlePageChange);
-      document.removeEventListener(
-        "score:redrawAnnotations",
-        handleRedrawAnnotations,
-      );
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoreId, fileId, setCurrentPage, setEditList]);

@@ -9,10 +9,7 @@ import { AxiosProgressEvent } from "axios";
 import JSZip from "jszip";
 import Image from "next/image";
 import ZoomableDiv from "@/components/ui-custom/zoomable-div";
-import {
-  ImageScoreRendererProps,
-  MusicXMLRendererProps,
-} from "@/types/score-types";
+import { ImageScoreRendererProps } from "@/types/score-types";
 import { useQuery } from "@tanstack/react-query";
 import log from "@/lib/logger";
 import api from "@/lib/network";

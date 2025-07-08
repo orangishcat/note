@@ -1,5 +1,5 @@
 import { test } from "next/dist/experimental/testmode/playwright/msw";
-import { expect } from "@playwright/test";
+import { expect, type Page, type Route } from "@playwright/test";
 import { http, HttpResponse } from "msw";
 import fs from "fs";
 import path from "path";
@@ -62,48 +62,50 @@ const doc = {
 function readResource(...segments: string[]) {
   return fs.readFileSync(path.join(resources, ...segments));
 }
-const getHandlers = [
-  http.get(/.*\/databases\/.*\/collections\/.*\/documents$/, () =>
-    HttpResponse.json({ documents: [] }),
-  ),
-  http.get(/.*\/databases\/.*\/collections\/.*\/documents\/.*$/, () =>
-    HttpResponse.json(doc),
-  ),
-  http.get(
-    /.*\/storage\/buckets\/.*\/files\/spiderdance_notes\/download.*/,
-    () =>
-      new HttpResponse(readResource("scores", "spiderdance_notes.pb"), {
-        headers: { "Content-Type": "application/octet-stream" },
-      }),
-  ),
-  http.get(
-    /.*\/storage\/buckets\/.*\/files\/67e2455bf1eaa75ff360\/download.*/,
-    () =>
-      new HttpResponse(readResource("scores", "67e2455bf1eaa75ff360.zip"), {
-        headers: { "Content-Type": "application/zip" },
-      }),
-  ),
-  http.get(
-    /.*\/static\/notes\.proto.*/,
-    () =>
-      new HttpResponse(readResource("static", "notes.proto"), {
-        headers: { "Content-Type": "text/plain" },
-      }),
-  ),
-  http.get(/.*\/account$/, () => HttpResponse.json(accountResponse)),
-  http.post(/.*\/account\/jwt$/, () => HttpResponse.json({ jwt: "dummy" })),
-];
+function getHandlers() {
+  return [
+    http.get(/.*\/databases\/.*\/collections\/.*\/documents$/, () =>
+      HttpResponse.json({ documents: [] }),
+    ),
+    http.get(/.*\/databases\/.*\/collections\/.*\/documents\/.*$/, () =>
+      HttpResponse.json(doc),
+    ),
+    http.get(
+      /.*\/storage\/buckets\/.*\/files\/spiderdance_notes\/download.*/,
+      () =>
+        new HttpResponse(readResource("scores", "spiderdance_notes.pb"), {
+          headers: { "Content-Type": "application/octet-stream" },
+        }),
+    ),
+    http.get(
+      /.*\/storage\/buckets\/.*\/files\/67e2455bf1eaa75ff360\/download.*/,
+      () =>
+        new HttpResponse(readResource("scores", "67e2455bf1eaa75ff360.zip"), {
+          headers: { "Content-Type": "application/zip" },
+        }),
+    ),
+    http.get(
+      /.*\/static\/notes\.proto.*/,
+      () =>
+        new HttpResponse(readResource("static", "notes.proto"), {
+          headers: { "Content-Type": "text/plain" },
+        }),
+    ),
+    http.get(/.*\/account$/, () => HttpResponse.json(accountResponse)),
+    http.post(/.*\/account\/jwt$/, () => HttpResponse.json({ jwt: "dummy" })),
+  ];
+}
 
 if (logHandlers) {
   console.log(
     "Handlers: ",
-    getHandlers.map((h) => h.info.path),
+    getHandlers().map((h) => h.info.path),
   );
 }
 
-test.beforeEach(async ({ page }) => {
+function registerLogging(page: Page) {
   // Log any requests that fail to even send
-  page.on("requestfailed", (request) => {
+  page.on("requestfailed", (request: any) => {
     const failure = request.failure();
     console.error(
       `❌ REQUEST FAILED: ${request.method()} ${request.url()}` +
@@ -112,7 +114,7 @@ test.beforeEach(async ({ page }) => {
   });
 
   // Log any responses with non-2xx status codes
-  page.on("response", (response) => {
+  page.on("response", (response: any) => {
     if (!response.ok()) {
       console.error(
         `⚠️ BAD RESPONSE: ${response.status()} ${response.url()}` +
@@ -122,32 +124,35 @@ test.beforeEach(async ({ page }) => {
   });
 
   // Log page errors
-  page.on("pageerror", (err) => {
+  page.on("pageerror", (err: any) => {
     console.error("PAGE ERROR:", err);
   });
 
-  // Log console errors
-  page.on("console", (msg) => {
-    if (msg.type() === "error") {
-      console.error("CONSOLE ERROR:", msg.text());
-    }
+  // Log all console messages
+  page.on("console", (msg: any) => {
+    if (msg.type !== "warning") return;
+    console.log(`BROWSER ${msg.type()}:`, msg.text());
   });
+}
 
-  await page.route("https://cloud.appwrite.io/v1/account", (route) =>
+async function registerRoutes(page: Page) {
+  await page.route("https://cloud.appwrite.io/v1/account", (route: Route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(accountResponse),
     }),
   );
-  await page.route("https://cloud.appwrite.io/v1/account/jwts", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ jwt: "dummy" }),
-    }),
+  await page.route(
+    "https://cloud.appwrite.io/v1/account/jwts",
+    (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ jwt: "dummy" }),
+      }),
   );
-  await page.route("**/api/audio/receive", (route) => {
+  await page.route("**/api/audio/receive", (route: Route) => {
     console.log("Intercepted audio request", route.request().url());
     route.fulfill({
       status: 200,
@@ -158,7 +163,7 @@ test.beforeEach(async ({ page }) => {
       },
     });
   });
-  await page.route("**/static/notes.proto*", (route) =>
+  await page.route("**/static/notes.proto*", (route: Route) =>
     route.fulfill({
       status: 200,
       body: readResource("static", "notes.proto"),
@@ -167,7 +172,7 @@ test.beforeEach(async ({ page }) => {
   );
   await page.route(
     /https:\/\/cloud\.appwrite\.io\/v1\/storage\/buckets\/.*\/files\/.*\/download.*/,
-    (route) => {
+    (route: Route) => {
       const url = route.request().url();
       if (url.includes("spiderdance_notes")) {
         route.fulfill({
@@ -186,6 +191,11 @@ test.beforeEach(async ({ page }) => {
       }
     },
   );
+}
+
+test.beforeEach(async ({ page }) => {
+  registerLogging(page);
+  await registerRoutes(page);
 });
 
 // --- 1) Page-load spec, with infinite-loop guard ---
@@ -193,7 +203,7 @@ test("score page loads successfully without infinite redraw annotation loops", a
   page,
   msw,
 }) => {
-  msw.use(...getHandlers);
+  msw.use(...getHandlers());
 
   // Count how many times our redraw annotation log appears
   let customEventCount = 0;
@@ -226,7 +236,7 @@ test("score page loads successfully without infinite redraw annotation loops", a
 
 // --- 2) notes.proto loads automatically ---
 test("notes.proto is fetched on page load", async ({ page, msw }) => {
-  msw.use(...getHandlers);
+  msw.use(...getHandlers());
 
   const [response] = await Promise.all([
     page.waitForResponse(
@@ -244,7 +254,7 @@ test("notes API returns protobuf with combined format header", async ({
   msw,
 }) => {
   msw.use(
-    ...getHandlers,
+    ...getHandlers(),
     http.post(
       /\/api\/audio\/receive$/,
       () =>
@@ -280,7 +290,7 @@ test("notes API returns protobuf with combined format header", async ({
 // --- 4) Debug panel interaction ---
 test("debug panel filters edits by confidence", async ({ page, msw }) => {
   msw.use(
-    ...getHandlers,
+    ...getHandlers(),
     http.post(
       /\/api\/audio\/receive$/,
       () =>

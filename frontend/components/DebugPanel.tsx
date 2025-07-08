@@ -150,13 +150,13 @@ const DebugPanel = ({
   useEffect(() => {
     if (typeof window === "undefined") return;
     localStorage.setItem("debugShowNoteNames", String(showNoteNames));
-    if (editList) redrawAnnotations();
+    redrawAnnotations();
     const event = new CustomEvent("debug:toggleNoteNames", {
       detail: { showNoteNames },
       bubbles: true,
     });
     document.dispatchEvent(event);
-  }, [showNoteNames, editList, redrawAnnotations]);
+  }, [showNoteNames, redrawAnnotations]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

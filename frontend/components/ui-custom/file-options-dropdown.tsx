@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MusicScore } from "@/components/music-xml-renderer";
+import { MusicScore } from "@/types/score-types";
 
 interface FileOptionsProps {
   score: MusicScore;
