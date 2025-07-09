@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import { ZoomContext } from "@/app/providers";
+import log from "loglevel";
 
 export default function ZoomableDiv({
   children,
@@ -70,10 +71,11 @@ export default function ZoomableDiv({
   // Handle wheel events (Ctrl/Cmd+wheel for zoom) and recenter button click.
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
+      log.debug("Wheel event: ", e.ctrlKey, e.metaKey, e.deltaY, e.deltaX);
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         // Handle both vertical (deltaY) and horizontal (deltaX) scroll for zoom
-        const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+        const delta = e.deltaY || e.deltaX;
         const newScale = clamp(
           scale - delta * zoomSensitivity,
           minScale,
@@ -100,17 +102,13 @@ export default function ZoomableDiv({
     };
 
     const outer = outerRef.current;
-    if (outer) {
-      outer.addEventListener("wheel", handleWheel, { passive: false });
-    }
+    if (outer) outer.addEventListener("wheel", handleWheel, { passive: false });
 
     const btn = recenter.current;
     btn?.addEventListener("click", handleRecenter);
 
     return () => {
-      if (outer) {
-        outer.removeEventListener("wheel", handleWheel);
-      }
+      if (outer) outer.removeEventListener("wheel", handleWheel);
       btn?.removeEventListener("click", handleRecenter);
     };
   }, [recenter, scale, zoomContext]);

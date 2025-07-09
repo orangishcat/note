@@ -158,7 +158,8 @@ export function useEditDisplay(
     };
   }
 
-  document.addEventListener("score:redrawAnnotations", renderEdits);
+  if (typeof document !== "undefined")
+    document.addEventListener("score:redrawAnnotations", renderEdits);
   return () =>
     document.removeEventListener("score:redrawAnnotations", renderEdits);
 }
