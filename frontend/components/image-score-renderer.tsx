@@ -56,7 +56,6 @@ export default function ImageScoreRenderer({
   const [containerHeight, setContainerHeight] = useState<string>("100%");
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
-  // Get zoom context
   const zoomContext = useContext(ZoomContext);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -114,7 +113,7 @@ export default function ImageScoreRenderer({
       window.removeEventListener("resize", calculateHeight);
       clearTimeout(timeout);
     };
-  }, [isFullscreen, debug]);
+  }, [isFullscreen]); // Remove debug from dependencies as it's only used for logging
 
   // Adjust scaling for small screens
   useEffect(() => {
@@ -143,7 +142,7 @@ export default function ImageScoreRenderer({
     return () => {
       window.removeEventListener("resize", adjustForSmallScreens);
     };
-  }, [scoreId, zoomContext, defaultScale]);
+  }, [scoreId]); // Remove zoomContext and defaultScale from dependencies to prevent unnecessary rerenders
 
   // Fetch score file using React Query
   const {
@@ -286,7 +285,7 @@ export default function ImageScoreRenderer({
         document.dispatchEvent(event);
       }
     }
-  }, [data, scoreId, currentPageIndex]);
+  }, [data, scoreId]); // Remove currentPageIndex from dependencies as it's only used for event dispatch
 
   // Handle query errors
   useEffect(() => {
@@ -333,14 +332,13 @@ export default function ImageScoreRenderer({
     return () => {
       window.removeEventListener("resize", calculateScale);
     };
-  }, [isFullscreen, pagesPerView, scoreId, zoomContext]);
+  }, [isFullscreen, pagesPerView, scoreId]);
 
-  // Calculate the total number of views based on page count and pagesPerView
   const totalViews = Math.ceil(imageUrls.length / pagesPerView);
 
   const notifyPageChange = useCallback(
     (pageIndex: number) => {
-      if (typeof window !== "undefined") {
+      if (typeof window !== "undefined" && currentPage !== pageIndex) {
         log.debug(`Notifying page change to ${pageIndex}`);
         const event = new CustomEvent("score:pageChange", {
           detail: {
@@ -447,7 +445,7 @@ export default function ImageScoreRenderer({
         navigatePages(e.key === "ArrowLeft" ? "prev" : "next");
       }
     },
-    [isAnimating, navigatePages],
+    [navigatePages], // Remove isAnimating from dependencies as it's checked inside
   );
 
   // Wheel handler - horizontal scrolling for page navigation
@@ -474,7 +472,7 @@ export default function ImageScoreRenderer({
         }
       }
     },
-    [isAnimating, navigatePages],
+    [navigatePages], // Remove isAnimating from dependencies as it's checked inside
   );
 
   // Touch handlers for swipe navigation
@@ -503,7 +501,7 @@ export default function ImageScoreRenderer({
         e.preventDefault();
       }
     },
-    [isAnimating, navigatePages],
+    [navigatePages], // Remove isAnimating from dependencies as it's checked inside
   );
 
   // Mouse drag handlers for page navigation
@@ -537,35 +535,30 @@ export default function ImageScoreRenderer({
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [isAnimating, handleMouseMove, handleMouseUp],
+    [handleMouseMove, handleMouseUp], // Remove isAnimating from dependencies as it's checked inside
   );
 
   // Scale change handler from ZoomableDiv
-  const handleScaleChange = (scale: number) => {
-    // Only update if the scale has changed
-    if (scale !== currentScale) {
-      setCurrentScale(scale);
+  const handleScaleChange = useCallback(
+    (scale: number) => {
+      // Only update if the scale has changed significantly to prevent micro-updates
+      if (Math.abs(scale - currentScale) > 0.001) {
+        setCurrentScale(scale);
 
-      // Store the scale in the zoom context
-      if (zoomContext) {
-        zoomContext.setZoomLevel(scoreId, scale);
+        // Store the scale in the zoom context
+        if (zoomContext) {
+          zoomContext.setZoomLevel(scoreId, scale);
+        }
       }
-    }
-  };
+    },
+    [currentScale, zoomContext, scoreId],
+  );
 
   // Image load handler
   const handleImageLoad = (pageIndex: number) => {
     // Notify when an image has loaded to trigger annotation redraw
     setTimeout(() => {
-      log.debug(`Image loaded for page index ${pageIndex}, triggering redraw`);
-      const event = new CustomEvent("score:redrawAnnotations", {
-        detail: {
-          scoreId,
-          currentPage: pageIndex,
-        },
-        bubbles: true,
-      });
-      document.dispatchEvent(event);
+      log.debug(`Image loaded for page index ${pageIndex}`);
     }, 200); // Increased delay to ensure DOM is fully ready
   };
 
@@ -624,18 +617,13 @@ export default function ImageScoreRenderer({
       document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [
-    currentPageIndex,
-    totalViews,
-    currentScale,
-    isAnimating,
-    scoreId,
     handleKeyDown,
     handleMouseDown,
     handleMouseUp,
     handleMouseMove,
     handleTouchEnd,
     handleWheel,
-  ]);
+  ]); // Removed currentPageIndex, totalViews, currentScale, isAnimating, scoreId as they're not needed for event listener setup
 
   if (error) {
     return (

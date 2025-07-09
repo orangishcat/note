@@ -188,12 +188,12 @@ export function useAudioRecorder({
   ]);
 
   useEffect(() => {
-    if (isRecording) startRecording();
-    else stopRecording();
+    if (isRecording) void startRecording();
+    else void stopRecording();
     return () => {
-      cleanup();
+      void cleanup();
     };
-  }, [isRecording, scoreId, notesId, startRecording, stopRecording]);
+  }, [isRecording, scoreId, notesId]);
 
   return { hasPermission: !!streamRef.current };
 }

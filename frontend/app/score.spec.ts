@@ -156,7 +156,7 @@ async function registerRoutes(page: Page) {
     console.log("Intercepted audio request", route.request().url());
     route.fulfill({
       status: 200,
-      body: readResource("scores", "last_pb.pb"),
+      body: readResource("scores", "spider_dance_edits.pb"),
       headers: {
         "Content-Type": "application/protobuf",
         "X-Response-Format": "combined",
@@ -258,7 +258,7 @@ test("notes API returns protobuf with combined format header", async ({
     http.post(
       /\/api\/audio\/receive$/,
       () =>
-        new HttpResponse(readResource("scores", "last_pb.pb"), {
+        new HttpResponse(readResource("scores", "spider_dance_edits.pb"), {
           status: 200,
           headers: {
             "Content-Type": "application/protobuf",
@@ -294,7 +294,7 @@ test("debug panel filters edits by confidence", async ({ page, msw }) => {
     http.post(
       /\/api\/audio\/receive$/,
       () =>
-        new HttpResponse(readResource("scores", "last_pb.pb"), {
+        new HttpResponse(readResource("scores", "spider_dance_edits.pb"), {
           status: 200,
           headers: {
             "Content-Type": "application/protobuf",

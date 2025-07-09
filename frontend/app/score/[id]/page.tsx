@@ -36,7 +36,7 @@ import axios from "axios";
 import ImageScoreRenderer from "@/components/image-score-renderer";
 import { Type } from "protobufjs";
 import log from "@/lib/logger";
-import { useEditDisplay, useEditEventHandlers } from "@/lib/edit-display";
+import { useEditDisplay } from "@/lib/edit-display";
 import { Edit, NoteList, ScoringResult } from "@/types/proto-types";
 
 import { useToast } from "@/components/ui/toast";
@@ -305,17 +305,6 @@ export default function ScorePage() {
     id,
     score.file_id,
     setEditsOnPage,
-    scoreNotes,
-  );
-
-  // Setup event handlers for page changes and annotation redraws
-  useEditEventHandlers(
-    id,
-    score?.file_id,
-    setCurrentPage,
-    setEditList,
-    editList,
-    currentPage,
   );
 
   // Check for recording compatibility on component mount
@@ -739,7 +728,7 @@ export default function ScorePage() {
                 </Button>
               </BasicTooltip>
               <div className="text-xl text-gray-500 dark:text-gray-400">
-                {accuracy}% / {unstableRate} UR
+                {accuracy}% / {unstableRate.toFixed(0)} UR
               </div>
             </div>
           </div>

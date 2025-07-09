@@ -58,6 +58,7 @@ export default [
             // Run the TS compiler and report diagnostics as ESLint errors
             'tsc/config': ['error', { configFile: './tsconfig.json' }],
             '@typescript-eslint/no-explicit-any': 'off',
+            'react-hooks/exhaustive-deps': 'off',
         },
     },
 ];

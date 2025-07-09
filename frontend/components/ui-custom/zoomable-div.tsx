@@ -72,12 +72,19 @@ export default function ZoomableDiv({
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
+        // Handle both vertical (deltaY) and horizontal (deltaX) scroll for zoom
+        const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
         const newScale = clamp(
-          scale - e.deltaY * zoomSensitivity,
+          scale - delta * zoomSensitivity,
           minScale,
           maxScale,
         );
         setScale(newScale);
+
+        // Update zoom context if we have a scoreId
+        if (zoomContext && scoreIdRef.current) {
+          zoomContext.setZoomLevel(scoreIdRef.current, newScale);
+        }
       }
     };
 
@@ -147,11 +154,16 @@ export default function ZoomableDiv({
     // Update previous scale.
     prevScaleRef.current = scale;
 
+    // Update zoom context if we have a scoreId
+    if (zoomContext && scoreIdRef.current) {
+      zoomContext.setZoomLevel(scoreIdRef.current, scale);
+    }
+
     // Notify parent component about scale change if the callback is provided
     if (onScaleChange) {
       onScaleChange(scale);
     }
-  }, [scale, originalWidth, originalHeight, onScaleChange]);
+  }, [scale, originalWidth, originalHeight, onScaleChange, zoomContext]);
 
   return (
     <div

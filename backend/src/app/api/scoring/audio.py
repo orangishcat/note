@@ -17,7 +17,7 @@ from appwrite.role import Role
 from beam import Image, endpoint
 from flask import Response, request, g
 from loguru import logger
-from scoring import Note, NoteList, extract_midi_notes, analyze_tempo
+from scoring import Note, NoteList, extract_midi_notes, analyze_tempo, ScoringResult
 from scoring.edit_distance import find_ops
 
 from .. import get_user_client, misc_bucket, database
@@ -124,6 +124,7 @@ def receive():
             "spider_dance_played": {
                 "played": "spider dance played",
                 "actual": "spiderdance_notes",
+                "edits": "scores/spider_dance_edits.pb",
             },
             "spider_dance_actual": {
                 "played": "spider dance actual",
@@ -136,6 +137,21 @@ def receive():
             logger.info(f"Using test config: {test_type}")
             played_notes = load_notes(cfg["played"])
             actual_notes = load_notes(cfg["actual"])
+
+            if result_file := cfg.get("edits"):
+                logger.info(f"Using cached result")
+                with open(result_file, "rb") as f:
+                    byte_content = f.read()
+                res = Response(byte_content, mimetype="application/protobuf")
+                res.headers.update(
+                    {
+                        "Cache-Control": "no-cache, no-store, must-revalidate",
+                        "Pragma": "no-cache",
+                        "Expires": "0",
+                        "X-Response-Format": "combined",
+                    }
+                )
+                return res
         else:
             if not notes_id:
                 return {"error": "No notes ID provided"}, 400

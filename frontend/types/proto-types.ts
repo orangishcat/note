@@ -18,10 +18,11 @@ export interface NoteList extends Message {
   size: number[];
 }
 
+// Protobuf returns EditOperation names literally
 export enum EditOperation {
-  INSERT = 0,
-  SUBSTITUTE = 1,
-  DELETE = 2,
+  INSERT = "INSERT",
+  SUBSTITUTE = "SUBSTITUTE",
+  DELETE = "DELETE",
 }
 
 export interface Edit extends Message {

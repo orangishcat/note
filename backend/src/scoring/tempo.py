@@ -46,4 +46,4 @@ def analyze_tempo(
             tempo=tempo,
         )
     )
-    return sections, ur * 100
+    return sections, ur * 1e4

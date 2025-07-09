@@ -1,29 +1,7 @@
 import React from "react";
-import { Message } from "protobufjs";
 import { midiPitchToNoteName } from "@/lib/edit-display";
 import { Note } from "@/types/proto-types";
-
-interface ComparisonDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  note: Note;
-  targetNote?: Note;
-  editOperation?: string;
-  position?: number;
-  playedNotes?: Message | null;
-  scoreNotes?: Message | null;
-}
-
-function extractNotes(message: Message | null | undefined): Note[] {
-  if (!message) return [];
-  const anyMsg = message as unknown as Record<string, unknown>;
-  if (Array.isArray(anyMsg.notes)) return anyMsg.notes as Note[];
-  if (typeof message.toJSON === "function") {
-    const json = message.toJSON() as Record<string, unknown>;
-    if (Array.isArray(json.notes)) return json.notes as Note[];
-  }
-  return [];
-}
+import { ComparisonDialogProps } from "@/types/comparison-types";
 
 function sliceAround(
   notes: Note[],
@@ -47,14 +25,12 @@ const ComparisonDialog: React.FC<ComparisonDialogProps> = ({
   scoreNotes,
 }) => {
   if (!isOpen) return null;
-
-  const played = extractNotes(playedNotes);
-  const score = extractNotes(scoreNotes);
+  if (!playedNotes?.notes || !scoreNotes?.notes) return null;
 
   const targetPos = targetNote?.pitch;
 
-  const playedSlice = sliceAround(played, position, 5);
-  const scoreSlice = sliceAround(score, targetPos, 5);
+  const playedSlice = sliceAround(playedNotes.notes, position, 5);
+  const scoreSlice = sliceAround(scoreNotes.notes, targetPos, 5);
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">

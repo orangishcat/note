@@ -135,17 +135,14 @@ const DebugPanel = ({
       log.warn("No annotations to redraw");
       return;
     }
-    const temp = editList;
-    setEditList(null);
     setTimeout(() => {
-      setEditList(temp);
       const event = new CustomEvent("score:redrawAnnotations", {
         detail: { scoreId, currentPage },
         bubbles: true,
       });
       document.dispatchEvent(event);
     }, 50);
-  }, [editList, scoreId, currentPage, setEditList]);
+  }, [editList, scoreId, currentPage]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
