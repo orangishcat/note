@@ -346,7 +346,7 @@ test("debug panel filters edits by confidence", async ({ page, msw }) => {
   expect(editsAfterChange).toBeLessThan(100);
 
   await setSliderValue(slider, 3);
-  o;
+
   const editsBack = await getTotal();
   expect(editsBack).toBeGreaterThan(120);
 });
