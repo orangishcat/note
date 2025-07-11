@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --experimental-https",
+    "dev": "next dev --turbopack --experimental-https",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "DEBUG=\"msw:*\" playwright test",
+    "test": "NODE_ENV=test DEBUG=\"msw:*\" playwright test",
     "clean:deps": "npx depcheck --oneline | xargs -r npm uninstall && npm prune"
   },
   "dependencies": {

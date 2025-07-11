@@ -10,13 +10,13 @@ import { cn } from "@/lib/utils";
 export interface LayoutProps {
   children: ReactNode;
   navbarContent?: ReactNode;
-  hideSidebar?: boolean;
+  showSidebar?: boolean;
 }
 
 export function Layout({
   children,
   navbarContent,
-  hideSidebar = false,
+  showSidebar = false,
 }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const authModalContext = useContext(AuthModalContext);
@@ -52,14 +52,16 @@ export function Layout({
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-gray-900 dark:text-white">
       <div
         className={cn(
-          hideSidebar ? "" : "xl:ml-72",
+          showSidebar ? "xl:ml-72" : "",
           "transition-all duration-200",
         )}
       >
-        <Navbar onMenuClick={toggleSidebar}>{navbarContent}</Navbar>
+        <Navbar onMenuClick={toggleSidebar} showSidebar={showSidebar}>
+          {navbarContent}
+        </Navbar>
       </div>
-      <div className="flex overflow-auto">
-        {!hideSidebar && (
+      <div className="flex overflow-auto h-full">
+        {showSidebar && (
           <Sidebar
             isOpen={isSidebarOpen}
             onCloseAction={() => setIsSidebarOpen(false)}
@@ -68,7 +70,7 @@ export function Layout({
         <main
           className={cn(
             "flex-1 transition-all duration-200",
-            hideSidebar ? "" : "xl:ml-72",
+            showSidebar ? "xl:ml-72" : "",
           )}
         >
           {children}

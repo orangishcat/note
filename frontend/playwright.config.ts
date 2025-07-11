@@ -14,6 +14,12 @@ const config: PlaywrightTestConfig = {
     { name: "chromium", use: { browserName: "chromium" } },
     { name: "firefox", use: { browserName: "firefox" } },
   ],
+  webServer: {
+    command: "next dev --port 3000",
+    port: 3000,
+    env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+    timeout: 120000,
+  },
 };
 
 export default defineConfig(config);

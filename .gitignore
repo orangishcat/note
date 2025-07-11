@@ -30,6 +30,7 @@ build
 # misc
 .DS_Store
 *.pem
+eslint.config.mjs
 
 # debug
 npm-debug.log*

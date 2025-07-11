@@ -499,6 +499,7 @@ export default function MusicXMLRenderer({
 
   return (
     <div
+      id={`score-${scoreId}`}
       ref={wrapperRef}
       className="overflow-hidden overflow-x-hidden flex flex-col place-items-center"
       style={{
@@ -510,7 +511,7 @@ export default function MusicXMLRenderer({
         <div
           ref={containerRef}
           className={cn(
-            "border border-gray-300 dark:border-gray-700 rounded-md flex flex-col p-2 overflow-auto",
+            "score-container border border-gray-300 dark:border-gray-700 rounded-md flex flex-col p-2 overflow-auto",
             !(isError || renderError) && "bg-gray-50",
           )}
           style={{

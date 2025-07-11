@@ -5,8 +5,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FolderPlus, RefreshCw, Star } from "lucide-react";
 import Link from "next/link";
 import React, { useContext, useEffect, useState } from "react";
-import { Layout } from "@/components/layout";
-import SearchBox from "@/components/ui-custom/search-box";
 import {
   Dialog,
   DialogContent,
@@ -175,137 +173,128 @@ export default function FileManager() {
     invalidateScores();
   };
   return (
-    <Layout navbarContent={<SearchBox />}>
-      <div className="p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) =>
-              setActiveTab(value as "recent" | "starred")
-            }
-          >
-            <TabsList>
-              <TabsTrigger value="recent">Recent</TabsTrigger>
-              <TabsTrigger value="starred">Starred</TabsTrigger>
-              <TabsTrigger value="shared" disabled>
-                Shared
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <div className="flex items-center gap-4">
-            <BasicTooltip text="Refresh scores list">
-              <Button
-                variant="outline"
-                className="gap-2"
-                disabled={refetchDisabled}
-                onClick={() => {
-                  setRefetchDisabled(true);
-                  refetchScores().then(() => setRefetchDisabled(false));
-                }}
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${refetchDisabled && "animate-spin"}`}
-                />
-              </Button>
-            </BasicTooltip>
-            <UploadDialog onUpload={invalidateScores} />
-            {account ? (
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => setIsDialogOpen(true)}
-              >
-                <FolderPlus className="h-4 w-4" />
-                Create folder
-              </Button>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span tabIndex={-1}>
-                    <Button variant="outline" className="gap-2" disabled>
-                      <FolderPlus className="h-4 w-4" />
-                      Create folder
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Log in or create an account first!
-                  <TooltipArrow className="fill-primary" />
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
+    <div className="p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as "recent" | "starred")}
+        >
+          <TabsList>
+            <TabsTrigger value="recent">Recent</TabsTrigger>
+            <TabsTrigger value="starred">Starred</TabsTrigger>
+            <TabsTrigger value="shared" disabled>
+              Shared
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="flex items-center gap-4">
+          <BasicTooltip text="Refresh scores list">
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled={refetchDisabled}
+              onClick={() => {
+                setRefetchDisabled(true);
+                refetchScores().then(() => setRefetchDisabled(false));
+              }}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${refetchDisabled && "animate-spin"}`}
+              />
+            </Button>
+          </BasicTooltip>
+          <UploadDialog onUpload={invalidateScores} />
+          {account ? (
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setIsDialogOpen(true)}
+            >
+              <FolderPlus className="h-4 w-4" />
+              Create folder
+            </Button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={-1}>
+                  <Button variant="outline" className="gap-2" disabled>
+                    <FolderPlus className="h-4 w-4" />
+                    Create folder
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                Log in or create an account first!
+                <TooltipArrow className="fill-primary" />
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
-
-        {scores.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-lg text-gray-500 dark:text-gray-400">
-              {account
-                ? loadSuccess
-                  ? "It's empty in here..."
-                  : isLoading
-                    ? "Loading..."
-                    : "Failed to load scores"
-                : "Log in first!"}
-            </p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-              {account &&
-                (loadSuccess
-                  ? activeTab === "starred"
-                    ? "Starred items show up here!"
-                    : "Upload some files or create a folder to get started!"
-                  : fmErr)}
-            </p>
-          </div>
-        ) : (
-          <div
-            className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
-            style={{ gap: "3vw" }}
-          >
-            {filteredScores.map((score) => (
-              <ScoreCard
-                key={score.$id}
-                score={score}
-                onStarToggle={() => toggleStar(score)}
-                onDragStart={handleDragStart}
-                onDelete={onDelete}
-              />
-            ))}
-          </div>
-        )}
-
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Folder</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <input
-                type="text"
-                value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
-                placeholder="Folder name"
-                className="w-full border p-2 rounded dark:bg-gray-900/80"
-              />
-              {errorMessage && (
-                <p className="text-red-500 text-center text-sm">
-                  {errorMessage}
-                </p>
-              )}
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateFolder}>Create</Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
-    </Layout>
+
+      {scores.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-lg text-gray-500 dark:text-gray-400">
+            {account
+              ? loadSuccess
+                ? "It's empty in here..."
+                : isLoading
+                  ? "Loading..."
+                  : "Failed to load scores"
+              : "Log in first!"}
+          </p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+            {account &&
+              (loadSuccess
+                ? activeTab === "starred"
+                  ? "Starred items show up here!"
+                  : "Upload some files or create a folder to get started!"
+                : fmErr)}
+          </p>
+        </div>
+      ) : (
+        <div
+          className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
+          style={{ gap: "3vw" }}
+        >
+          {filteredScores.map((score) => (
+            <ScoreCard
+              key={score.$id}
+              score={score}
+              onStarToggle={() => toggleStar(score)}
+              onDragStart={handleDragStart}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Folder</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <input
+              type="text"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              placeholder="Folder name"
+              className="w-full border p-2 rounded dark:bg-gray-900/80"
+            />
+            {errorMessage && (
+              <p className="text-red-500 text-center text-sm">{errorMessage}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateFolder}>Create</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
@@ -325,10 +314,11 @@ function ScoreCard({
   return (
     <div
       className="group relative overflow-hidden rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-700
-       dark:hover:border-gray-500 transition-colors duration-200"
+       dark:hover:border-gray-500 transition duration-200 hover:scale-105"
+      draggable
       onDragStart={(e) => onDragStart(e, $id)}
     >
-      <Link href={`/score/${$id}`} key={$id}>
+      <Link href={`/app/score/${$id}`} key={$id}>
         <div className="aspect-[4/3] overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -359,7 +349,7 @@ function ScoreCard({
 
       <div className="flex items-center justify-between bg-gray-200 dark:bg-gray-800 dark:border-gray-600 border-t border-inherit">
         <Link
-          href={`/score/${$id}`}
+          href={`/app/score/${$id}`}
           key={$id}
           style={{ maxWidth: "calc(100% - 60px)" }}
         >

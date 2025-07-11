@@ -279,13 +279,13 @@ export default function ScorePage() {
 
   function NavContent() {
     return (
-      <div className="flex items-center text-xl gap-2">
-        <Link href="/" className="text-muted-foreground flex-shrink-0">
+      <div className="flex items-center text-xl gap-4">
+        <Link href="/app" className="text-muted-foreground flex-shrink-0">
           <ArrowLeft className="h-5 w-5" />
         </Link>
 
         <div className="flex-1 flex items-baseline gap-2 overflow-hidden">
-          <span className="font-semibold truncate whitespace-nowrap overflow-ellipsis max-w-xl">
+          <span className="truncate whitespace-nowrap overflow-ellipsis max-w-xl">
             {score.name}
           </span>
           {score.subtitle && (
@@ -629,22 +629,17 @@ export default function ScorePage() {
     }
   };
 
-  // Floating dock of controls for both fullscreen and normal mode
   const ControlDock = () => {
-    // Calculate which page we're viewing based on current page (0-indexed) + 1
     const currentDisplayPage = currentPage + 1;
     const totalPages = score && score.total_pages ? score.total_pages : "?";
 
-    // Track if we're on a small screen for responsive UI
     const [isSmallScreen, setIsSmallScreen] = useState(false);
 
-    // Detect small screens
     useEffect(() => {
       const checkScreenSize = () => {
         setIsSmallScreen(window.innerWidth < 500);
       };
 
-      // Check on mount and resize
       checkScreenSize();
       window.addEventListener("resize", checkScreenSize);
 
@@ -654,17 +649,14 @@ export default function ScorePage() {
     return (
       <div
         ref={dockRef}
-        className={`fixed bottom-0 right-0 left-0 ${
-          isFullscreen ? "" : "xl:left-72"
-        } border-t border-gray-200 dark:border-gray-700 transition-opacity duration-300 ${
+        className={`fixed bottom-0 right-0 left-0 border-t border-gray-200 dark:border-gray-700 transition-opacity duration-300 ${
           showDock ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-850 px-4 py-2">
-          <div className="flex items-center gap-4">
-            {/* Record button with compatibility indicator */}
+        <div className="grid grid-cols-[1fr_auto_1fr] bg-gray-100 dark:bg-gray-850 px-4 py-2">
+          <div className="flex items-center gap-4 justify-self-start">
             <BasicTooltip
               text={
                 recordingCompatible === false
@@ -733,7 +725,7 @@ export default function ScorePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 justify-self-center">
             <BasicTooltip text="Previous page">
               <Button
                 onClick={goToPrevPage}
@@ -780,7 +772,7 @@ export default function ScorePage() {
             </BasicTooltip>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-6 justify-self-end">
             <BasicTooltip
               text={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
@@ -804,6 +796,7 @@ export default function ScorePage() {
             <BasicTooltip text="Download">
               <Button
                 variant="ghost"
+                size="icon"
                 onClick={() =>
                   window.open(
                     storage.getFileDownload(
@@ -822,6 +815,7 @@ export default function ScorePage() {
             <BasicTooltip text="Star">
               <Button
                 variant="ghost"
+                size="icon"
                 onClick={() => onStarToggle(score)}
                 className="text-gray-900 dark:text-white"
               >
@@ -832,20 +826,6 @@ export default function ScorePage() {
                 />
               </Button>
             </BasicTooltip>
-            {!isSmallScreen && (
-              <BasicTooltip text="Score settings">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => router.push("/settings?tab=score")}
-                  className="text-gray-900 dark:text-white"
-                >
-                  <Settings
-                    className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`}
-                  />
-                </Button>
-              </BasicTooltip>
-            )}
             {isFullscreen && (
               <BasicTooltip text={showDock ? "Hide controls" : "Show controls"}>
                 <Button
@@ -887,179 +867,6 @@ export default function ScorePage() {
     );
   };
 
-  // Top bar with title and main controls
-  function TopBar() {
-    // Track if we're on a small screen for responsive UI
-    const [isSmallScreen, setIsSmallScreen] = useState(false);
-
-    // Detect small screens
-    useEffect(() => {
-      const checkScreenSize = () => {
-        setIsSmallScreen(window.innerWidth < 500);
-      };
-
-      // Check on mount and resize
-      checkScreenSize();
-      window.addEventListener("resize", checkScreenSize);
-
-      return () => window.removeEventListener("resize", checkScreenSize);
-    }, []);
-
-    return (
-      <div
-        className={`absolute top-0 left-0 right-0 z-10 transition-opacity duration-300 ${
-          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        onMouseEnter={() => setShowControls(true)}
-      >
-        <div
-          className={`flex items-center justify-between ${
-            isSmallScreen ? "p-2" : "p-4"
-          } bg-white ${isFullscreen ? "dark:bg-gray-800" : "dark:bg-inherit"}`}
-        >
-          <div className="flex gap-2 items-center overflow-hidden">
-            {isFullscreen && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleFullscreen}
-                className={isSmallScreen ? "h-8 w-8 mr-1" : ""}
-              >
-                <Minimize2 className={isSmallScreen ? "h-4 w-4" : "h-5 w-5"} />
-              </Button>
-            )}
-            <span className="font-semibold truncate whitespace-nowrap overflow-ellipsis max-w-xl">
-              {score.name}
-            </span>
-            {score.subtitle && (
-              <span className="text-gray-500 dark:text-gray-400 truncate whitespace-nowrap max-w-xs">
-                {score.subtitle}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // When in fullscreen mode
-  if (isFullscreen) {
-    return (
-      <div className="w-full h-screen overflow-hidden pt-8 bg-gray-900">
-        <TopBar />
-        {/* Main score renderer - fills entire screen */}
-        <div className="h-full w-full relative">
-          {score && score.$id && score.file_id ? (
-            score.is_mxl ? (
-              <MusicXMLRenderer
-                scoreId={score.file_id}
-                recenter={recenterButton}
-                retry={() => {
-                  log.debug(
-                    "Retry requested for MusicXMLRenderer, limiting frequency",
-                  );
-                  // Debounce the refetch to prevent request spam
-                  if (
-                    window.lastRefetchTime &&
-                    Date.now() - window.lastRefetchTime < 5000
-                  ) {
-                    log.debug("Skipping refetch due to rate limiting");
-                    return;
-                  }
-                  window.lastRefetchTime = Date.now();
-                  void refetch();
-                }}
-                isFullscreen={isFullscreen}
-                currentPage={currentPage}
-                pagesPerView={1}
-              />
-            ) : (
-              <ImageScoreRenderer
-                scoreId={score.file_id}
-                recenter={recenterButton}
-                retry={() => {
-                  log.debug(
-                    "Retry requested for ImageScoreRenderer, limiting frequency",
-                  );
-                  // Debounce the refetch to prevent request spam
-                  if (
-                    window.lastRefetchTime &&
-                    Date.now() - window.lastRefetchTime < 5000
-                  ) {
-                    log.debug("Skipping refetch due to rate limiting");
-                    return;
-                  }
-                  window.lastRefetchTime = Date.now();
-                  void refetch();
-                }}
-                isFullscreen={isFullscreen}
-                currentPage={currentPage}
-                pagesPerView={1}
-                displayMode={displayMode}
-                verticalLoading={verticalLoading}
-              />
-            )
-          ) : (
-            ""
-          )}
-
-          {/* Control dock */}
-          <ControlDock />
-
-          {showMetricsPanel && (
-            <div className="fixed bottom-20 right-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-3 rounded shadow-lg z-50 text-base">
-              <div>Unstable Rate: {unstableRate.toFixed(3)}</div>
-              <div>Accuracy: {accuracy}%</div>
-              <button
-                className="mt-1 underline"
-                onClick={() => setShowMetricsPanel(false)}
-              >
-                Close
-              </button>
-            </div>
-          )}
-
-          {/* Debug panel - only render on client side */}
-          {isClient && isDebugMode && (
-            <DebugPanel
-              scoreId={id}
-              editList={filteredEditList}
-              setEditList={setEditList}
-              playedNotes={playedNotes}
-              scoreNotes={scoreNotes}
-              currentPage={currentPage}
-              editsOnPage={editsOnPage}
-              setPlayedNotes={setPlayedNotes}
-              confidenceFilter={confidenceThreshold}
-              setConfidenceFilter={setConfidenceThreshold}
-            />
-          )}
-
-          {/* Floating show button that appears when dock is hidden */}
-          {!showDock && (
-            <div
-              className="fixed bottom-8 right-8 z-10 transition-opacity duration-300 opacity-80 hover:opacity-100"
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <BasicTooltip text="Show controls">
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="bg-white/90 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white rounded-full w-12 h-12 shadow-lg"
-                  onClick={() => setShowDock(true)}
-                >
-                  <Eye className="h-6 w-6" />
-                </Button>
-              </BasicTooltip>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Regular mode with floating UI elements
   return (
     <Layout navbarContent={<NavContent />}>
       <div className="relative h-[calc(100vh-5rem)]">

@@ -11,6 +11,7 @@ import type { AccountView } from "@/types/provider-types";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { account } from "@/lib/appwrite";
+import Logo from "@/components/Logo";
 
 interface NavItemProps {
   href: string;
@@ -38,9 +39,11 @@ export function NavItem({ href, icon, children, active }: NavItemProps) {
 export function Navbar({
   onMenuClick,
   children,
+  showSidebar,
 }: {
   onMenuClick: () => void;
   children?: React.ReactNode;
+  showSidebar?: boolean;
 }) {
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -98,17 +101,21 @@ export function Navbar({
 
   return (
     <>
-      <header className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-850">
+      <header className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-850 h-16">
         <div className="flex items-center gap-4 overflow-hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onMenuClick}
-            className="xl:hidden"
-            aria-label="Toggle sidebar"
-          >
-            <Menu className="h-6 w-6" />
-          </Button>
+          {showSidebar ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onMenuClick}
+              className="xl:hidden"
+              aria-label="Toggle sidebar"
+            >
+              <Menu className="h-6 w-6" />
+            </Button>
+          ) : (
+            <Logo />
+          )}
           {children}
         </div>
         <div className="flex items-center gap-4">

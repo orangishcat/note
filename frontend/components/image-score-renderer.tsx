@@ -29,6 +29,7 @@ export default function ImageScoreRenderer({
   const [direction, setDirection] = useState<"next" | "prev" | null>(null);
   const [animating, setAnimating] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["image-score", scoreId],
@@ -232,12 +233,14 @@ export default function ImageScoreRenderer({
 
   return (
     <div
-      ref={containerRef}
+      id={`score-${scoreId}`}
+      ref={wrapperRef}
       className="relative flex h-full flex-col items-center overflow-hidden"
     >
       <ZoomableDiv recenter={recenter}>
         <div
-          className="relative"
+          ref={containerRef}
+          className="score-container relative"
           style={{
             width: pagesPerView === 2 ? "1600px" : "800px",
             height: "1000px",

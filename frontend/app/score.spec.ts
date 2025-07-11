@@ -349,3 +349,44 @@ test("debug panel filters edits by confidence", async ({ page, msw }) => {
   const editsBack = await getTotal();
   expect(editsBack).toBeGreaterThan(120);
 });
+
+// --- 5) annotations redraw per page change ---
+test("annotations update when page changes", async ({ page, msw }) => {
+  msw.use(
+    ...getHandlers(),
+    http.post(
+      /\/api\/audio\/receive$/,
+      () =>
+        new HttpResponse(readResource("scores", "spider_dance_edits.pb"), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/protobuf",
+            "X-Response-Format": "combined",
+          },
+        }),
+    ),
+  );
+
+  await page.addInitScript(() => {
+    localStorage.setItem("debug", "true");
+  });
+
+  await page.goto(`http://localhost:3000/score/${doc.$id}`);
+
+  await Promise.all([
+    page.waitForResponse(
+      (res) => res.url().includes("/api/audio/receive") && res.ok(),
+    ),
+    page.getByRole("button", { name: "Send Test Request" }).click(),
+  ]);
+
+  const countNotes = async () =>
+    page.locator(`#score-${doc.file_id} .note-rectangle`).count();
+
+  const first = await countNotes();
+  expect(first).toBeGreaterThan(0);
+
+  await page.getByRole("button", { name: "Next page" }).click();
+
+  await expect.poll(countNotes).not.toBe(first);
+});

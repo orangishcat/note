@@ -40,7 +40,7 @@ export default function AccountDropdown() {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer">
-          <a href="/settings" className="w-full">
+          <a href="/app/settings" className="w-full hover:bg-gray-300/30">
             Settings
           </a>
         </DropdownMenuItem>
@@ -49,11 +49,11 @@ export default function AccountDropdown() {
           onClick={() =>
             logOut().then(() => {
               log.debug("Logged out");
-              qc.invalidateQueries();
+              void qc.invalidateQueries();
               window.location.replace("/");
             })
           }
-          className="hover:bg-gray-300/30 cursor-pointer"
+          className="cursor-pointer hover:bg-gray-300/30"
         >
           <span className="text-primary-foreground text-md">Logout</span>
         </DropdownMenuItem>
@@ -63,5 +63,3 @@ export default function AccountDropdown() {
     ""
   );
 }
-
-
