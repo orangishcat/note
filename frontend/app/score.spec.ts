@@ -1,5 +1,5 @@
 import { test } from "next/dist/experimental/testmode/playwright/msw";
-import { expect, type Page, type Route } from "@playwright/test";
+import { expect, Locator, type Page, type Route } from "@playwright/test";
 import { http, HttpResponse } from "msw";
 import fs from "fs";
 import path from "path";
@@ -153,7 +153,6 @@ async function registerRoutes(page: Page) {
       }),
   );
   await page.route("**/api/audio/receive", (route: Route) => {
-    console.log("Intercepted audio request", route.request().url());
     route.fulfill({
       status: 200,
       body: readResource("scores", "spider_dance_edits.pb"),
@@ -193,6 +192,15 @@ async function registerRoutes(page: Page) {
   );
 }
 
+async function setSliderValue(slider: Locator, value: number) {
+  await slider.evaluate((el, val) => {
+    (el as HTMLInputElement).value = val.toString();
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    el.dispatchEvent(new Event("mouseup", { bubbles: true }));
+  }, value);
+}
+
 test.beforeEach(async ({ page }) => {
   registerLogging(page);
   await registerRoutes(page);
@@ -214,7 +222,7 @@ test("score page loads successfully without infinite redraw annotation loops", a
     }
   });
 
-  await page.goto(`http://localhost:3000/score/${doc.$id}`);
+  await page.goto(`http://localhost:3000/app/score/${doc.$id}`);
   const img = page.getByRole("img", { name: "Score page 1" });
   await img.waitFor();
   const loaded = await img.evaluate(
@@ -242,7 +250,7 @@ test("notes.proto is fetched on page load", async ({ page, msw }) => {
     page.waitForResponse(
       (res) => res.url().includes("/static/notes.proto") && res.ok(),
     ),
-    page.goto(`http://localhost:3000/score/${doc.$id}`),
+    page.goto(`http://localhost:3000/app/score/${doc.$id}`),
   ]);
 
   expect(response.ok()).toBe(true);
@@ -268,7 +276,7 @@ test("notes API returns protobuf with combined format header", async ({
     ),
   );
 
-  await page.goto(`http://localhost:3000/score/${doc.$id}`);
+  await page.goto(`http://localhost:3000/app/score/${doc.$id}`);
 
   const res = await page.evaluate(async () => {
     const r = await fetch("/api/audio/receive", {
@@ -308,10 +316,9 @@ test("debug panel filters edits by confidence", async ({ page, msw }) => {
     localStorage.setItem("debug", "true");
   });
 
-  await page.goto(`http://localhost:3000/score/${doc.$id}`);
+  await page.goto(`http://localhost:3000/app/score/${doc.$id}`);
 
-  const img = page.getByRole("img").first();
-  await img.waitFor();
+  await page.getByRole("img").first().waitFor();
 
   await expect(page.getByText("Debug Panel")).toBeVisible();
 
@@ -332,20 +339,14 @@ test("debug panel filters edits by confidence", async ({ page, msw }) => {
   await expect.poll(getTotal, { timeout: 15000 }).toBeGreaterThan(120);
 
   const slider = page.locator('input[type="range"]').nth(1);
-  await slider.evaluate((el) => {
-    (el as HTMLInputElement).value = "5";
-    el.dispatchEvent(new Event("mouseup", { bubbles: true }));
-  });
+  await setSliderValue(slider, 5);
 
   const editsAfterChange = await getTotal();
   expect(editsAfterChange).toBeGreaterThan(60);
   expect(editsAfterChange).toBeLessThan(100);
 
-  await slider.evaluate((el) => {
-    (el as HTMLInputElement).value = "3";
-    el.dispatchEvent(new Event("mouseup", { bubbles: true }));
-  });
-
+  await setSliderValue(slider, 3);
+  o;
   const editsBack = await getTotal();
   expect(editsBack).toBeGreaterThan(120);
 });
@@ -371,7 +372,7 @@ test("annotations update when page changes", async ({ page, msw }) => {
     localStorage.setItem("debug", "true");
   });
 
-  await page.goto(`http://localhost:3000/score/${doc.$id}`);
+  await page.goto(`http://localhost:3000/app/score/${doc.$id}`);
 
   await Promise.all([
     page.waitForResponse(
