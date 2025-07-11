@@ -1,8 +1,8 @@
 "use client";
 
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,14 +43,31 @@ export default function SettingsPage() {
     { value: "score", label: "Score", icon: <FileText className="h-4 w-4" /> },
   ];
 
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    const index = tabs.findIndex((t) => t.value === tab);
-    if (e.deltaY > 0 && index < tabs.length - 1) {
-      setTab(tabs[index + 1].value);
-    } else if (e.deltaY < 0 && index > 0) {
-      setTab(tabs[index - 1].value);
-    }
+  const containerRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
+  const scoreRef = useRef<HTMLDivElement>(null);
+
+  const scrollTo = (value: string) => {
+    const ref = value === "score" ? scoreRef : accountRef;
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const vis = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (vis[0]) setTab(vis[0].target.id);
+      },
+      { root: container, threshold: 0.3 },
+    );
+    if (accountRef.current) observer.observe(accountRef.current);
+    if (scoreRef.current) observer.observe(scoreRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <Layout
@@ -58,11 +75,15 @@ export default function SettingsPage() {
       hideSidebar
     >
       <div className="flex p-6">
-        <Tabs value={tab} onValueChange={setTab} className="flex w-full">
-          <TabsList
-            onWheel={handleWheel}
-            className="flex max-h-[calc(100vh-5rem)] w-56 flex-col gap-1 overflow-y-auto rounded-lg bg-gray-100 p-2 dark:bg-gray-850 mr-8"
-          >
+        <Tabs
+          value={tab}
+          onValueChange={(v) => {
+            setTab(v);
+            scrollTo(v);
+          }}
+          className="flex w-full"
+        >
+          <TabsList className="mr-8 flex w-56 flex-col gap-1 overflow-y-auto rounded-lg bg-gray-100 p-2 dark:bg-gray-850">
             {tabs.map((t) => (
               <TabsTrigger
                 key={t.value}
@@ -74,24 +95,24 @@ export default function SettingsPage() {
               </TabsTrigger>
             ))}
           </TabsList>
-          <div className="flex-1 overflow-y-auto">
-            <TabsContent value="account" className="space-y-6">
+          <div ref={containerRef} className="flex-1 overflow-y-auto">
+            <div ref={accountRef} id="account" className="space-y-6 pb-8">
               {account ? (
-                <div className="space-y-4 max-w-md">
+                <div className="max-w-md space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">
+                    <label className="mb-1 block text-sm font-medium">
                       Username
                     </label>
                     <Input defaultValue={account.username} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">
+                    <label className="mb-1 block text-sm font-medium">
                       Email
                     </label>
                     <Input type="email" defaultValue={account.email} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">
+                    <label className="mb-1 block text-sm font-medium">
                       Password
                     </label>
                     <Input type="password" placeholder="New password" />
@@ -113,8 +134,9 @@ export default function SettingsPage() {
                   {resolvedTheme === "dark" ? "Light" : "Dark"}
                 </Button>
               </div>
-            </TabsContent>
-            <TabsContent value="score" className="space-y-6">
+            </div>
+            <hr className="my-8" />
+            <div ref={scoreRef} id="score" className="space-y-6 pb-8">
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -131,7 +153,7 @@ export default function SettingsPage() {
                 />
                 Vertical loading bar
               </label>
-            </TabsContent>
+            </div>
           </div>
         </Tabs>
       </div>

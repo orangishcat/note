@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { ZoomContext } from "@/app/providers";
-import log from "loglevel";
+import { usePinch, useWheel } from "@use-gesture/react";
 
 export default function ZoomableDiv({
   children,
@@ -68,50 +68,54 @@ export default function ZoomableDiv({
     }
   }, []);
 
-  // Handle wheel events (Ctrl/Cmd+wheel for zoom) and recenter button click.
-  useEffect(() => {
-    const handleWheel = (e: WheelEvent) => {
-      log.debug("Wheel event: ", e.ctrlKey, e.metaKey, e.deltaY, e.deltaX);
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        // Handle both vertical (deltaY) and horizontal (deltaX) scroll for zoom
-        const delta = e.deltaY || e.deltaX;
-        const newScale = clamp(
-          scale - delta * zoomSensitivity,
-          minScale,
-          maxScale,
-        );
-        setScale(newScale);
-
-        // Update zoom context if we have a scoreId
-        if (zoomContext && scoreIdRef.current) {
-          zoomContext.setZoomLevel(scoreIdRef.current, newScale);
-        }
+  // Zoom handlers
+  useWheel(
+    ({ event, delta: [, dy] }) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      event.preventDefault();
+      const newScale = clamp(scale - dy * zoomSensitivity, minScale, maxScale);
+      setScale(newScale);
+      if (zoomContext && scoreIdRef.current) {
+        zoomContext.setZoomLevel(scoreIdRef.current, newScale);
       }
-    };
+    },
+    { target: outerRef, eventOptions: { passive: false } },
+  );
 
+  usePinch(
+    ({ event, offset: [d] }) => {
+      event.preventDefault();
+      const newScale = clamp(d, minScale, maxScale);
+      setScale(newScale);
+      if (zoomContext && scoreIdRef.current) {
+        zoomContext.setZoomLevel(scoreIdRef.current, newScale);
+      }
+    },
+    {
+      target: outerRef,
+      eventOptions: { passive: false },
+      pinch: {
+        scaleBounds: { min: minScale, max: maxScale },
+        from: () => [scale, 0],
+      },
+    },
+  );
+
+  useEffect(() => {
     const handleRecenter = () => {
-      // Always set to scale 1 when resetting (not defaultScale)
       const resetScale = 1;
       setScale(resetScale);
-
-      // Update zoom context if we have a scoreId
       if (zoomContext && scoreIdRef.current) {
         zoomContext.setZoomLevel(scoreIdRef.current, resetScale);
       }
     };
 
-    const outer = outerRef.current;
-    if (outer) outer.addEventListener("wheel", handleWheel, { passive: false });
-
     const btn = recenter.current;
     btn?.addEventListener("click", handleRecenter);
-
     return () => {
-      if (outer) outer.removeEventListener("wheel", handleWheel);
       btn?.removeEventListener("click", handleRecenter);
     };
-  }, [recenter, scale, zoomContext]);
+  }, [recenter, zoomContext]);
 
   // When scale changes, update the transform, recalc dimensions, and adjust scroll so that the center remains.
   useEffect(() => {
