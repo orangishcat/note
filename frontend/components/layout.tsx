@@ -16,9 +16,9 @@ export interface LayoutProps {
 export function Layout({
   children,
   navbarContent,
-  showSidebar = false,
+  showSidebar = true,
 }: LayoutProps) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(showSidebar);
   const authModalContext = useContext(AuthModalContext);
   const router = useRouter();
 
@@ -52,7 +52,7 @@ export function Layout({
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-gray-900 dark:text-white">
       <div
         className={cn(
-          showSidebar ? "xl:ml-72" : "",
+          showSidebar && isSidebarOpen ? "xl:ml-72" : "",
           "transition-all duration-200",
         )}
       >
@@ -70,7 +70,7 @@ export function Layout({
         <main
           className={cn(
             "flex-1 transition-all duration-200",
-            showSidebar ? "xl:ml-72" : "",
+            showSidebar && isSidebarOpen ? "xl:ml-72" : "",
           )}
         >
           {children}

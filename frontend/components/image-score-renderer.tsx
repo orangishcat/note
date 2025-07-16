@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Image from "next/image";
 import JSZip from "jszip";
 import { useQuery } from "@tanstack/react-query";
@@ -6,13 +13,36 @@ import ZoomableDiv from "@/components/ui-custom/zoomable-div";
 import { ImageScoreRendererProps } from "@/types/score-types";
 import api from "@/lib/network";
 import { storage } from "@/lib/appwrite";
+import { ZoomContext } from "@/app/providers";
 
-const cache = new Map<string, string[]>();
+interface ImageData {
+  url: string;
+  width: number;
+  height: number;
+}
+
+const cache = new Map<string, ImageData[]>();
+
+// Utility function to load image and get its dimensions
+const loadImageDimensions = (
+  url: string,
+): Promise<{ width: number; height: number }> => {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+};
 
 // Revoke all cached URLs before page unload
 if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", () => {
-    cache.forEach((urls) => urls.forEach((u) => URL.revokeObjectURL(u)));
+    cache.forEach((imageData) =>
+      imageData.forEach((data) => URL.revokeObjectURL(data.url)),
+    );
     cache.clear();
   });
 }
@@ -22,6 +52,7 @@ export default function ImageScoreRenderer({
   recenter,
   currentPage,
   pagesPerView,
+  setPage,
   displayMode = "paged",
 }: ImageScoreRendererProps) {
   const [pageIndex, setPageIndex] = useState(0);
@@ -30,6 +61,9 @@ export default function ImageScoreRenderer({
   const [animating, setAnimating] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const zoomCtx = useContext(ZoomContext);
+  if (!zoomCtx) throw new Error("Zoom context missing");
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["image-score", scoreId],
@@ -58,22 +92,73 @@ export default function ImageScoreRenderer({
         throw new Error("Unsupported file type");
       }
 
-      cache.set(scoreId, urls);
-      return urls;
+      // Load dimensions for each image
+      const imageData: ImageData[] = [];
+      for (const url of urls) {
+        try {
+          const dimensions = await loadImageDimensions(url);
+          imageData.push({
+            url,
+            width: dimensions.width,
+            height: dimensions.height,
+          });
+        } catch {
+          // If we can't load dimensions, use default aspect ratio (4:5 like the original 800x1000)
+          imageData.push({
+            url,
+            width: 800,
+            height: 1000,
+          });
+        }
+      }
+
+      cache.set(scoreId, imageData);
+      return imageData;
     },
   });
 
-  const images = data ?? [];
+  const images = useMemo(() => data ?? [], [data]);
   const totalViews = Math.ceil(images.length / pagesPerView);
+
+  // Calculate container dimensions based on image aspect ratios
+  const getContainerDimensions = useCallback(
+    (imageData: ImageData[], maxWidth = 800) => {
+      if (imageData.length === 0) return { width: maxWidth, height: 1000 };
+
+      // For single page view, use the image's aspect ratio
+      if (pagesPerView === 1) {
+        const img = imageData[0];
+        const aspectRatio = img.width / img.height;
+        const width = maxWidth;
+        const height = width / aspectRatio;
+        return { width, height };
+      }
+
+      // For dual page view, calculate based on both images
+      let totalWidth = 0;
+      let maxHeight = 0;
+
+      for (const img of imageData) {
+        const aspectRatio = img.width / img.height;
+        const width = maxWidth / 2; // Split available width between pages
+        const height = width / aspectRatio;
+        totalWidth += width;
+        maxHeight = Math.max(maxHeight, height);
+      }
+
+      return { width: totalWidth, height: maxHeight };
+    },
+    [pagesPerView],
+  );
 
   // Clear cache and refetch if any image fails to load
   const handleImageError = useCallback(() => {
-    const urls = cache.get(scoreId);
-    if (urls) {
-      urls.forEach((u) => URL.revokeObjectURL(u));
+    const imageData = cache.get(scoreId);
+    if (imageData) {
+      imageData.forEach((data) => URL.revokeObjectURL(data.url));
       cache.delete(scoreId);
     }
-    refetch();
+    void refetch();
   }, [scoreId, refetch]);
 
   // Inform parent about total pages
@@ -96,13 +181,6 @@ export default function ImageScoreRenderer({
     document.dispatchEvent(ev);
   }, [pageIndex, scoreId]);
 
-  // Synchronize with external currentPage
-  useEffect(() => {
-    if (currentPage !== undefined && currentPage !== pageIndex) {
-      startTransition(currentPage);
-    }
-  }, [currentPage]);
-
   const startTransition = useCallback(
     (newIndex: number) => {
       if (newIndex === pageIndex || newIndex < 0 || newIndex >= totalViews) {
@@ -120,16 +198,33 @@ export default function ImageScoreRenderer({
     [pageIndex, totalViews],
   );
 
+  // Synchronize with external currentPage
+  useEffect(() => {
+    if (currentPage !== undefined && currentPage !== pageIndex) {
+      startTransition(currentPage);
+    }
+  }, [currentPage, pageIndex, startTransition]);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (animating) return;
       if (e.key === "ArrowRight") {
-        startTransition(Math.min(pageIndex + 1, totalViews - 1));
+        setPage(Math.min(pageIndex + 1, totalViews - 1));
       } else if (e.key === "ArrowLeft") {
-        startTransition(Math.max(pageIndex - 1, 0));
+        setPage(Math.max(pageIndex - 1, 0));
+      } else if (e.key === "=" || e.key === "+") {
+        // Zoom in: increase zoom level by 0.1, with max limit of 4
+        const currentZoom = zoomCtx.getZoomLevel(scoreId);
+        const newZoom = Math.min(currentZoom + 0.1, 4);
+        zoomCtx.setZoomLevel(scoreId, newZoom);
+      } else if (e.key === "-") {
+        // Zoom out: decrease zoom level by 0.1, with min limit of 0.25
+        const currentZoom = zoomCtx.getZoomLevel(scoreId);
+        const newZoom = Math.max(currentZoom - 0.1, 0.25);
+        zoomCtx.setZoomLevel(scoreId, newZoom);
       }
     },
-    [animating, pageIndex, startTransition, totalViews],
+    [animating, pageIndex, setPage, totalViews, scoreId, zoomCtx],
   );
 
   const handleWheel = useCallback(
@@ -138,13 +233,13 @@ export default function ImageScoreRenderer({
       if (Math.abs(e.deltaX) > 20 && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         if (e.deltaX > 0) {
-          startTransition(Math.min(pageIndex + 1, totalViews - 1));
+          setPage(Math.min(pageIndex + 1, totalViews - 1));
         } else {
-          startTransition(Math.max(pageIndex - 1, 0));
+          setPage(Math.max(pageIndex - 1, 0));
         }
       }
     },
-    [animating, pageIndex, startTransition, totalViews],
+    [animating, pageIndex, setPage, totalViews],
   );
 
   useEffect(() => {
@@ -186,22 +281,28 @@ export default function ImageScoreRenderer({
       >
         <ZoomableDiv recenter={recenter}>
           <div className="flex flex-col items-center bg-white">
-            {images.map((url, i) => (
-              <div
-                key={i}
-                className="relative"
-                style={{ width: "800px", height: "1000px" }}
-              >
-                <Image
-                  src={url}
-                  alt={`Score page ${i + 1}`}
-                  fill
-                  style={{ objectFit: "contain" }}
-                  unoptimized
-                  onError={handleImageError}
-                />
-              </div>
-            ))}
+            {images.map((imageData, i) => {
+              const aspectRatio = imageData.width / imageData.height;
+              const width = 800;
+              const height = width / aspectRatio;
+
+              return (
+                <div
+                  key={i}
+                  className="relative"
+                  style={{ width: `${width}px`, height: `${height}px` }}
+                >
+                  <Image
+                    src={imageData.url || "null"}
+                    alt={`Score page ${i + 1}`}
+                    fill
+                    style={{ objectFit: "contain" }}
+                    unoptimized
+                    onError={handleImageError}
+                  />
+                </div>
+              );
+            })}
           </div>
         </ZoomableDiv>
       </div>
@@ -219,6 +320,9 @@ export default function ImageScoreRenderer({
           transitionPage * pagesPerView + pagesPerView,
         )
       : [];
+
+  // Calculate container dimensions for current pages
+  const containerDimensions = getContainerDimensions(currentPages);
 
   const currentClass = animating
     ? direction === "next"
@@ -242,8 +346,8 @@ export default function ImageScoreRenderer({
           ref={containerRef}
           className="score-container relative"
           style={{
-            width: pagesPerView === 2 ? "1600px" : "800px",
-            height: "1000px",
+            width: `${containerDimensions.width}px`,
+            height: `${containerDimensions.height}px`,
           }}
         >
           {transitionPage !== null && animating && (
@@ -251,50 +355,68 @@ export default function ImageScoreRenderer({
               className={`flex ${prevClass}`}
               style={{ width: "100%", height: "100%" }}
             >
-              {previousPages.map((url, i) => (
-                <div
-                  key={`prev-${i}`}
-                  className="relative bg-white"
-                  style={{
-                    width: pagesPerView === 2 ? "800px" : "800px",
-                    height: "1000px",
-                  }}
-                >
-                  <Image
-                    src={url}
-                    alt=""
-                    fill
-                    style={{ objectFit: "contain" }}
-                    unoptimized
-                    onError={handleImageError}
-                  />
-                </div>
-              ))}
+              {previousPages.map((imageData, i) => {
+                const aspectRatio = imageData.width / imageData.height;
+                const width =
+                  pagesPerView === 2
+                    ? containerDimensions.width / 2
+                    : containerDimensions.width;
+                const height = width / aspectRatio;
+
+                return (
+                  <div
+                    key={`prev-${i}`}
+                    className="relative bg-white"
+                    style={{
+                      width: `${width}px`,
+                      height: `${height}px`,
+                    }}
+                  >
+                    <Image
+                      src={imageData.url || "null"}
+                      alt=""
+                      fill
+                      style={{ objectFit: "contain" }}
+                      unoptimized
+                      onError={handleImageError}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
           <div
             className={`flex ${currentClass}`}
             style={{ width: "100%", height: "100%" }}
           >
-            {currentPages.map((url, i) => (
-              <div
-                key={`curr-${i}`}
-                className="relative bg-white"
-                style={{
-                  width: pagesPerView === 2 ? "800px" : "800px",
-                  height: "1000px",
-                }}
-              >
-                <Image
-                  src={url}
-                  alt={`Score page ${pageIndex * pagesPerView + i + 1}`}
-                  fill
-                  style={{ objectFit: "contain" }}
-                  unoptimized
-                  onError={handleImageError}
-                />
-              </div>
-            ))}
+            {currentPages.map((imageData, i) => {
+              const aspectRatio = imageData.width / imageData.height;
+              const width =
+                pagesPerView === 2
+                  ? containerDimensions.width / 2
+                  : containerDimensions.width;
+              const height = width / aspectRatio;
+
+              return (
+                <div
+                  key={`curr-${i}`}
+                  className="relative bg-white"
+                  style={{
+                    width: `${width}px`,
+                    height: `${height}px`,
+                  }}
+                >
+                  <Image
+                    src={imageData.url || "null"}
+                    alt={`Score page ${pageIndex * pagesPerView + i + 1}`}
+                    fill
+                    style={{ objectFit: "contain" }}
+                    unoptimized
+                    onError={handleImageError}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       </ZoomableDiv>

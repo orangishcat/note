@@ -193,7 +193,7 @@ export function useAudioRecorder({
     return () => {
       void cleanup();
     };
-  }, [isRecording, scoreId, notesId]);
+  }, [isRecording, scoreId, notesId, startRecording, stopRecording]);
 
   return { hasPermission: !!streamRef.current };
 }

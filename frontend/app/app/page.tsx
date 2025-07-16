@@ -6,7 +6,7 @@ import SearchBox from "@/components/ui-custom/search-box";
 
 export default function Page() {
   return (
-    <Layout showSidebar={true} navbarContent={<SearchBox />}>
+    <Layout navbarContent={<SearchBox />}>
       <FileManager />
     </Layout>
   );

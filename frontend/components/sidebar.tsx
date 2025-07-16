@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { LayoutGrid, X } from "lucide-react";
+import { ChevronLeft, LayoutGrid } from "lucide-react";
 import React from "react";
 import { NavItem } from "@/components/navbar";
 import { Folder, FolderDisplay } from "@/components/folder";
@@ -31,20 +31,14 @@ export function Sidebar({
   return (
     <div
       className={cn(
-        "fixed top-0 left-0 h-full w-72 z-40 bg-gray-100 dark:bg-gray-850 backdrop-blur border-r dark:border-gray-700 flex flex-col" +
-          " transform transition-transform duration-200 ease-in-out xl:translate-x-0",
+        "fixed top-0 left-0 h-full w-72 z-40 bg-gray-100 dark:bg-gray-850 backdrop-blur border-r dark:border-gray-700 flex flex-col transform transition-transform duration-200 ease-in-out",
         isOpen ? "translate-x-0" : "-translate-x-full",
       )}
     >
       <div className="flex items-center justify-between p-4">
         <Logo />
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onCloseAction}
-          className="xl:hidden"
-        >
-          <X className="h-4 w-4" />
+        <Button variant="ghost" size="icon" onClick={onCloseAction}>
+          <ChevronLeft className="text-gray-500 dark:text-gray-400" />
         </Button>
       </div>
       <nav className="space-y-1 px-2 flex-1 overflow-y-auto">

@@ -32,6 +32,7 @@ export interface MusicXMLRendererProps {
 }
 
 export interface ImageScoreRendererProps extends MusicXMLRendererProps {
+  setPage: (page: number) => void;
   displayMode?: "paged" | "scroll";
   verticalLoading?: boolean;
 }

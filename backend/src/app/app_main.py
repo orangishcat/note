@@ -6,8 +6,8 @@ from flask_jwt_extended import JWTManager
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_socketio import SocketIO
+
 from limiter import limit
-from loguru import logger
 
 if debug := os.getenv("DEBUG", "True") == "True":
     from dotenv import load_dotenv

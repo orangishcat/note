@@ -108,7 +108,6 @@ export function Navbar({
               variant="ghost"
               size="icon"
               onClick={onMenuClick}
-              className="xl:hidden"
               aria-label="Toggle sidebar"
             >
               <Menu className="h-6 w-6" />

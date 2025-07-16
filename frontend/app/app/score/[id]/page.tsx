@@ -17,13 +17,10 @@ import {
   BarChart2,
   Clock,
   Download,
-  Eye,
-  EyeOff,
   Fullscreen,
   Maximize2,
   Mic,
   Minimize2,
-  Settings,
   SquareIcon,
   Star,
 } from "lucide-react";
@@ -45,7 +42,7 @@ import { initProtobufTypes, protobufTypeCache } from "@/lib/proto";
 import DebugPanel from "@/components/DebugPanel";
 import api from "@/lib/network";
 import RecordingsModal from "@/components/RecordingsModal";
-import { useAudioRecorder, type RecordingError } from "@/lib/audio-recorder";
+import { type RecordingError, useAudioRecorder } from "@/lib/audio-recorder";
 import { MusicScore } from "@/types/score-types";
 
 // Add a global type declaration to prevent TypeScript errors
@@ -399,17 +396,12 @@ export default function ScorePage() {
     }, 100);
   };
 
-  // Page state
   const [lastStarTime, setLastStarTime] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-  const [showDock, setShowDock] = useState(true);
   const [showRecordingsModal, setShowRecordingsModal] = useState(false);
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const [totalPages, setTotalPages] = useState<number | null>(null);
 
-  // Refs
-  const mouseMoveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dockRef = useRef<HTMLDivElement>(null);
   const recenterButton = useRef<HTMLButtonElement>(null);
   const fetchedDataRef = useRef<boolean>(false); // Prevent duplicate API calls during React's double-render
@@ -478,81 +470,6 @@ export default function ScorePage() {
     setScore(loadedScore);
   }, [loadedScore]);
 
-  // Handle fullscreen mode controls visibility
-  useEffect(() => {
-    // In fullscreen mode, we only auto-hide the top bar now, not the dock
-    if (!isFullscreen) {
-      setShowControls(true);
-      setShowDock(true);
-      return;
-    }
-
-    const handleMouseMove = () => {
-      // Always show the controls on mouse movement
-      setShowControls(true);
-      setShowDock(true);
-
-      // Clear any existing timeout
-      if (mouseMoveTimeoutRef.current) {
-        clearTimeout(mouseMoveTimeoutRef.current);
-      }
-
-      // Set a timeout to hide the controls and dock
-      mouseMoveTimeoutRef.current = setTimeout(() => {
-        setShowControls(false);
-        setShowDock(false);
-      }, 3000);
-    };
-
-    // Handle touch movement to show dock and controls
-    const handleTouchMove = (e: TouchEvent) => {
-      // Get the touch position
-      if (e.touches.length > 0) {
-        const touch = e.touches[0];
-
-        // Show controls on any touch
-        setShowControls(true);
-        setShowDock(true);
-
-        // Re-show dock if touch is near the bottom of the screen
-        if (!showDock && touch.clientY > window.innerHeight - 150) {
-          setShowDock(true);
-        }
-
-        // Reset the timeout
-        if (mouseMoveTimeoutRef.current) {
-          clearTimeout(mouseMoveTimeoutRef.current);
-        }
-
-        // Set timeout to hide controls and dock
-        mouseMoveTimeoutRef.current = setTimeout(() => {
-          setShowControls(false);
-          setShowDock(false);
-        }, 3000);
-      }
-    };
-
-    // Add listeners for fullscreen mode
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("touchmove", handleTouchMove as EventListener);
-
-    // Initialize timeout for hiding controls and dock
-    mouseMoveTimeoutRef.current = setTimeout(() => {
-      setShowControls(false);
-      setShowDock(false);
-    }, 3000);
-
-    // Cleanup function
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("touchmove", handleTouchMove as EventListener);
-      if (mouseMoveTimeoutRef.current) {
-        clearTimeout(mouseMoveTimeoutRef.current);
-      }
-    };
-  }, [isFullscreen, showDock]);
-
-  // Check URL for fullscreen param on initial load
   useEffect(() => {
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
@@ -620,15 +537,6 @@ export default function ScorePage() {
     document.body.style.overscrollBehaviorX = "none";
   }, []);
 
-  // Toggle dock visibility
-  const toggleDockVisibility = () => {
-    const newState = !showDock;
-    setShowDock(newState);
-    if (!newState) {
-      setShowControls(false);
-    }
-  };
-
   const ControlDock = () => {
     const currentDisplayPage = currentPage + 1;
     const totalPages = score && score.total_pages ? score.total_pages : "?";
@@ -649,9 +557,7 @@ export default function ScorePage() {
     return (
       <div
         ref={dockRef}
-        className={`fixed bottom-0 right-0 left-0 border-t border-gray-200 dark:border-gray-700 transition-opacity duration-300 ${
-          showDock ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
+        className="absolute right-0 bottom-0 w-full border-t border-gray-200 dark:border-gray-700 transition-opacity duration-300"
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -826,26 +732,6 @@ export default function ScorePage() {
                 />
               </Button>
             </BasicTooltip>
-            {isFullscreen && (
-              <BasicTooltip text={showDock ? "Hide controls" : "Show controls"}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleDockVisibility}
-                  className="text-gray-900 dark:text-white"
-                >
-                  {showDock ? (
-                    <EyeOff
-                      className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
-                    />
-                  ) : (
-                    <Eye
-                      className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
-                    />
-                  )}
-                </Button>
-              </BasicTooltip>
-            )}
           </div>
         </div>
 
@@ -869,9 +755,9 @@ export default function ScorePage() {
 
   return (
     <Layout navbarContent={<NavContent />}>
-      <div className="relative h-[calc(100vh-5rem)]">
+      <div className="relative h-[calc(100vh-4rem)]">
         {/* Main score renderer - fills entire screen */}
-        <div className="h-full w-full relative">
+        <div className="h-[calc(100%-4rem)] w-full relative">
           {score && score.$id && score.file_id ? (
             score.is_mxl ? (
               <MusicXMLRenderer
@@ -915,6 +801,7 @@ export default function ScorePage() {
                   void refetch();
                 }}
                 currentPage={currentPage}
+                setPage={setCurrentPage}
                 pagesPerView={1}
                 displayMode={displayMode}
                 verticalLoading={verticalLoading}
@@ -923,26 +810,26 @@ export default function ScorePage() {
           ) : (
             ""
           )}
-
-          {/* Control dock */}
-          <ControlDock />
-
-          {/* Debug panel - only render on client side */}
-          {isClient && isDebugMode && (
-            <DebugPanel
-              scoreId={id}
-              editList={filteredEditList}
-              setEditList={setEditList}
-              playedNotes={playedNotes}
-              scoreNotes={scoreNotes}
-              currentPage={currentPage}
-              editsOnPage={editsOnPage}
-              setPlayedNotes={setPlayedNotes}
-              confidenceFilter={confidenceThreshold}
-              setConfidenceFilter={setConfidenceThreshold}
-            />
-          )}
         </div>
+
+        {/* Control dock */}
+        <ControlDock />
+
+        {/* Debug panel - only render on client side */}
+        {isClient && isDebugMode && (
+          <DebugPanel
+            scoreId={id}
+            editList={filteredEditList}
+            setEditList={setEditList}
+            playedNotes={playedNotes}
+            scoreNotes={scoreNotes}
+            currentPage={currentPage}
+            editsOnPage={editsOnPage}
+            setPlayedNotes={setPlayedNotes}
+            confidenceFilter={confidenceThreshold}
+            setConfidenceFilter={setConfidenceThreshold}
+          />
+        )}
       </div>
     </Layout>
   );

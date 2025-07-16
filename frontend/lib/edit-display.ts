@@ -75,7 +75,7 @@ export function useEditDisplay(
         annotation.style.transformOrigin = "top left";
       }
     });
-  }, [zoomCtx?.zoomLevels[scoreId], scoreId]);
+  }, [zoomCtx, zoomCtx?.zoomLevels[scoreId], scoreId]);
 
   function renderEdits() {
     log.debug("Rendering edits for page", currentPage);
@@ -105,6 +105,7 @@ export function useEditDisplay(
       editList.edits?.filter((e) => e.sChar?.page === currentPage) ?? [];
     setEditCount(edits.length);
 
+    if (!zoomCtx) return;
     const currentZoom = 1;
 
     edits.forEach((edit: Edit) => {
