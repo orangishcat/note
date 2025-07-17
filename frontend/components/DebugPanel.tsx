@@ -8,6 +8,7 @@ import { splitCombinedResponse } from "@/lib/audio-recorder";
 import api from "@/lib/network";
 import { initProtobufTypes } from "@/lib/proto";
 import { DebugPanelProps } from "@/types/debugpanel-types";
+import { clamp } from "@radix-ui/number";
 
 const TestTypeSelector = ({
   isOpen,
@@ -450,7 +451,22 @@ const DebugPanel = ({
           <div className="mt-2 flex flex-col gap-1">
             <label className="text-gray-300 text-xs flex justify-between items-center">
               <span>Min Confidence:</span>
-              <span className="text-white font-mono">{localConf}</span>
+              <input
+                type="number"
+                min={1}
+                max={5}
+                value={localConf}
+                onChange={(e) => {
+                  const v = clamp(parseInt(e.target.value, 10) % 10, [1, 5]);
+                  if (!isNaN(v)) {
+                    e.target.value = v.toString();
+                    setLocalConf(v);
+                    setConfidenceFilter(v);
+                    redrawAnnotations();
+                  }
+                }}
+                className="w-6 ml-2 font-mono bg-transparent text-right text-black dark:text-white outline-none rounded px-1"
+              />
             </label>
             <input
               type="range"

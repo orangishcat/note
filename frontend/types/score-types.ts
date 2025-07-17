@@ -1,5 +1,6 @@
 import type { Models } from "appwrite";
 import { RefObject } from "react";
+import { ScoringResult } from "@/types/proto-types";
 
 export interface MusicScore extends Models.Document {
   /** Appwrite document identifier */
@@ -35,4 +36,6 @@ export interface ImageScoreRendererProps extends MusicXMLRendererProps {
   setPage: (page: number) => void;
   displayMode?: "paged" | "scroll";
   verticalLoading?: boolean;
+  editList?: ScoringResult | null;
+  confidenceFilter?: number;
 }

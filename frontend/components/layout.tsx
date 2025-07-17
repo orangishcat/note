@@ -1,9 +1,10 @@
+"use client";
 import { Navbar } from "@/components/navbar";
 import { ReactNode, useContext, useEffect, useState } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { AuthModalContext } from "@/app/providers";
 import { setAuthModalOpener, setNavigateFunction } from "@/lib/network";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import log from "loglevel";
 import { cn } from "@/lib/utils";
 
@@ -13,11 +14,11 @@ export interface LayoutProps {
   showSidebar?: boolean;
 }
 
-export function Layout({
-  children,
-  navbarContent,
-  showSidebar = true,
-}: LayoutProps) {
+export function Layout({ children, navbarContent, showSidebar }: LayoutProps) {
+  const pathname = usePathname();
+  showSidebar =
+    showSidebar === undefined ? pathname.startsWith("/app") : showSidebar;
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(showSidebar);
   const authModalContext = useContext(AuthModalContext);
   const router = useRouter();

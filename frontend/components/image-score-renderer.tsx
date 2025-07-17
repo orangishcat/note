@@ -14,6 +14,8 @@ import { ImageScoreRendererProps } from "@/types/score-types";
 import api from "@/lib/network";
 import { storage } from "@/lib/appwrite";
 import { ZoomContext } from "@/app/providers";
+import { useDrag } from "@use-gesture/react";
+import { clamp } from "@radix-ui/number";
 
 interface ImageData {
   url: string;
@@ -213,15 +215,15 @@ export default function ImageScoreRenderer({
       } else if (e.key === "ArrowLeft") {
         setPage(Math.max(pageIndex - 1, 0));
       } else if (e.key === "=" || e.key === "+") {
-        // Zoom in: increase zoom level by 0.1, with max limit of 4
-        const currentZoom = zoomCtx.getZoomLevel(scoreId);
-        const newZoom = Math.min(currentZoom + 0.1, 4);
-        zoomCtx.setZoomLevel(scoreId, newZoom);
+        zoomCtx.setZoomLevel(
+          scoreId,
+          Math.min(zoomCtx.getZoomLevel(scoreId) + 0.1, 4),
+        );
       } else if (e.key === "-") {
-        // Zoom out: decrease zoom level by 0.1, with min limit of 0.25
-        const currentZoom = zoomCtx.getZoomLevel(scoreId);
-        const newZoom = Math.max(currentZoom - 0.1, 0.25);
-        zoomCtx.setZoomLevel(scoreId, newZoom);
+        zoomCtx.setZoomLevel(
+          scoreId,
+          Math.max(zoomCtx.getZoomLevel(scoreId) - 0.1, 0.25),
+        );
       }
     },
     [animating, pageIndex, setPage, totalViews, scoreId, zoomCtx],
@@ -240,6 +242,17 @@ export default function ImageScoreRenderer({
       }
     },
     [animating, pageIndex, setPage, totalViews],
+  );
+
+  useDrag(
+    ({ event, swipe: [swipeX] }) => {
+      event.preventDefault();
+      setPage(clamp(pageIndex - swipeX, [0, totalViews - 1]));
+    },
+    {
+      target: containerRef,
+      eventOptions: { passive: false },
+    },
   );
 
   useEffect(() => {
@@ -277,7 +290,7 @@ export default function ImageScoreRenderer({
     return (
       <div
         ref={containerRef}
-        className="flex h-full flex-col items-center overflow-y-auto"
+        className="flex h-full flex-col items-center overflow-y-auto select-none"
       >
         <ZoomableDiv recenter={recenter}>
           <div className="flex flex-col items-center bg-white">
@@ -339,12 +352,12 @@ export default function ImageScoreRenderer({
     <div
       id={`score-${scoreId}`}
       ref={wrapperRef}
-      className="relative flex h-full flex-col items-center overflow-hidden"
+      className="relative flex h-full flex-col items-center overflow-hidden select-none"
     >
       <ZoomableDiv recenter={recenter}>
         <div
           ref={containerRef}
-          className="score-container relative"
+          className="score-container relative touch-none"
           style={{
             width: `${containerDimensions.width}px`,
             height: `${containerDimensions.height}px`,

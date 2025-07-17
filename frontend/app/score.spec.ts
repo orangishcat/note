@@ -192,13 +192,12 @@ async function registerRoutes(page: Page) {
   );
 }
 
-async function setSliderValue(slider: Locator, value: number) {
-  await slider.evaluate((el, val) => {
-    (el as HTMLInputElement).value = val.toString();
+async function setConfidenceValue(input: Locator, value: number) {
+  await input.fill(value.toString());
+  await input.evaluate((el) => {
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
-    el.dispatchEvent(new Event("mouseup", { bubbles: true }));
-  }, value);
+  });
 }
 
 test.beforeEach(async ({ page }) => {
@@ -338,14 +337,14 @@ test("debug panel filters edits by confidence", async ({ page, msw }) => {
 
   await expect.poll(getTotal, { timeout: 15000 }).toBeGreaterThan(120);
 
-  const slider = page.locator('input[type="range"]').nth(1);
-  await setSliderValue(slider, 5);
+  const confInput = page.locator('input[type="number"]');
+  await setConfidenceValue(confInput, 5);
 
   const editsAfterChange = await getTotal();
   expect(editsAfterChange).toBeGreaterThan(60);
   expect(editsAfterChange).toBeLessThan(100);
 
-  await setSliderValue(slider, 3);
+  await setConfidenceValue(confInput, 3);
 
   const editsBack = await getTotal();
   expect(editsBack).toBeGreaterThan(120);
@@ -382,7 +381,9 @@ test("annotations update when page changes", async ({ page, msw }) => {
   ]);
 
   const countNotes = async () =>
-    page.locator(`#score-${doc.file_id} .note-rectangle`).count();
+    page
+      .locator(`#score-${doc.file_id} .swiper-slide-active .note-rectangle`)
+      .count();
 
   const first = await countNotes();
   expect(first).toBeGreaterThan(0);

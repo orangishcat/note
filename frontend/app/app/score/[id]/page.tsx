@@ -33,7 +33,6 @@ import axios from "axios";
 import ImageScoreRenderer from "@/components/image-score-renderer";
 import { Type } from "protobufjs";
 import log from "@/lib/logger";
-import { useEditDisplay } from "@/lib/edit-display";
 import { Edit, NoteList, ScoringResult } from "@/types/proto-types";
 
 import { useToast } from "@/components/ui/toast";
@@ -44,6 +43,7 @@ import api from "@/lib/network";
 import RecordingsModal from "@/components/RecordingsModal";
 import { type RecordingError, useAudioRecorder } from "@/lib/audio-recorder";
 import { MusicScore } from "@/types/score-types";
+import { useEditDisplay } from "@/lib/edit-display";
 
 // Add a global type declaration to prevent TypeScript errors
 declare global {
@@ -273,6 +273,14 @@ export default function ScorePage() {
     const total = scoreNotes.notes?.length || 1;
     return ((1 - numEdits / total) * 100).toFixed(1);
   }, [filteredEditList, scoreNotes]);
+
+  useEffect(() => {
+    if (!filteredEditList) return;
+    const cnt =
+      filteredEditList.edits?.filter((e: Edit) => e.sChar?.page === currentPage)
+        .length || 0;
+    setEditsOnPage(cnt);
+  }, [filteredEditList, currentPage]);
 
   function NavContent() {
     return (
@@ -805,6 +813,8 @@ export default function ScorePage() {
                 pagesPerView={1}
                 displayMode={displayMode}
                 verticalLoading={verticalLoading}
+                editList={filteredEditList}
+                confidenceFilter={confidenceThreshold}
               />
             )
           ) : (
