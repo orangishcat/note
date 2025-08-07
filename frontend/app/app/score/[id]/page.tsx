@@ -306,6 +306,7 @@ export default function ScorePage() {
   // Use the edit display hook
   useEditDisplay(
     filteredEditList,
+    scoreNotes,
     currentPage,
     id,
     score.file_id,

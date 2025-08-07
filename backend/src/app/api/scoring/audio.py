@@ -9,19 +9,32 @@ from functools import lru_cache
 from traceback import print_exc
 
 import magic
-from appwrite.services.storage import Storage
-from appwrite.services.databases import Databases
 from appwrite.input_file import InputFile
 from appwrite.permission import Permission
 from appwrite.role import Role
+from appwrite.services.databases import Databases
+from appwrite.services.storage import Storage
 from beam import Image, endpoint
 from flask import Response, request, g
 from loguru import logger
-from scoring import Note, NoteList, extract_midi_notes, analyze_tempo, ScoringResult
-from scoring.edit_distance import find_ops
 
-from .. import get_user_client, misc_bucket, database
+from scoring import Note, NoteList, extract_midi_notes, analyze_tempo
+from scoring.edit_distance import find_ops
 from . import audio
+from .. import get_user_client, misc_bucket, database
+
+# Test file mapping
+test_cfg = {
+    "spider_dance_played": {
+        "played": "spider dance played",
+        "actual": "spiderdance_notes",
+        "edits": "scores/spider_dance_edits.pb",
+    },
+    "spider_dance_actual": {
+        "played": "spider dance actual",
+        "actual": "spiderdance_notes",
+    },
+}
 
 
 @lru_cache(maxsize=16)
@@ -63,24 +76,9 @@ def beam_transkun(audio_bytes):
     return predict(audio_bytes)
 
 
-def run_transkun(audio_bytes, tmp_path):
+def run_transkun(audio_bytes):
     """Run Transkun on audio bytes and return NoteList."""
-    if os.environ.get("BEAM_CLOUD") == "True":
-        logger.info("Using Beam for audio processing")
-        return beam_transkun.remote(audio_bytes)
-    else:
-        import replicate
-
-        logger.info("Using Replicate for audio processing")
-
-        # Model version from env
-        model_version = os.environ.get("TRANSKUN_VERSION")
-        if not model_version:
-            raise ValueError("TRANSKUN_VERSION not set in environment")
-
-        return replicate.run(
-            model_version, input={"audio": open(tmp_path, "rb")}, use_file_output=False
-        )
+    return beam_transkun.remote(audio_bytes)
 
 
 def parse_rep_output(replica, page_sizes) -> NoteList:
@@ -117,20 +115,9 @@ def receive():
 
         # Determine test vs. production
         test_type = request.headers.get("X-Test-Type")
-        is_test = bool(test_type and test_type != "production")
+        is_test = test_type and test_type != "production"
 
-        # Test file mapping
-        test_cfg = {
-            "spider_dance_played": {
-                "played": "spider dance played",
-                "actual": "spiderdance_notes",
-                "edits": "scores/spider_dance_edits.pb",
-            },
-            "spider_dance_actual": {
-                "played": "spider dance actual",
-                "actual": "spiderdance_notes",
-            },
-        }
+        result_file = None
 
         if is_test:
             cfg = test_cfg.get(str(test_type), test_cfg["spider_dance_played"])
@@ -138,7 +125,7 @@ def receive():
             played_notes = load_notes(cfg["played"])
             actual_notes = load_notes(cfg["actual"])
 
-            if result_file := cfg.get("edits"):
+            if (result_file := cfg.get("edits")) and os.path.exists(result_file):
                 logger.info(f"Using cached result")
                 with open(result_file, "rb") as f:
                     byte_content = f.read()
@@ -175,7 +162,7 @@ def receive():
             actual_notes = load_notes(notes_id)
 
             # Run the model
-            output = run_transkun(audio_bytes, tmp_path)
+            output = run_transkun(audio_bytes)
 
             if os.environ.get("DEBUG") != "True":
                 os.unlink(tmp_path)
@@ -262,6 +249,10 @@ def receive():
 
             with open("debug_info/last_pb.pb", "wb") as f:
                 f.write(payload)
+
+            if result_file:
+                with open(result_file, "wb") as f:
+                    f.write(payload)
 
         # Return protobuf binary
         res = Response(payload, mimetype="application/protobuf")

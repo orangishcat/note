@@ -6,6 +6,7 @@
 # ---Backend--- #
 backend/resources/debug_info
 .env
+.env.prod
 
 # ---Frontend--- #
 

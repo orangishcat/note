@@ -31,7 +31,7 @@ def analyze_tempo(
             tempo = np.mean(slopes[start:i])
             sections.append(
                 TempoSection(
-                    start_index=aligned[start][0],
+                    start_index=aligned[start][0],  # actual notes
                     end_index=aligned[i][0],
                     tempo=tempo,
                 )

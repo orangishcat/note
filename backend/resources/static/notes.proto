@@ -16,6 +16,8 @@ message Note {
 message NoteList {
     repeated Note notes = 1;
     repeated int32 size = 2;
+    repeated Voice voices = 3;
+    repeated Line lines = 4;
 }
 
 enum EditOperation {
@@ -24,12 +26,30 @@ enum EditOperation {
     DELETE = 2;
 }
 
+enum Clef {
+    TREBLE = 0;
+    BASS = 1;
+}
+
 message Edit {
     EditOperation operation = 1;
     int32 pos = 2;
     Note s_char = 3;  // Source character (for DELETE and SUBSTITUTE)
     Note t_char = 4;  // Target character (for INSERT and SUBSTITUTE)
     int32 t_pos = 5;  // Target position (for SUBSTITUTE)
+}
+
+message Voice {
+    Clef = 1;
+    int track = 2;
+    int group = 3;
+    repeated int bbox = 4;
+}
+
+message Line {
+    repeated Clef clefs = 1;
+    int group = 2;
+    repeated int bbox = 3;
 }
 
 message TempoSection {
