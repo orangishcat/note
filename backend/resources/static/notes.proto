@@ -29,6 +29,7 @@ enum EditOperation {
 enum Clef {
     TREBLE = 0;
     BASS = 1;
+    UNKNOWN = 2;
 }
 
 message Edit {
