@@ -62,6 +62,7 @@ export function useEditDisplay(
   }, [scoreFileId]);
 
   // Separate effect for rendering edits (without zoomCtx dependency)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(renderEdits, [
     editList,
     currentPage,

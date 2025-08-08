@@ -17,23 +17,29 @@ def note_copy(self, other):
 if os.environ.get("DEBUG") == "not true":
     try:
         from .notes import *
+
+        NoteList.ParseFromString = NoteList.parse
+        ScoringResult.ParseFromString = ScoringResult.parse
+        Note.CopyFrom = note_copy
     except ImportError:
         try:
             from notes import *
-        except ImportError:
-            print_exc()
 
-    NoteList.ParseFromString = NoteList.parse
-    ScoringResult.ParseFromString = ScoringResult.parse
-    Note.CopyFrom = note_copy
+            NoteList.ParseFromString = NoteList.parse
+            ScoringResult.ParseFromString = ScoringResult.parse
+            Note.CopyFrom = note_copy
+        except ImportError:
+            try:
+                from .notes_pb2 import *
+            except ImportError:
+                from notes_pb2 import *
+            Note.CopyFrom = note_copy
 else:
     try:
         from .notes_pb2 import *
     except ImportError:
-        try:
-            from notes_pb2 import *
-        except ImportError:
-            print_exc()
+        from notes_pb2 import *
+    Note.CopyFrom = note_copy
 
 clef_offset = 21
 

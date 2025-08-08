@@ -40,16 +40,16 @@ message Edit {
 }
 
 message Voice {
-    Clef = 1;
-    int track = 2;
-    int group = 3;
-    repeated int bbox = 4;
+    Clef clef = 1;
+    int32 track = 2;
+    int32 group = 3;
+    repeated int32 bbox = 4;
 }
 
 message Line {
     repeated Clef clefs = 1;
-    int group = 2;
-    repeated int bbox = 3;
+    int32 group = 2;
+    repeated int32 bbox = 3;
 }
 
 message TempoSection {

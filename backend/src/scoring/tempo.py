@@ -1,6 +1,4 @@
 import numpy as np
-import statsmodels.api as sm
-
 from .notes_patch import Note, TempoSection
 
 
@@ -15,30 +13,39 @@ def analyze_tempo(
         dtype=np.float32,
     )
 
-    x = np.arange(len(diffs))
-    frac = min(0.1, 10 / len(diffs))
+    x = np.arange(len(diffs), dtype=np.float32)
+    slopes = np.gradient(diffs, x)
 
-    y_smooth = sm.nonparametric.lowess(diffs, x, frac=frac, return_sorted=False)
-    slopes = np.gradient(y_smooth)
-    ur = np.std(slopes)
-    thresh = ur * 2
+    window = max(3, len(slopes) // 20)
+    kernel = np.ones(window, dtype=np.float32) / window
+    slopes = np.convolve(slopes, kernel, mode="same")
+
+    abs_slopes = np.abs(slopes)
+    thresh = abs_slopes.mean() + 2 * abs_slopes.std()
+
+    candidates = np.where(abs_slopes > thresh)[0]
+    min_sep = max(5, window)
+    change_points: list[int] = []
+    last = -min_sep
+    for idx in candidates:
+        if idx - last >= min_sep:
+            change_points.append(idx)
+            last = idx
 
     sections: list[TempoSection] = []
     start = 0
-
-    for i in range(1, len(slopes)):
-        if abs(slopes[i] - slopes[i - 1]) > thresh:
-            tempo = np.mean(slopes[start:i])
-            sections.append(
-                TempoSection(
-                    start_index=aligned[start][0],  # actual notes
-                    end_index=aligned[i][0],
-                    tempo=tempo,
-                )
+    for idx in change_points:
+        tempo = float(np.mean(slopes[start:idx]))
+        sections.append(
+            TempoSection(
+                start_index=aligned[start][0],
+                end_index=aligned[idx][0],
+                tempo=tempo,
             )
-            start = i
+        )
+        start = idx
 
-    tempo = np.mean(slopes[start:])
+    tempo = float(np.mean(slopes[start:]))
     sections.append(
         TempoSection(
             start_index=aligned[start][0],
@@ -46,4 +53,4 @@ def analyze_tempo(
             tempo=tempo,
         )
     )
-    return sections, ur * 1e4
+    return sections, float(abs_slopes.std() * 1e4)

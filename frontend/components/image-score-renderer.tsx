@@ -122,6 +122,12 @@ export default function ImageScoreRenderer({
   const images = useMemo(() => data ?? [], [data]);
   const totalViews = Math.ceil(images.length / pagesPerView);
 
+  useEffect(() => {
+    document.dispatchEvent(
+      new CustomEvent("score:redrawAnnotations", { bubbles: true }),
+    );
+  }, [images, pageIndex]);
+
   // Calculate container dimensions based on image aspect ratios
   const getContainerDimensions = useCallback(
     (imageData: ImageData[], maxWidth = 800) => {
