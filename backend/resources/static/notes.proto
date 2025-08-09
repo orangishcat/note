@@ -45,12 +45,14 @@ message Voice {
     int32 track = 2;
     int32 group = 3;
     repeated int32 bbox = 4;
+    int32 page = 5;
 }
 
 message Line {
     repeated Clef clefs = 1;
     int32 group = 2;
     repeated int32 bbox = 3;
+    int32 page = 4;
 }
 
 message TempoSection {
