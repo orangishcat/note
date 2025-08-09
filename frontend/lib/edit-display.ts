@@ -6,6 +6,7 @@ import {
   NoteList,
   ScoringResult,
   TempoSection,
+  Line,
 } from "@/types/proto-types";
 import log from "loglevel";
 import { ZoomContext } from "@/app/providers";
@@ -106,13 +107,6 @@ export function useEditDisplay(
     const scaledX2 = x2 * pageScale + offsetX;
     const scaledY2 = y2 * pageScale + offsetY;
 
-    log.debug({
-      scaledX1,
-      scaledY1,
-      scaledX2,
-      scaledY2,
-    });
-
     color = color ?? colorFor(edit.operation);
 
     Object.assign(div.style, {
@@ -143,25 +137,98 @@ export function useEditDisplay(
     return div;
   }
 
-  function createTempoDiv(section: TempoSection) {
-    if (!editList || !actualNotes) return;
-    const startNote = actualNotes.notes[section.startIndex],
-      endNote = actualNotes.notes[section.endIndex];
+  function createTempoBrackets(
+    section: TempoSection,
+    pageScale: number,
+    pageZoom: number,
+    offsetX: number,
+    offsetY: number,
+  ): HTMLElement[] {
+    if (!editList || !actualNotes) return [];
+    const startNote = actualNotes.notes[section.startIndex];
+    const endNote = actualNotes.notes[section.endIndex];
+
     if (!startNote || !endNote) {
       log.warn("No start or end note for tempo section", section);
-      return;
+      return [];
     }
-    const div = document.createElement("div");
-    div.className = "tempo-rectangle cursor-pointer rounded-full absolute";
-    Object.assign(div.style, {
-      left: `${startNote.bbox[0]}px`,
-      top: `${startNote.bbox[1]}px`,
-      width: `${endNote.bbox[2] - startNote.bbox[0]}px`,
-      height: `${startNote.bbox[3] - startNote.bbox[1]}px`,
-      backgroundColor: "rgba(0,0,0,0.1)",
-      border: "1px solid rgba(0,0,0,0.5)",
-    });
-    return div;
+
+    // Find the line nearest to the starting note
+    const noteCenterY = (startNote.bbox[1] + startNote.bbox[3]) / 2;
+    let nearest: Line | null = null;
+    let minDist = Number.POSITIVE_INFINITY;
+    for (const line of actualNotes.lines as Line[]) {
+      const lineCenterY = (line.bbox[1] + line.bbox[3]) / 2;
+      const dist = Math.abs(noteCenterY - lineCenterY);
+      if (dist < minDist) {
+        nearest = line;
+        minDist = dist;
+      }
+    }
+
+    log.debug("Nearest:", nearest);
+    if (!nearest) return [];
+
+    const lineTop = nearest.bbox[1] * pageScale + offsetY;
+    const lineBottom = nearest.bbox[3] * pageScale + offsetY;
+    const bracketTop = lineTop - 15;
+    const bracketHeight = lineBottom - lineTop + 30;
+
+    const startX = startNote.bbox[0] * pageScale + offsetX - 10;
+    const endX = endNote.bbox[2] * pageScale + offsetX + 30;
+
+    function createBracket(x: number, isStart: boolean) {
+      const bracket = document.createElement("div");
+      bracket.className = "tempo-bracket absolute";
+      Object.assign(bracket.style, {
+        left: `${x}px`,
+        top: `${bracketTop}px`,
+        width: "10px",
+        height: `${bracketHeight}px`,
+        transform: `scale(${pageZoom})`,
+        transformOrigin: "top left",
+      });
+
+      const thickness = 1;
+
+      const vert = document.createElement("div");
+      Object.assign(vert.style, {
+        position: "absolute",
+        top: "0",
+        bottom: "0",
+        width: `${thickness}px`,
+        backgroundColor: "black",
+        [isStart ? "left" : "right"]: "0",
+      });
+
+      const topH = document.createElement("div");
+      Object.assign(topH.style, {
+        position: "absolute",
+        width: "10px",
+        height: `${thickness}px`,
+        backgroundColor: "black",
+        top: "0",
+        [isStart ? "left" : "right"]: "0",
+      });
+
+      const bottomH = document.createElement("div");
+      Object.assign(bottomH.style, {
+        position: "absolute",
+        width: "10px",
+        height: `${thickness}px`,
+        backgroundColor: "black",
+        bottom: "0",
+        [isStart ? "left" : "right"]: "0",
+      });
+
+      bracket.appendChild(vert);
+      bracket.appendChild(topH);
+      bracket.appendChild(bottomH);
+
+      return bracket;
+    }
+
+    return [createBracket(startX, true), createBracket(endX, false)];
   }
 
   function renderEdits() {
@@ -240,10 +307,17 @@ export function useEditDisplay(
       log.warn("played note is empty:", actualNotes);
     } else {
       editList.tempoSections.forEach((section) => {
-        const div = createTempoDiv(section);
-        if (!div) return;
-        container.appendChild(div);
-        annotationsRef.current.push(div);
+        const brackets = createTempoBrackets(
+          section,
+          scale,
+          currentZoom,
+          offsetX,
+          offsetY,
+        );
+        brackets.forEach((div) => {
+          container.appendChild(div);
+          annotationsRef.current.push(div);
+        });
       });
     }
 

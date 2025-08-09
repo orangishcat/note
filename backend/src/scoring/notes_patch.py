@@ -1,5 +1,4 @@
 import os
-from traceback import print_exc
 
 
 def note_copy(self, other):
