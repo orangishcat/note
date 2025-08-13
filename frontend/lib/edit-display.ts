@@ -157,7 +157,7 @@ export function useEditDisplay(
         }
       }
 
-      log.debug("Nearest:", nearest);
+      log.debug("Nearest:", actualNotes.lines);
       if (!nearest) return [];
 
       const lineTop = nearest.bbox[1] * pageScale + offsetY;

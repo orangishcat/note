@@ -2,6 +2,8 @@ import atexit
 import shutil
 import tempfile
 import uuid
+import zipfile
+import io
 from datetime import datetime, timedelta
 from threading import Thread
 from time import sleep
@@ -9,6 +11,8 @@ from time import sleep
 from appwrite.role import Role
 from appwrite.services.storage import Storage
 from werkzeug.utils import secure_filename
+from flask import Response, request
+from loguru import logger
 
 from rendering import score_preview
 from . import score_bp
@@ -39,6 +43,61 @@ def cancel_upload():
             found = True
             break
     return {"success": found}
+
+
+@score_bp.route("/download/<score_id>", methods=["GET"])
+def download_score(score_id):
+    """Download a music XML file in binary format."""
+    try:
+        storage = Storage(get_user_client())
+
+        # Fetch the file from Appwrite storage
+        file_bytes = storage.get_file_view(scores_bucket, score_id)
+
+        # Get file info to determine the format
+        file_info = storage.get_file(scores_bucket, score_id)
+        filename = file_info.get("name", "score.xml")
+
+        # Check if it's a compressed MXL file or ZIP
+        if filename.lower().endswith((".mxl", ".zip")):
+            # Extract XML content from the compressed file
+            try:
+                with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as zip_file:
+                    # Look for the main XML file (usually the first .xml file)
+                    xml_files = [f for f in zip_file.namelist() if f.endswith(".xml")]
+                    if xml_files:
+                        # Use the first XML file found
+                        xml_content = zip_file.read(xml_files[0])
+                        return Response(
+                            xml_content,
+                            mimetype="application/xml",
+                            headers={
+                                "Content-Disposition": f'attachment; filename="{score_id}.xml"',
+                                "Cache-Control": "no-cache, no-store, must-revalidate",
+                                "Pragma": "no-cache",
+                                "Expires": "0",
+                            },
+                        )
+                    else:
+                        return {"error": "No XML file found in compressed archive"}, 400
+            except zipfile.BadZipFile:
+                return {"error": "Invalid compressed file format"}, 400
+        else:
+            # Return the file as-is (should be XML)
+            return Response(
+                file_bytes,
+                mimetype="application/xml",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0",
+                },
+            )
+
+    except Exception as e:
+        logger.error(f"Error downloading score {score_id}: {e}")
+        return {"error": "File not found or access denied"}, 404
 
 
 @score_bp.route("/upload", methods=["POST"])

@@ -25,14 +25,17 @@ export interface MusicScore extends Models.Document {
 
 export interface MusicXMLRendererProps {
   scoreId: string;
-  recenter: RefObject<HTMLButtonElement>;
   retry: () => void;
-  isFullscreen?: boolean;
-  pagesPerView: number; // New optional prop to control 1 or 2 pages per view
-  currentPage: number;
+  currentPage?: number;
+  recenter?: RefObject<HTMLButtonElement>;
 }
 
-export interface ImageScoreRendererProps extends MusicXMLRendererProps {
+export interface ImageScoreRendererProps {
+  scoreId: string;
+  retry: () => void;
+  recenter: RefObject<HTMLButtonElement>;
+  currentPage: number;
+  pagesPerView: number;
   setPage: (page: number) => void;
   displayMode?: "paged" | "scroll";
   verticalLoading?: boolean;

@@ -768,10 +768,9 @@ export default function ScorePage() {
         {/* Main score renderer - fills entire screen */}
         <div className="h-[calc(100%-4rem)] w-full relative">
           {score && score.$id && score.file_id ? (
-            score.is_mxl ? (
+            score.mime_type.includes("musicxml") ? (
               <MusicXMLRenderer
                 scoreId={score.file_id}
-                recenter={recenterButton}
                 retry={() => {
                   log.debug(
                     "Retry requested for MusicXMLRenderer, limiting frequency",
@@ -787,8 +786,6 @@ export default function ScorePage() {
                   window.lastRefetchTime = Date.now();
                   void refetch();
                 }}
-                currentPage={currentPage}
-                pagesPerView={1}
               />
             ) : (
               <ImageScoreRenderer

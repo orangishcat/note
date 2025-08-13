@@ -4,18 +4,17 @@ import {
   IOSMDOptions,
   OpenSheetMusicDisplay,
 } from "opensheetmusicdisplay";
-import ZoomableDiv from "@/components/ui-custom/zoomable-div";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import api from "@/lib/network";
+import { storage } from "@/lib/appwrite";
 import { MusicXMLRendererProps } from "@/types/score-types";
+import log from "loglevel";
 
 export default function MusicXMLRenderer({
   scoreId,
   recenter,
   retry,
-  isFullscreen,
   currentPage,
 }: MusicXMLRendererProps) {
   const debug = !!localStorage.getItem("debug");
@@ -28,54 +27,6 @@ export default function MusicXMLRenderer({
   const lineHeight = useRef<number>(0);
   const pageMargin = 20; // Margin in pixels between pages
   const hasRenderedRef = useRef<boolean>(false); // Track if initial render is complete
-
-  // New state for dynamic height calculation
-  const [containerHeight, setContainerHeight] = useState<string>("100%");
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  // Calculate container height dynamically based on available space
-  useEffect(() => {
-    const calculateHeight = () => {
-      if (!wrapperRef.current) return;
-
-      // Get the wrapper's position relative to the viewport
-      const wrapperRect = wrapperRef.current.getBoundingClientRect();
-
-      // Calculate the available space from the wrapper to the bottom of the viewport
-      // Add a buffer (22px) to prevent overshooting the bottom of the screen
-      const availableHeight = window.innerHeight - wrapperRect.top - 22;
-
-      // Set minimum height to avoid too small containers
-      const minHeight = 300;
-      const newHeight = Math.max(availableHeight, minHeight);
-
-      // Set the height
-      setContainerHeight(`${newHeight}px`);
-
-      // Debugging info when debug mode is on
-      if (debug) {
-        console.log(`Score container height: ${newHeight}px`, {
-          windowHeight: window.innerHeight,
-          wrapperTop: wrapperRect.top,
-          availableHeight,
-        });
-      }
-    };
-
-    // Calculate on initial render and whenever fullscreen state changes
-    calculateHeight();
-
-    // Recalculate on window resize
-    window.addEventListener("resize", calculateHeight);
-
-    // Recalculate after a short delay to ensure all layouts are completed
-    const timeout = setTimeout(calculateHeight, 100);
-
-    return () => {
-      window.removeEventListener("resize", calculateHeight);
-      clearTimeout(timeout);
-    };
-  }, [isFullscreen, debug]);
 
   // Calculate total pages once music lines are detected
   useEffect(() => {
@@ -330,22 +281,18 @@ export default function MusicXMLRenderer({
   };
 
   const {
-    data: musicXML,
+    data: musicXMLUrl,
     isError,
     refetch,
     isFetching,
   } = useQuery({
-    queryKey: ["musicXMLBase64", scoreId],
-    queryFn: async () => {
-      const response = await api.get(`/score/as-base64/${scoreId}`, {
-        responseType: "text",
-      });
-      return response.data;
-    },
+    queryKey: ["musicXMLUrl", scoreId],
+    queryFn: async () =>
+      storage.getFileView(process.env.NEXT_PUBLIC_SCORES_BUCKET!, scoreId),
   });
 
   const fetchAndRender = useCallback(async () => {
-    if (!containerRef.current || !musicXML) return;
+    if (!containerRef.current || !musicXMLUrl) return;
 
     // Only perform the rendering if we haven't already rendered
     if (hasRenderedRef.current && osmdRef.current) {
@@ -368,12 +315,24 @@ export default function MusicXMLRenderer({
           options,
         );
 
-        // After creating OSMD, configure additional settings that weren't accepted in constructor
         osmdRef.current.zoom = 1.0; // Set initial zoom level
-        // We'll adjust the zoom level after rendering to fit better
+        (osmdRef.current as any).backend.fetch = async (
+          url: string,
+          init?: RequestInit,
+        ) => {
+          const resp = await fetch(url, {
+            ...init,
+            credentials: "include", // send cookies/session
+          });
+          if (!resp.ok) {
+            throw new Error(`Failed to fetch ${url}: ${resp.status}`);
+          }
+          return resp;
+        };
       }
 
-      await osmdRef.current.load(atob(musicXML), "Score");
+      log.debug("Loading music XML from URL:", musicXMLUrl);
+      await osmdRef.current.load(musicXMLUrl);
 
       // Only render once and then set the flag
       osmdRef.current.render();
@@ -456,7 +415,7 @@ export default function MusicXMLRenderer({
       setRenderError((error as Error).message);
     }
   }, [
-    musicXML,
+    musicXMLUrl,
     currentPage,
     detectMusicLines,
     scrollToPage,
@@ -464,12 +423,12 @@ export default function MusicXMLRenderer({
   ]);
 
   useEffect(() => {
-    if (!containerRef.current || !musicXML) return;
+    if (!containerRef.current || !musicXMLUrl) return;
     const start = performance.now();
     fetchAndRender().then(() => {
       console.log(`Rendering took ${performance.now() - start}ms`);
     });
-  }, [fetchAndRender, musicXML]);
+  }, [fetchAndRender, musicXMLUrl]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -483,7 +442,7 @@ export default function MusicXMLRenderer({
 
   const handleRetry = () => {
     setRenderError(null);
-    refetch();
+    void refetch();
     retry();
   };
 
@@ -493,50 +452,38 @@ export default function MusicXMLRenderer({
       console.log("Manual rerender requested");
       // Only allow debug rerenders when debugging is enabled
       hasRenderedRef.current = false;
-      fetchAndRender();
+      void fetchAndRender();
     }
   };
 
   return (
     <div
       id={`score-${scoreId}`}
-      ref={wrapperRef}
-      className="overflow-hidden overflow-x-hidden flex flex-col place-items-center"
-      style={{
-        height: containerHeight,
-        transition: "height 0.3s ease",
-      }}
+      className="overflow-hidden overflow-x-hidden flex flex-col place-items-center w-full h-full"
     >
-      <ZoomableDiv recenter={recenter}>
-        <div
-          ref={containerRef}
-          className={cn(
-            "score-container border border-gray-300 dark:border-gray-700 rounded-md flex flex-col p-2 overflow-auto",
-            !(isError || renderError) && "bg-gray-50",
-          )}
-          style={{
-            width: "min(calc(100vw - 12px), 70rem)",
-            height: isFullscreen
-              ? "calc(100vh - 20px)"
-              : `calc(${containerHeight} - 16px)`,
-          }}
-        >
-          {(isError || renderError) && (
-            <div className="text-red-600 text-sm p-4">
-              <h1 className="text-xl">An error occured</h1>
-              <p className="my-4">{renderError}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRetry}
-                disabled={isFetching}
-              >
-                {isFetching ? "Retrying..." : "Retry"}
-              </Button>
-            </div>
-          )}
-        </div>
-      </ZoomableDiv>
+      <div
+        ref={containerRef}
+        className={cn(
+          "score-container border border-gray-300 dark:border-gray-700 rounded-md flex flex-col p-2 overflow-auto",
+          "w-full h-full",
+          !(isError || renderError) && "bg-gray-50",
+        )}
+      >
+        {(isError || renderError) && (
+          <div className="text-red-600 text-sm p-4">
+            <h1 className="text-xl">An error occurred</h1>
+            <p className="my-4">{renderError}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRetry}
+              disabled={isFetching}
+            >
+              {isFetching ? "Retrying..." : "Retry"}
+            </Button>
+          </div>
+        )}
+      </div>
       {debug && (
         <div className="fixed top-[100px] right-[100px] bg-gray-700 flex gap-4 p-4 rounded-2xl">
           <Button onClick={handleRerender}>Force Rerender</Button>

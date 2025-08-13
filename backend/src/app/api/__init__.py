@@ -4,6 +4,7 @@ from loguru import logger
 
 from .util import *
 from .scoring import audio
+from .scores import score_bp
 
 admin_client = get_client().set_key(os.environ["API_KEY"])
 admin_account = Account(admin_client)
@@ -47,3 +48,4 @@ def logged_in():
 
 
 needs_login.register_blueprint(audio)
+needs_login.register_blueprint(score_bp)
