@@ -5,6 +5,58 @@ import { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 import { storage } from "@/lib/appwrite";
 import { MusicXMLRendererProps } from "@/types/score-types";
 import api from "@/lib/network";
+import JSZip from "jszip";
+import ZoomableDiv from "@/components/ui-custom/zoomable-div";
+
+function isZip(buf: ArrayBuffer): boolean {
+  const u8 = new Uint8Array(buf);
+  return (
+    u8.length >= 4 &&
+    u8[0] === 0x50 &&
+    u8[1] === 0x4b &&
+    u8[2] === 0x03 &&
+    u8[3] === 0x04
+  );
+}
+
+async function extractMusicXMLFromMXL(buf: ArrayBuffer): Promise<string> {
+  const zip = await JSZip.loadAsync(buf);
+
+  // Try container.xml first (spec-compliant MXL)
+  const containerPath = "META-INF/container.xml";
+  const containerFile = zip.file(containerPath);
+
+  let xmlPath: string | undefined;
+
+  if (containerFile) {
+    const containerXml = await containerFile.async("string");
+    const dom = new DOMParser().parseFromString(
+      containerXml,
+      "application/xml",
+    );
+    const rootfile = dom.querySelector("rootfile");
+    xmlPath = rootfile?.getAttribute("full-path") ?? undefined;
+  }
+
+  // Fallbacks: common names or first .xml we find
+  if (!xmlPath) {
+    const candidates = ["score.xml", "musicxml.xml"];
+    for (const c of candidates)
+      if (zip.file(c)) {
+        xmlPath = c;
+        break;
+      }
+  }
+  if (!xmlPath) {
+    const firstXml = Object.keys(zip.files).find((p) =>
+      p.toLowerCase().endsWith(".xml"),
+    );
+    if (firstXml) xmlPath = firstXml;
+  }
+
+  if (!xmlPath) throw new Error("Could not locate MusicXML file inside .mxl");
+  return await zip.file(xmlPath)!.async("string");
+}
 
 export default function MusicXMLRenderer({
   scoreId,
@@ -14,39 +66,55 @@ export default function MusicXMLRenderer({
   const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
 
   useEffect(() => {
-    let objectUrl: string | null = null;
     let cancelled = false;
 
     async function render() {
       if (!containerRef.current) return;
 
       if (!osmdRef.current) {
-        osmdRef.current = new OpenSheetMusicDisplay(containerRef.current);
+        osmdRef.current = new OpenSheetMusicDisplay(containerRef.current, {
+          autoResize: true,
+        });
       }
 
       try {
-        const fileUrl = storage.getFileView(
+        // Prefer the download endpoint; it’s friendlier for binary
+        const url = storage.getFileDownload(
           process.env.NEXT_PUBLIC_SCORES_BUCKET!,
           scoreId,
         );
 
-        const resp = await api.get<ArrayBuffer>(fileUrl, {
+        const resp = await api.get<ArrayBuffer>(url, {
           responseType: "arraybuffer",
+          withCredentials: true,
+          transformResponse: [(d) => d], // keep raw
+          headers: { Accept: "application/octet-stream" },
         });
 
-        const ct =
-          resp.headers["content-type"] ||
-          "application/vnd.recordare.musicxml+zip";
+        const buf = resp.data;
 
-        const blob = new Blob([resp.data], { type: ct });
-        objectUrl = URL.createObjectURL(blob);
+        let xmlText: string;
 
-        await osmdRef.current.load(objectUrl);
-        if (!cancelled) {
-          osmdRef.current.render();
+        if (isZip(buf)) {
+          // .mxl: unzip and pull out the inner score.xml
+          xmlText = await extractMusicXMLFromMXL(buf);
+        } else {
+          // Plain MusicXML (.xml)
+          const text = new TextDecoder("utf-8").decode(buf).trim();
+
+          // Guard: if it’s HTML, it’s an auth/CORS error page
+          if (text.startsWith("<!DOCTYPE html") || text.startsWith("<html")) {
+            throw new Error(
+              "Received HTML instead of MusicXML. Check credentials/CORS/permissions.",
+            );
+          }
+          xmlText = text;
         }
-      } catch (err) {
-        console.error(err);
+
+        await osmdRef.current.load(xmlText); // TS-safe: string | Document
+        if (!cancelled) osmdRef.current.render();
+      } catch (e) {
+        console.error(e);
         if (!cancelled) retry();
       }
     }
@@ -55,7 +123,6 @@ export default function MusicXMLRenderer({
 
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
       if (osmdRef.current) {
         try {
           osmdRef.current.clear();
@@ -64,5 +131,9 @@ export default function MusicXMLRenderer({
     };
   }, [scoreId, retry]);
 
-  return <div ref={containerRef} />;
+  return (
+    <div className="relative h-full">
+      <div ref={containerRef} className="bg-white" />
+    </div>
+  );
 }

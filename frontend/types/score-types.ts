@@ -27,7 +27,7 @@ export interface MusicXMLRendererProps {
   scoreId: string;
   retry: () => void;
   currentPage?: number;
-  recenter?: RefObject<HTMLButtonElement>;
+  recenter: RefObject<HTMLButtonElement>;
 }
 
 export interface ImageScoreRendererProps {

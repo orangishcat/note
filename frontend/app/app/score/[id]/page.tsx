@@ -766,10 +766,11 @@ export default function ScorePage() {
     <Layout navbarContent={<NavContent />}>
       <div className="relative h-[calc(100vh-4rem)]">
         {/* Main score renderer - fills entire screen */}
-        <div className="h-[calc(100%-4rem)] w-full relative">
+        <div className="h-[calc(100%-4rem)] w-full relative overflow-y-auto">
           {score && score.$id && score.file_id ? (
             score.mime_type.includes("musicxml") ? (
               <MusicXMLRenderer
+                recenter={recenterButton}
                 scoreId={score.file_id}
                 retry={() => {
                   log.debug(
