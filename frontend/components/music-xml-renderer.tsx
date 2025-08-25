@@ -6,7 +6,6 @@ import { storage } from "@/lib/appwrite";
 import { MusicXMLRendererProps } from "@/types/score-types";
 import api from "@/lib/network";
 import JSZip from "jszip";
-import ZoomableDiv from "@/components/ui-custom/zoomable-div";
 
 function isZip(buf: ArrayBuffer): boolean {
   const u8 = new Uint8Array(buf);
