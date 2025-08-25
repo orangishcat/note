@@ -17,7 +17,9 @@ export interface LayoutProps {
 export function Layout({ children, navbarContent, showSidebar }: LayoutProps) {
   const pathname = usePathname();
   showSidebar =
-    showSidebar === undefined ? pathname.startsWith("/app") : showSidebar;
+    showSidebar === undefined
+      ? pathname?.startsWith("/app") ?? false
+      : showSidebar;
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(showSidebar);
   const authModalContext = useContext(AuthModalContext);
