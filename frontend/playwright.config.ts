@@ -20,10 +20,10 @@ const config: PlaywrightTestConfig = {
   webServer: {
     // Resolve Next.js binary from local node_modules to avoid PATH issues
     command: "./node_modules/.bin/next dev --port 3000",
-    port: 3000,
+    url: "http://127.0.0.1:3000/",
     reuseExistingServer: true,
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
-    timeout: 120000,
+    timeout: 180000,
   },
 };
 
