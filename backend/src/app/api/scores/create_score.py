@@ -2,17 +2,14 @@ import atexit
 import shutil
 import tempfile
 import uuid
-import zipfile
-import io
 from datetime import datetime, timedelta
 from threading import Thread
 from time import sleep
 
 from appwrite.role import Role
 from appwrite.services.storage import Storage
+from flask import Response
 from werkzeug.utils import secure_filename
-from flask import Response, request
-from loguru import logger
 
 from rendering import score_preview
 from . import score_bp

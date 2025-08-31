@@ -26,3 +26,5 @@ For agents like OpenAI's Codex and more.
   - Recordings collection:
     - user_id: `String`
     - file_id: `String`
+  - If Python files were modified, run the Flask server (`app_main.py`) to ensure
+    no syntax errors or circular imports were introduced.

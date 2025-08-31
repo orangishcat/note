@@ -17,6 +17,7 @@ const config: PlaywrightTestConfig = {
   webServer: {
     command: "next dev --port 3000",
     port: 3000,
+    reuseExistingServer: true,
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
     timeout: 120000,
   },

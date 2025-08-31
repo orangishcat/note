@@ -5,7 +5,7 @@ import os
 from traceback import print_exc
 
 import replicate
-from app.api.util import misc_bucket
+from ..util import misc_bucket
 from appwrite.input_file import InputFile
 from appwrite.permission import Permission
 from loguru import logger

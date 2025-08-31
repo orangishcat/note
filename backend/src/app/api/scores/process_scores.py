@@ -3,7 +3,7 @@ import io
 import zipfile
 from traceback import print_exc
 
-from app.api.util import *
+from ..util import *
 from appwrite.input_file import InputFile
 from appwrite.permission import Permission
 from appwrite.services.databases import Databases

@@ -51,6 +51,7 @@ export function useEditDisplay(
   scoreId: string,
   scoreFileId: string,
   setEditCount: (count: number) => void,
+  enabled: boolean = true,
 ) {
   const containerRef = useRef<Element | null>(null);
   const zoomCtx = useContext(ZoomContext);
@@ -225,6 +226,7 @@ export function useEditDisplay(
   );
 
   const renderEdits = useCallback(() => {
+    if (!enabled) return;
     log.debug("Rendering annotations for page", currentPage);
     const container = containerRef.current;
     if (!editList || !container) return;
@@ -234,18 +236,37 @@ export function useEditDisplay(
     log.debug("Edit list:", editList);
     log.debug("Actual notes:", actualNotes);
 
-    const rect = container.getBoundingClientRect();
-    const containerWidth = rect.width;
-    const containerHeight = rect.height;
+    // Determine mapping area (PDF.js current page element) for accurate, offset-aware scaling
     const pageIndex = pageSizes.length === 2 ? 0 : currentPage;
     const pageWidth = pageSizes[pageIndex * 2];
     const pageHeight = pageSizes[pageIndex * 2 + 1];
-    const scale = Math.min(
-      containerWidth / pageWidth,
-      containerHeight / pageHeight,
-    );
-    const offsetX = (containerWidth - pageWidth * scale) / 2;
-    const offsetY = (containerHeight - pageHeight * scale) / 2;
+
+    const containerRect = container.getBoundingClientRect();
+    // Prefer the actual rendered page element bounds when available
+    const pageNumber = pageIndex + 1; // PDF.js uses 1-based
+    const pageEl = container.querySelector(
+      `.pdfViewer .page[data-page-number="${pageNumber}"]`,
+    ) as HTMLElement | null;
+
+    let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    if (pageEl) {
+      const pr = pageEl.getBoundingClientRect();
+      // Compute offset of the page inside the overlay container
+      offsetX = pr.left - containerRect.left;
+      offsetY = pr.top - containerRect.top;
+      const scaleX = pr.width / pageWidth;
+      const scaleY = pr.height / pageHeight;
+      scale = Math.min(scaleX, scaleY);
+    } else {
+      // Fallback: fit the page into the container like an <img> object-fit: contain
+      const scaleX = containerRect.width / pageWidth;
+      const scaleY = containerRect.height / pageHeight;
+      scale = Math.min(scaleX, scaleY);
+      offsetX = (containerRect.width - pageWidth * scale) / 2;
+      offsetY = (containerRect.height - pageHeight * scale) / 2;
+    }
 
     // Clear existing annotations and reset the ref
     container.querySelectorAll(".note-rectangle").forEach((e) => e.remove());
@@ -325,19 +346,21 @@ export function useEditDisplay(
     setEditCount,
     zoomCtx,
     createTempoBrackets,
+    enabled,
   ]);
 
   // Trigger render when dependencies change
   useEffect(() => {
+    if (!enabled) return;
     renderEdits();
-  }, [renderEdits]);
+  }, [renderEdits, enabled]);
 
   // Listen for redraw events
   useEffect(() => {
-    if (typeof document === "undefined") return;
+    if (!enabled || typeof document === "undefined") return;
     document.addEventListener("score:redrawAnnotations", renderEdits);
     return () => {
       document.removeEventListener("score:redrawAnnotations", renderEdits);
     };
-  }, [renderEdits]);
+  }, [renderEdits, enabled]);
 }

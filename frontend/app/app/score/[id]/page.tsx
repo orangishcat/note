@@ -18,6 +18,8 @@ import {
   Clock,
   Download,
   Fullscreen,
+  ZoomIn,
+  ZoomOut,
   Maximize2,
   Mic,
   Minimize2,
@@ -44,6 +46,7 @@ import RecordingsModal from "@/components/RecordingsModal";
 import { type RecordingError, useAudioRecorder } from "@/lib/audio-recorder";
 import { MusicScore } from "@/types/score-types";
 import { useEditDisplay } from "@/lib/edit-display";
+import { useEditDisplayMusicXML } from "@/lib/edit-display-mxml";
 
 // Add a global type declaration to prevent TypeScript errors
 declare global {
@@ -126,6 +129,19 @@ export default function ScorePage() {
       window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
+
+  // Expose a testing hook in debug mode to inject edits directly
+  useEffect(() => {
+    if (!isClient) return;
+    try {
+      if (isDebugMode) {
+        (window as any).__setEditList = (obj: ScoringResult) =>
+          setEditList(obj);
+      } else {
+        delete (window as any).__setEditList;
+      }
+    } catch {}
+  }, [isClient, isDebugMode]);
 
   // State to track protobuf type initialization
   const [scoringResultType, setScoringResultType] = useState<Type | null>(
@@ -303,7 +319,16 @@ export default function ScorePage() {
     );
   }
 
-  // Use the edit display hook
+  // Call both hooks but enable only one to satisfy hooks rules
+  const isMxml = score.mime_type.includes("musicxml");
+  useEditDisplayMusicXML(
+    filteredEditList,
+    scoreNotes,
+    id,
+    score.file_id,
+    setEditsOnPage,
+    isMxml,
+  );
   useEditDisplay(
     filteredEditList,
     scoreNotes,
@@ -311,6 +336,7 @@ export default function ScorePage() {
     id,
     score.file_id,
     setEditsOnPage,
+    !isMxml,
   );
 
   // Check for recording compatibility on component mount
@@ -669,6 +695,44 @@ export default function ScorePage() {
                 className="text-gray-900 dark:text-white"
               >
                 <ArrowRightCircle
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                />
+              </Button>
+            </BasicTooltip>
+            <BasicTooltip text="Zoom out">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  document.dispatchEvent(
+                    new CustomEvent("score:zoomOut", {
+                      detail: { scoreId: score.file_id },
+                      bubbles: true,
+                    }),
+                  )
+                }
+                className="text-gray-900 dark:text-white"
+              >
+                <ZoomOut
+                  className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
+                />
+              </Button>
+            </BasicTooltip>
+            <BasicTooltip text="Zoom in">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  document.dispatchEvent(
+                    new CustomEvent("score:zoomIn", {
+                      detail: { scoreId: score.file_id },
+                      bubbles: true,
+                    }),
+                  )
+                }
+                className="text-gray-900 dark:text-white"
+              >
+                <ZoomIn
                   className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
                 />
               </Button>

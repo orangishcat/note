@@ -50,7 +50,6 @@ export default function AccountDropdown() {
             logOut().then(() => {
               log.debug("Logged out");
               void qc.invalidateQueries();
-              window.location.replace("/");
             })
           }
           className="cursor-pointer hover:bg-gray-300/30"

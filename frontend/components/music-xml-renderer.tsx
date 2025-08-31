@@ -4,7 +4,6 @@ import React, { useEffect, useRef } from "react";
 import { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 import { storage } from "@/lib/appwrite";
 import { MusicXMLRendererProps } from "@/types/score-types";
-import api from "@/lib/network";
 import JSZip from "jszip";
 
 function isZip(buf: ArrayBuffer): boolean {
@@ -73,44 +72,44 @@ export default function MusicXMLRenderer({
       if (!osmdRef.current) {
         osmdRef.current = new OpenSheetMusicDisplay(containerRef.current, {
           autoResize: true,
+          backend: "svg",
         });
       }
 
+      const fetchAndParse = async (url: string): Promise<string> => {
+        // todo: uses fetch so MSW in tests can intercept cross-origin requests reliably, but should replace with axios
+        const resp = await fetch(url, { credentials: "include" });
+        if (!resp.ok)
+          throw new Error(`Failed to fetch MusicXML: ${resp.status}`);
+        const buf = await resp.arrayBuffer();
+        if (isZip(buf)) {
+          return await extractMusicXMLFromMXL(buf);
+        }
+        const text = new TextDecoder("utf-8").decode(buf).trim();
+        if (text.startsWith("<!DOCTYPE html") || text.startsWith("<html")) {
+          throw new Error("Received HTML instead of MusicXML");
+        }
+        return text;
+      };
+
       try {
-        // Prefer the download endpoint; it’s friendlier for binary
-        const url = storage.getFileDownload(
+        // Try the "view" endpoint first (tests mock this), fallback to download
+        const viewUrl = storage.getFileView(
           process.env.NEXT_PUBLIC_SCORES_BUCKET!,
           scoreId,
         );
-
-        const resp = await api.get<ArrayBuffer>(url, {
-          responseType: "arraybuffer",
-          withCredentials: true,
-          transformResponse: [(d) => d], // keep raw
-          headers: { Accept: "application/octet-stream" },
-        });
-
-        const buf = resp.data;
-
         let xmlText: string;
-
-        if (isZip(buf)) {
-          // .mxl: unzip and pull out the inner score.xml
-          xmlText = await extractMusicXMLFromMXL(buf);
-        } else {
-          // Plain MusicXML (.xml)
-          const text = new TextDecoder("utf-8").decode(buf).trim();
-
-          // Guard: if it’s HTML, it’s an auth/CORS error page
-          if (text.startsWith("<!DOCTYPE html") || text.startsWith("<html")) {
-            throw new Error(
-              "Received HTML instead of MusicXML. Check credentials/CORS/permissions.",
-            );
-          }
-          xmlText = text;
+        try {
+          xmlText = await fetchAndParse(viewUrl);
+        } catch {
+          const downloadUrl = storage.getFileDownload(
+            process.env.NEXT_PUBLIC_SCORES_BUCKET!,
+            scoreId,
+          );
+          xmlText = await fetchAndParse(downloadUrl);
         }
 
-        await osmdRef.current.load(xmlText); // TS-safe: string | Document
+        await osmdRef.current.load(xmlText);
         if (!cancelled) osmdRef.current.render();
       } catch (e) {
         console.error(e);
@@ -131,8 +130,14 @@ export default function MusicXMLRenderer({
   }, [scoreId, retry]);
 
   return (
-    <div className="relative h-full">
-      <div ref={containerRef} className="bg-white" />
+    <div
+      id={`score-${scoreId}`}
+      className="relative h-full w-full overflow-x-hidden"
+    >
+      {/* OSMD render target */}
+      <div ref={containerRef} className="bg-white w-full min-h-[600px]" />
+      {/* Overlay container used by useEditDisplay to draw annotations */}
+      <div className="absolute inset-0 score-container pointer-events-none" />
     </div>
   );
 }
