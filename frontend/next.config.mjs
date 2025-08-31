@@ -46,9 +46,6 @@ const nextConfig = {
         };
     })(),
 
-    // Prefer a self-contained server output for SSR hosts
-    output: 'standalone',
-
     experimental: {
         testProxy: true,
     },
