@@ -30,6 +30,7 @@ import {
 import axios, { AxiosProgressEvent, type CancelTokenSource } from "axios";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/network";
+import log from "loglevel";
 
 // Define file type selection options
 type FileTypeOption = "mxl" | "image" | "not-selected";
@@ -246,7 +247,7 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
         );
       }
     } catch (error) {
-      console.error("Upload failed:", error);
+      log.error("Upload failed:", error);
 
       // Check if it was cancelled
       if (axios.isCancel(error)) {
@@ -366,7 +367,7 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
           return newSet;
         });
       } catch (error) {
-        console.error("Failed to cancel upload on server:", error);
+        log.error("Failed to cancel upload on server:", error);
       }
     }
   };
@@ -634,7 +635,7 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
         setCurrentStep(currentStep + 1);
         setIsSubmitting(false);
       } catch (error) {
-        console.error("Failed to confirm upload:", error);
+        log.error("Failed to confirm upload:", error);
         setIsSubmitting(false);
         setSubmitError("Failed to confirm upload. Please try again.");
       }

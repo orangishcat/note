@@ -59,7 +59,7 @@ export function Layout({ children, navbarContent }: LayoutProps) {
           {navbarContent}
         </Navbar>
       </div>
-      <div className="flex overflow-auto h-full">
+      <div className="flex overflow-hidden h-full">
         {showSidebar && (
           <Sidebar
             isOpen={isSidebarOpen}

@@ -4,8 +4,14 @@ import React, { useEffect, useRef } from "react";
 import { ImageScoreRendererProps } from "@/types/score-types";
 import api from "@/lib/network";
 import { storage } from "@/lib/appwrite";
-// Import PDF.js viewer styles
 import "pdfjs-dist/web/pdf_viewer.css";
+import log from "loglevel";
+import type { EventBus } from "pdfjs-dist/types/web/event_utils";
+import type { PDFLinkService } from "pdfjs-dist/types/web/pdf_link_service";
+import type { PDFFindController } from "pdfjs-dist/types/web/pdf_find_controller";
+import type { PDFViewer } from "pdfjs-dist/types/web/pdf_viewer";
+import type { ScrollMode } from "pdfjs-dist/types/web/ui_utils";
+import type { PDFDocumentProxy } from "pdfjs-dist/types/src/display/api";
 
 export default function ImageScoreRenderer({
   scoreId,
@@ -18,88 +24,87 @@ export default function ImageScoreRenderer({
   void _pagesPerView;
 
   const viewerContainerRef = useRef<HTMLDivElement>(null);
-  const viewerRef = useRef<any>(null);
-  const eventBusRef = useRef<any>(null);
-  const pdfDocRef = useRef<any>(null);
-  const scrollModeRef = useRef<any>(null);
+  const viewerRef = useRef<PDFViewer | null>(null);
+  const eventBusRef = useRef<EventBus | null>(null);
+  const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
+  const scrollModeRef = useRef<typeof ScrollMode | null>(null);
 
   // Initialize PDF.js viewer
+  // helper: is the container measurable?
+  function isMeasurable(el: HTMLElement | null) {
+    if (!el || !el.isConnected) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
+  // wait until measurable (retry a few frames)
+  function waitMeasurable(cb: () => void, attempts = 20) {
+    const el = viewerContainerRef.current;
+    if (!el) return;
+    if (isMeasurable(el)) return cb();
+    if (attempts <= 0) return cb(); // best effort
+    requestAnimationFrame(() => waitMeasurable(cb, attempts - 1));
+  }
+
   useEffect(() => {
     let cancelled = false;
-    const cleanupRef: { current: null | (() => void) } = { current: null };
+    const cleanupFns: Array<() => void> = [];
 
     async function init() {
-      // Import core library first and attach to globalThis for the viewer bundle
-      const pdfjsLib: any = await import("pdfjs-dist");
-      (globalThis as any).pdfjsLib = pdfjsLib;
-      // Set worker
+      const pdfjsLib = await import("pdfjs-dist");
+      (globalThis as unknown as { pdfjsLib?: unknown }).pdfjsLib = pdfjsLib;
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
         "pdfjs-dist/build/pdf.worker.min.mjs",
         import.meta.url,
       ).toString();
 
-      // Import the viewer after the global is set
-      const pdfjsViewer: any = await import("pdfjs-dist/web/pdf_viewer");
+      const pdfjsViewer = await import("pdfjs-dist/web/pdf_viewer");
 
       const container = viewerContainerRef.current!;
-      // Clear any previous content
       container.innerHTML = "";
-      // Ensure required absolute positioning for PDF.js viewer container
-      const cs1 = getComputedStyle(container);
-      if (cs1.position !== "absolute") {
-        container.style.position = "absolute";
-        container.style.top = "0";
-        container.style.left = "0";
-        container.style.right = "0";
-        container.style.bottom = "0";
-      }
-      if (cs1.overflow !== "auto") {
-        container.style.overflow = "auto";
-      }
+      // positioning for offsetParent
+      container.style.position = "absolute";
+      container.style.inset = "0";
+      container.style.overflow = "auto";
 
-      // Create the viewer root
+      // center single-page viewer
+      container.style.textAlign = displayMode === "scroll" ? "" : "center";
+
       const viewerEl = document.createElement("div");
       viewerEl.className = "pdfViewer";
       container.appendChild(viewerEl);
 
-      // Set up viewer components
-      const eventBus = new (pdfjsViewer as any).EventBus();
-      const linkService = new (pdfjsViewer as any).PDFLinkService({ eventBus });
-      const findController = new (pdfjsViewer as any).PDFFindController({
+      const eventBus: EventBus = new pdfjsViewer.EventBus();
+      const linkService: PDFLinkService = new pdfjsViewer.PDFLinkService({
         eventBus,
-        linkService,
       });
-      // Use single-page viewer for horizontal/paged mode so only one page is shown, centered
-      const ViewerCtor =
+      const findController: PDFFindController =
+        new pdfjsViewer.PDFFindController({ eventBus, linkService });
+
+      const viewer: PDFViewer =
         displayMode === "scroll"
-          ? (pdfjsViewer as any).PDFViewer
-          : (pdfjsViewer as any).PDFSinglePageViewer;
-      const viewer = new ViewerCtor({
-        container,
-        eventBus,
-        linkService,
-        findController,
-      });
-      // Center the single-page view content by centering the container's inline content
-      if (displayMode !== "scroll") {
-        container.style.textAlign = "center";
-      } else {
-        container.style.textAlign = "";
-      }
-      try {
-        const cs = getComputedStyle(container);
-        // eslint-disable-next-line no-console
-        console.error("pdfjs container init:", {
-          position: cs.position,
-          hasOffsetParent: !!container.offsetParent,
-          rects: container.getClientRects().length,
-          w: container.clientWidth,
-          h: container.clientHeight,
-        });
-      } catch {}
+          ? new pdfjsViewer.PDFViewer({
+              container,
+              eventBus,
+              linkService,
+              findController,
+            })
+          : new (
+              pdfjsViewer as unknown as {
+                PDFSinglePageViewer: new (
+                  opts: ConstructorParameters<typeof pdfjsViewer.PDFViewer>[0],
+                ) => PDFViewer;
+              }
+            ).PDFSinglePageViewer({
+              container,
+              eventBus,
+              linkService,
+              findController,
+            });
+
       linkService.setViewer(viewer);
 
-      // Load the PDF bytes
+      // load pdf
       const url = storage.getFileDownload(
         process.env.NEXT_PUBLIC_SCORES_BUCKET!,
         scoreId,
@@ -108,39 +113,87 @@ export default function ImageScoreRenderer({
         responseType: "arraybuffer",
       });
       const loadingTask = pdfjsLib.getDocument({ data: res.data });
-      const pdfDocument = await loadingTask.promise;
+      const pdfDocument: PDFDocumentProxy = await loadingTask.promise;
       pdfDocRef.current = pdfDocument;
 
-      // Set the document only once the container is measurable to avoid scroll errors
-      const mountDocument = () => {
+      // mount when measurable
+      waitMeasurable(() => {
+        if (cancelled) return;
         viewer.setDocument(pdfDocument);
         linkService.setDocument(pdfDocument, null);
-
-        // Inform listeners about total pages
         document.dispatchEvent(
           new CustomEvent("score:pageInfo", {
             detail: { totalPages: pdfDocument.numPages, scoreId },
             bubbles: true,
           }),
         );
-      };
-      // Defer mounting until container is ready
-      const waitReady = (cb: () => void, attempts = 20) => {
-        const el = viewerContainerRef.current;
-        if (!el) return cb();
-        const ready = !!el.offsetParent || el.getClientRects().length > 0;
-        if (ready) return cb();
-        if (attempts <= 0) return cb();
-        requestAnimationFrame(() => waitReady(cb, attempts - 1));
-      };
-      waitReady(mountDocument);
+      });
 
-      // Handle page changes to sync external state and fire events
-      eventBus.on("pagechanging", (evt: any) => {
+      eventBusRef.current = eventBus;
+      viewerRef.current = viewer;
+      scrollModeRef.current = pdfjsViewer.ScrollMode;
+
+      if (!viewerRef.current) {
+        log.warn("Viewer not initialized");
+      }
+
+      // recenter
+      const onRecenter = () => {
+        const v = viewerRef.current;
+        if (v) v.currentScaleValue = "page-height";
+      };
+      const recenterBtn = recenter.current;
+      recenterBtn?.addEventListener("click", onRecenter);
+      cleanupFns.push(
+        () => recenterBtn?.removeEventListener("click", onRecenter),
+      );
+
+      // zoom handlers (unchanged but use viewerRef.current)
+      const onZoomIn = (e: Event) => {
+        const ce = e as CustomEvent<{ scoreId?: string }>;
+        if (ce.detail?.scoreId && ce.detail.scoreId !== scoreId) return;
+        const v = viewerRef.current;
+        if (!v) throw new Error("Viewer doesn't exist");
+        const cur = v.currentScale;
+        v.currentScale = Math.min(5, cur * 1.1);
+      };
+      const onZoomOut = (e: Event) => {
+        const ce = e as CustomEvent<{ scoreId?: string }>;
+        if (ce.detail?.scoreId && ce.detail.scoreId !== scoreId) return;
+        const v = viewerRef.current;
+        if (!v) throw new Error("Viewer doesn't exist");
+        const cur = v.currentScale;
+        v.currentScale = Math.max(0.1, cur / 1.1);
+      };
+      const onZoomReset = (e: Event) => {
+        const ce = e as CustomEvent<{ scoreId?: string }>;
+        if (ce.detail?.scoreId && ce.detail.scoreId !== scoreId) return;
+        const v = viewerRef.current;
+        if (v) v.currentScaleValue = "page-height";
+      };
+
+      document.addEventListener("score:zoomIn", onZoomIn as EventListener);
+      document.addEventListener("score:zoomOut", onZoomOut as EventListener);
+      document.addEventListener(
+        "score:zoomReset",
+        onZoomReset as EventListener,
+      );
+      cleanupFns.push(() => {
+        document.removeEventListener("score:zoomIn", onZoomIn as EventListener);
+        document.removeEventListener(
+          "score:zoomOut",
+          onZoomOut as EventListener,
+        );
+        document.removeEventListener(
+          "score:zoomReset",
+          onZoomReset as EventListener,
+        );
+      });
+
+      // page events
+      const onPageChanging = (evt: { pageNumber: number }) => {
         if (cancelled) return;
-        const pageNum: number = evt.pageNumber; // 1-based
-        const zeroBased = pageNum - 1;
-        // Defer state updates to avoid running within viewer layout stack
+        const zeroBased = evt.pageNumber - 1;
         setTimeout(() => {
           setPage(zeroBased);
           document.dispatchEvent(
@@ -153,161 +206,68 @@ export default function ImageScoreRenderer({
             new CustomEvent("score:redrawAnnotations", { bubbles: true }),
           );
         }, 0);
-      });
-
-      eventBusRef.current = eventBus;
-      viewerRef.current = viewer;
-
-      // Save ScrollMode enum for later and apply after pages initialize
-      scrollModeRef.current = (pdfjsViewer as any).ScrollMode;
-
-      // Hook up recenter to reset zoom
-      const onRecenter = () => {
-        if (viewerRef.current)
-          viewerRef.current.currentScaleValue = "page-height";
       };
-      const btn = recenter.current;
-      btn?.addEventListener("click", onRecenter);
+      eventBus.on("pagechanging", onPageChanging);
+      cleanupFns.push(() => eventBus.off("pagechanging", onPageChanging));
 
-      // Zoom controls via global events, filtered by scoreId
-      const onZoomIn = (e: Event) => {
-        const ce = e as CustomEvent<{ scoreId?: string }>;
-        if (ce.detail?.scoreId && ce.detail.scoreId !== scoreId) return;
-        if (!viewerRef.current) return;
-        try {
-          const cur = viewerRef.current.currentScale || 1;
-          viewerRef.current.currentScale = Math.min(5, cur * 1.1);
-        } catch {
-          // ignore
-        }
+      // apply initial scale when measurable after pagesinit
+      const onPagesInit = () => {
+        waitMeasurable(() => {
+          const v = viewerRef.current;
+          if (v) v.currentScaleValue = "page-height";
+        });
       };
+      eventBus.on("pagesinit", onPagesInit);
+      cleanupFns.push(() => eventBus.off("pagesinit", onPagesInit));
 
-      const onZoomOut = (e: Event) => {
-        const ce = e as CustomEvent<{ scoreId?: string }>;
-        if (ce.detail?.scoreId && ce.detail.scoreId !== scoreId) return;
-        if (!viewerRef.current) return;
-        try {
-          const cur = viewerRef.current.currentScale || 1;
-          viewerRef.current.currentScale = Math.max(0.1, cur / 1.1);
-        } catch {
-          // ignore
-        }
+      // apply scroll mode after pages loaded
+      const onPagesLoaded = () => {
+        waitMeasurable(() => {
+          const v = viewerRef.current;
+          if (!v || !scrollModeRef.current) return;
+          if (displayMode === "scroll")
+            v.scrollMode = scrollModeRef.current.VERTICAL;
+        });
       };
-
-      const onZoomReset = (e: Event) => {
-        const ce = e as CustomEvent<{ scoreId?: string }>;
-        if (ce.detail?.scoreId && ce.detail.scoreId !== scoreId) return;
-        if (!viewerRef.current) return;
-        try {
-          viewerRef.current.currentScaleValue = "page-height";
-        } catch {
-          // ignore
-        }
-      };
-
-      document.addEventListener("score:zoomIn", onZoomIn as EventListener);
-      document.addEventListener("score:zoomOut", onZoomOut as EventListener);
-      document.addEventListener(
-        "score:zoomReset",
-        onZoomReset as EventListener,
-      );
-
-      const cleanup = () => {
-        btn?.removeEventListener("click", onRecenter);
-        document.removeEventListener("score:zoomIn", onZoomIn as EventListener);
-        document.removeEventListener(
-          "score:zoomOut",
-          onZoomOut as EventListener,
-        );
-        document.removeEventListener(
-          "score:zoomReset",
-          onZoomReset as EventListener,
-        );
-      };
-      // Helper to wait for container to be laid out (attached and measurable)
-      const waitForContainerReady = (cb: () => void, attempts = 10) => {
-        const el = viewerContainerRef.current;
-        if (!el) return;
-        // Consider ready if attached and has non-zero geometry
-        const ready = !!el.offsetParent || el.getClientRects().length > 0;
-        if (ready) {
-          cb();
-          return;
-        }
-        if (attempts <= 0) {
-          // Give up but still try to apply without geometry to avoid stalling
-          cb();
-          return;
-        }
-        requestAnimationFrame(() => waitForContainerReady(cb, attempts - 1));
-      };
-
-      // Apply initial scale once pages are initialized
-      eventBus.on("pagesinit", () => {
-        const applyScale = () => {
-          try {
-            viewer.currentScaleValue = "page-height";
-          } catch {
-            // ignore
-          }
-        };
-        waitForContainerReady(applyScale);
-      });
-
-      // Apply scroll mode after pages are fully loaded to avoid early scroll
-      eventBus.on("pagesloaded", () => {
-        const applyScroll = () => {
-          try {
-            if (!scrollModeRef.current || !viewerRef.current) return;
-            // For single-page viewer, scrollMode is fixed to PAGE; only set when in scroll (multi-page) mode
-            if (displayMode === "scroll") {
-              viewerRef.current.scrollMode = scrollModeRef.current.VERTICAL;
-            }
-          } catch {
-            // ignore
-          }
-        };
-        waitForContainerReady(applyScroll);
-      });
-
-      cleanupRef.current = cleanup;
+      eventBus.on("pagesloaded", onPagesLoaded);
+      cleanupFns.push(() => eventBus.off("pagesloaded", onPagesLoaded));
     }
 
     void init();
 
     return () => {
       cancelled = true;
-      cleanupRef.current?.();
+      while (cleanupFns.length) {
+        try {
+          cleanupFns.pop()!();
+        } catch {}
+      }
     };
   }, [scoreId, recenter, setPage, displayMode]);
 
-  // Apply scroll mode when displayMode changes
   useEffect(() => {
-    if (!viewerRef.current) return;
-    try {
-      if (!scrollModeRef.current) return;
-      const container = viewerContainerRef.current;
-      const apply = () => {
-        try {
-          viewerRef.current.scrollMode =
-            displayMode === "scroll"
-              ? scrollModeRef.current.VERTICAL
-              : scrollModeRef.current.HORIZONTAL;
-        } catch {
-          // ignore
-        }
-      };
-      if (container && !container.offsetParent) requestAnimationFrame(apply);
-      else apply();
-    } catch {
-      // ignore
+    const v = viewerRef.current;
+    if (!v || !scrollModeRef.current) return;
+    const container = viewerContainerRef.current;
+    const apply = () => {
+      const v2 = viewerRef.current;
+      if (!v2) return;
+      v2.scrollMode =
+        displayMode === "scroll"
+          ? scrollModeRef.current!.VERTICAL
+          : scrollModeRef.current!.HORIZONTAL;
+    };
+    if (container && !isMeasurable(container)) {
+      requestAnimationFrame(apply);
+    } else {
+      apply();
     }
   }, [displayMode]);
 
   // Sync page from external state
   useEffect(() => {
     if (!viewerRef.current || !pdfDocRef.current) return;
-    if ((viewerRef.current as any).pagesCount === 0) return;
+    if (viewerRef.current.pagesCount === 0) return;
     const total = pdfDocRef.current.numPages;
     const page = Math.min(Math.max(1, (currentPage ?? 0) + 1), total);
     if (viewerRef.current.currentPageNumber !== page) {

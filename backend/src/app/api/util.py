@@ -24,7 +24,7 @@ recordings_collection = os.environ.get("RECORDINGS_COLLECTION_ID")
 def get_client():
     client = Client()
     client.set_endpoint("https://cloud.appwrite.io/v1")
-    client.set_project(os.environ["PROJECT_ID"])
+    client.set_project(os.environ["APPWRITE_PROJECT_ID"])
     return client
 
 

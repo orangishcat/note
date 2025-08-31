@@ -1,3 +1,4 @@
+"use client";
 import React, { useContext, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import HCaptcha from "@hcaptcha/react-hcaptcha";
 import { AccountContext } from "@/app/providers";
 
 import { account } from "@/lib/appwrite";
+import log from "loglevel";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -337,7 +339,7 @@ export function ResetPasswordModal({
         onClose();
       }, 3000);
     } catch (error: any) {
-      console.error("Password reset failed:", error);
+      log.error("Password reset failed:", error);
       setStatus("");
       if (error.response?.status === 404) {
         setError("No account found with this email address");

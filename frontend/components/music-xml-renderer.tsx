@@ -5,6 +5,7 @@ import { OpenSheetMusicDisplay } from "opensheetmusicdisplay";
 import { storage } from "@/lib/appwrite";
 import { MusicXMLRendererProps } from "@/types/score-types";
 import JSZip from "jszip";
+import log from "loglevel";
 
 function isZip(buf: ArrayBuffer): boolean {
   const u8 = new Uint8Array(buf);
@@ -71,7 +72,7 @@ export default function MusicXMLRenderer({
 
       if (!osmdRef.current) {
         osmdRef.current = new OpenSheetMusicDisplay(containerRef.current, {
-          autoResize: true,
+          autoResize: false, // prevent OSMD auto redraw while we overlay annotations
           backend: "svg",
         });
       }
@@ -111,8 +112,17 @@ export default function MusicXMLRenderer({
 
         await osmdRef.current.load(xmlText);
         if (!cancelled) osmdRef.current.render();
+        // Expose OSMD instance for annotation hooks without DOM queries
+        if (!cancelled) {
+          try {
+            const g =
+              (window as any).__osmdInstances ||
+              ((window as any).__osmdInstances = {});
+            g[scoreId] = osmdRef.current;
+          } catch {}
+        }
       } catch (e) {
-        console.error(e);
+        log.error(e);
         if (!cancelled) retry();
       }
     }
@@ -126,6 +136,10 @@ export default function MusicXMLRenderer({
           osmdRef.current.clear();
         } catch {}
       }
+      try {
+        const g = (window as any).__osmdInstances;
+        if (g && g[scoreId]) delete g[scoreId];
+      } catch {}
     };
   }, [scoreId, retry]);
 

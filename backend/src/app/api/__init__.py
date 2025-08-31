@@ -6,7 +6,7 @@ from .util import *
 from .scoring import audio
 from .scores import score_bp
 
-admin_client = get_client().set_key(os.environ["API_KEY"])
+admin_client = get_client().set_key(os.environ["APPWRITE_API_KEY"])
 admin_account = Account(admin_client)
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")

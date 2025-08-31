@@ -9,13 +9,17 @@ import type { PlaywrightTestConfig } from "@playwright/test";
  * You can access the default config by importing `defaultPlaywrightConfig` from `'next/experimental/testmode/playwright'`.
  */
 const config: PlaywrightTestConfig = {
+  // Restrict tests to the dedicated tests directory
+  testDir: "./tests",
+  testMatch: ["**/*.spec.ts"],
   globalSetup: require.resolve("./global-setup.js"),
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
     { name: "firefox", use: { browserName: "firefox" } },
   ],
   webServer: {
-    command: "next dev --port 3000",
+    // Resolve Next.js binary from local node_modules to avoid PATH issues
+    command: "./node_modules/.bin/next dev --port 3000",
     port: 3000,
     reuseExistingServer: true,
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
