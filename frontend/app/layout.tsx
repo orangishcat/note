@@ -3,8 +3,6 @@ import React from "react";
 import "./globals.css";
 import "webrtc-adapter";
 
-export const dynamic = "force-dynamic";
-
 export default function RootLayout({
   children,
 }: {

@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // Dev-only rewrites to local Flask backend
     async rewrites() {
         if (process.env.NODE_ENV === 'development') {
+            // Local Flask backend for dev
             return [
                 {
                     source: '/api/:path*',
@@ -13,12 +13,21 @@ const nextConfig = {
                     destination: 'http://127.0.0.1:5000/static/:path*',
                 },
             ];
+        } else {
+            // In production, point to the Appwrite Function hosting Flask
+            return [
+                {
+                    source: '/api/:path*',
+                    destination: `https://${process.env.NEXT_PUBLIC_BACKEND_ENDPOINT}/api/:path*`,
+                },
+                {
+                    source: '/static/:path*',
+                    destination: `https://${process.env.NEXT_PUBLIC_BACKEND_ENDPOINT}/static/:path*`,
+                },
+            ];
         }
-        // In SSR hosting (e.g., Appwrite Sites), leave paths unchanged
-        return [];
     },
 
-    // External image configuration for Appwrite Storage
     images: (() => {
         const fallback = 'https://cloud.appwrite.io/v1';
         const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || fallback;
@@ -39,16 +48,11 @@ const nextConfig = {
                     protocol,
                     hostname: host,
                     ...(port ? { port } : {}),
-                    // Allow any path beneath the endpoint (covers Storage file URLs)
                     pathname: '/**',
                 },
             ],
         };
     })(),
-
-    experimental: {
-        testProxy: true,
-    },
 };
 
 export default nextConfig;
