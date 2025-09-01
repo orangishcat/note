@@ -78,6 +78,7 @@ export default function ScorePage() {
     $createdAt: "",
     $updatedAt: "",
     $permissions: [],
+    $sequence: 0,
     total_pages: 1,
   });
   const [editList, setEditList] = useState<ScoringResult | null>(null);
@@ -674,6 +675,7 @@ export default function ScorePage() {
                 size="icon"
                 className="text-gray-900 dark:text-white"
                 disabled={currentPage <= 0}
+                data-testid="btn-prev-page"
               >
                 <ArrowLeftCircle
                   className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
@@ -693,6 +695,7 @@ export default function ScorePage() {
                 variant="ghost"
                 size="icon"
                 className="text-gray-900 dark:text-white"
+                data-testid="btn-next-page"
               >
                 <ArrowRightCircle
                   className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
@@ -712,6 +715,7 @@ export default function ScorePage() {
                   )
                 }
                 className="text-gray-900 dark:text-white"
+                data-testid="btn-zoom-out"
               >
                 <ZoomOut
                   className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
@@ -731,6 +735,7 @@ export default function ScorePage() {
                   )
                 }
                 className="text-gray-900 dark:text-white"
+                data-testid="btn-zoom-in"
               >
                 <ZoomIn
                   className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
@@ -742,7 +747,16 @@ export default function ScorePage() {
                 variant="ghost"
                 size="icon"
                 ref={recenterButton}
+                onClick={() =>
+                  document.dispatchEvent(
+                    new CustomEvent("score:zoomReset", {
+                      detail: { scoreId: score.file_id },
+                      bubbles: true,
+                    }),
+                  )
+                }
                 className="text-gray-900 dark:text-white"
+                data-testid="btn-zoom-reset"
               >
                 <Fullscreen
                   className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}

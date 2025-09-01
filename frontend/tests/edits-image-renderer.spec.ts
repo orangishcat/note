@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+test.skip(({ browserName }) => browserName === "webkit", "Skip WebKit");
 import fs from "fs";
 import path from "path";
 

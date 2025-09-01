@@ -5,11 +5,13 @@ Strict engineering guidelines for automated and human contributors.
 ## Baseline Requirements (Non‑Negotiable)
 
 - Adhere to `.editorconfig` for all files (encoding, EOL, indentation).
-- If you modify any frontend code, run `cd frontend && npm run lint` and fix all
+- Use pnpm instead of npm as the package manager.
+- If you modify any frontend code, run `cd frontend && pnpm run lint` and fix
+  all
   warnings and errors before submitting.
   Lint violations are treated as failures.
 - The entire Next.js app resides in `frontend`. Always `cd frontend` before
-  running `next`, `npm`, or `playwright`
+  running `next`, `pnpm`, or `playwright`
   commands.
 - Use `notes_patch` for protobuf types on the Python backend. Do not hand-edit
   generated types.
@@ -35,10 +37,10 @@ Strict engineering guidelines for automated and human contributors.
   when scripting:
   `./node_modules/.bin/next`.
 - Package scripts to know:
-  - `npm run dev` — local dev server (HTTPS experimental is enabled).
-  - `npm run lint` — ESLint + TypeScript type checks (via `eslint-plugin-tsc`).
+  - `pnpm run dev` — local dev server (HTTPS experimental is enabled).
+  - `pnpm run lint` — ESLint + TypeScript type checks (via `eslint-plugin-tsc`).
     All issues must be fixed.
-  - `npm test` — Playwright tests leveraging Next’s experimental test mode.
+  - `pnpm test` — Playwright tests leveraging Next’s experimental test mode.
 
 ## TypeScript/React (Frontend)
 
@@ -131,7 +133,7 @@ Strict engineering guidelines for automated and human contributors.
     `score:redrawAnnotations`.
   - Avoid flakiness: wait on visible, meaningful selectors and use `expect.poll`
     instead of arbitrary sleeps.
-- Running: `cd frontend && npm test`. If you add tests, they must pass in
+- Running: `cd frontend && pnpm test`. If you add tests, they must pass in
   Chromium and Firefox projects.
 
 ## Linting, Types, and CI Discipline
@@ -170,7 +172,7 @@ Strict engineering guidelines for automated and human contributors.
 
 ## Code Review Checklist
 
-- Does it conform to `.editorconfig` and pass `npm run lint` with zero issues?
+- Does it conform to `.editorconfig` and pass `pnpm run lint` with zero issues?
 - Are tests added/updated in `frontend/tests` and passing in both browsers?
 - Are Appwrite calls routed through shared clients and environment variables?
 - Are protobuf types obtained via `initProtobufTypes` and decoded safely?

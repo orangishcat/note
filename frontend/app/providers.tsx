@@ -83,8 +83,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       const persister = createSyncStoragePersister({
         storage: window.localStorage,
       });
+      // Cast to any to avoid cross-package type mismatch between @tanstack versions
       persistQueryClient({
-        queryClient: qc,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        queryClient: qc as any,
         persister: persister,
         maxAge: cacheTime,
       });

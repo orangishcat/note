@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+test.skip(({ browserName }) => browserName === "webkit", "Skip WebKit");
 
 // Minimal 1-page PDF (ASCII string). Valid enough for PDF.js to parse.
 const MINIMAL_PDF = `%PDF-1.4

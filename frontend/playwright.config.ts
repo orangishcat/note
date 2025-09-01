@@ -13,14 +13,17 @@ const config: PlaywrightTestConfig = {
   testDir: "./tests",
   testMatch: ["**/*.spec.ts"],
   globalSetup: require.resolve("./global-setup.js"),
+  use: {
+    baseURL: "http://127.0.0.1:3002",
+  },
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
     { name: "firefox", use: { browserName: "firefox" } },
   ],
   webServer: {
     // Resolve Next.js binary from local node_modules to avoid PATH issues
-    command: "./node_modules/.bin/next dev --port 3000",
-    url: "http://127.0.0.1:3000/",
+    command: "./node_modules/.bin/next dev --port 3002",
+    url: "http://127.0.0.1:3002/",
     reuseExistingServer: true,
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
     timeout: 180000,

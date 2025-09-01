@@ -63,19 +63,13 @@ export function useEditDisplay(
     );
   }, [scoreFileId]);
 
-  // Separate effect for handling zoom changes on existing annotations
+  // On zoom changes, re-render annotations to keep positions accurate
   useEffect(() => {
-    if (!zoomCtx || annotationsRef.current.length === 0) return;
-
-    const zoom = zoomCtx.getZoomLevel(scoreId) ?? 1;
-
-    // Apply zoom transform to existing annotations without recreating them
-    annotationsRef.current.forEach((annotation) => {
-      if (annotation && annotation.style) {
-        annotation.style.transform = `scale(${zoom})`;
-        annotation.style.transformOrigin = "top left";
-      }
-    });
+    if (!zoomCtx) return;
+    // Trigger a redraw; renderEdits is bound to this event below
+    document.dispatchEvent(
+      new CustomEvent("score:redrawAnnotations", { bubbles: true }),
+    );
   }, [zoomCtx, zoomCtx?.zoomLevels[scoreId], scoreId]);
 
   function createAnnotDiv(
@@ -236,44 +230,72 @@ export function useEditDisplay(
     log.debug("Edit list:", editList);
     log.debug("Actual notes:", actualNotes);
 
+    // Use the actual PDF.js current page if available, else fall back to provided currentPage
+    let effectivePage = currentPage;
+    try {
+      // viewer is keyed by file id when rendering ImageScoreRenderer
+      const viewer = (window as any).__pdfViewers?.[scoreFileId];
+      const num = viewer?.currentPageNumber;
+      if (typeof num === "number" && num > 0) effectivePage = num - 1;
+    } catch {}
+
     // Determine mapping area (PDF.js current page element) for accurate, offset-aware scaling
-    const pageIndex = pageSizes.length === 2 ? 0 : currentPage;
+    const pageIndex = pageSizes.length === 2 ? 0 : effectivePage;
     const pageWidth = pageSizes[pageIndex * 2];
     const pageHeight = pageSizes[pageIndex * 2 + 1];
 
-    const containerRect = container.getBoundingClientRect();
-    // Prefer the actual rendered page element bounds when available
+    // Prefer the actual rendered page element for hosting overlays so they scroll with content
     const pageNumber = pageIndex + 1; // PDF.js uses 1-based
     const pageEl = container.querySelector(
       `.pdfViewer .page[data-page-number="${pageNumber}"]`,
     ) as HTMLElement | null;
 
+    // Determine the host element to append annotations to
+    const host: HTMLElement = pageEl ?? (container as HTMLElement);
+    const hostRect = host.getBoundingClientRect();
+
     let scale = 1;
     let offsetX = 0;
     let offsetY = 0;
     if (pageEl) {
+      // When appending inside the page element, offsets are zero (coordinates relative to page)
+      offsetX = 0;
+      offsetY = 0;
       const pr = pageEl.getBoundingClientRect();
-      // Compute offset of the page inside the overlay container
-      offsetX = pr.left - containerRect.left;
-      offsetY = pr.top - containerRect.top;
       const scaleX = pr.width / pageWidth;
       const scaleY = pr.height / pageHeight;
       scale = Math.min(scaleX, scaleY);
     } else {
-      // Fallback: fit the page into the container like an <img> object-fit: contain
-      const scaleX = containerRect.width / pageWidth;
-      const scaleY = containerRect.height / pageHeight;
+      // Fallback: fit within container as before
+      const scaleX = hostRect.width / pageWidth;
+      const scaleY = hostRect.height / pageHeight;
       scale = Math.min(scaleX, scaleY);
-      offsetX = (containerRect.width - pageWidth * scale) / 2;
-      offsetY = (containerRect.height - pageHeight * scale) / 2;
+      offsetX = (hostRect.width - pageWidth * scale) / 2;
+      offsetY = (hostRect.height - pageHeight * scale) / 2;
+    }
+
+    // Ensure an overlay layer to contain edit rectangles, above text/annotation layers
+    let overlay = host.querySelector(".edit-overlay") as HTMLElement | null;
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.className = "edit-overlay";
+      Object.assign(overlay.style, {
+        position: "absolute",
+        inset: "0",
+        pointerEvents: "none",
+        zIndex: 1000,
+      });
+      host.appendChild(overlay);
     }
 
     // Clear existing annotations and reset the ref
-    container.querySelectorAll(".note-rectangle").forEach((e) => e.remove());
+    overlay
+      .querySelectorAll(".note-rectangle, .tempo-bracket")
+      .forEach((e) => e.remove());
     annotationsRef.current = [];
 
     const edits =
-      editList.edits?.filter((e) => e.sChar?.page === currentPage) ?? [];
+      editList.edits?.filter((e) => e.sChar?.page === effectivePage) ?? [];
     setEditCount(edits.length);
 
     if (!zoomCtx) return;
@@ -291,7 +313,11 @@ export function useEditDisplay(
         offsetX,
         offsetY,
       );
-      container.appendChild(div);
+      // enable interaction while overlay preserves pointer-events none
+      div.style.pointerEvents = "auto";
+      // keep edits above PDF content
+      div.style.zIndex = "1001";
+      overlay.appendChild(div);
       annotationsRef.current.push(div);
 
       if (edit.operation === EditOperation.SUBSTITUTE) {
@@ -312,7 +338,9 @@ export function useEditDisplay(
           offsetY,
           "rgb(31,151,176)",
         );
-        container.appendChild(targetDiv);
+        targetDiv.style.pointerEvents = "auto";
+        targetDiv.style.zIndex = "1001";
+        overlay.appendChild(targetDiv);
         annotationsRef.current.push(targetDiv);
       }
     });
@@ -329,14 +357,18 @@ export function useEditDisplay(
           offsetY,
         );
         brackets.forEach((div) => {
-          container.appendChild(div);
+          div.style.pointerEvents = "none";
+          div.style.zIndex = "1001";
+          overlay.appendChild(div);
           annotationsRef.current.push(div);
         });
       });
     }
 
     return () => {
-      container.querySelectorAll(".note-rectangle").forEach((e) => e.remove());
+      overlay
+        ?.querySelectorAll(".note-rectangle, .tempo-bracket")
+        .forEach((e) => e.remove());
       annotationsRef.current = [];
     };
   }, [

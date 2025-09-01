@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "NODE_ENV=test DEBUG=\"msw:*\" playwright test",
-    "clean:deps": "npx depcheck --oneline | xargs -r npm uninstall && npm prune"
+    "clean:deps": "pnpm dlx depcheck --oneline | xargs -r pnpm remove && pnpm prune"
   },
   "dependencies": {
     "@eslint/eslintrc": "^3.3.1",
@@ -42,7 +42,7 @@
     "webrtc-adapter": "^9.0.3"
   },
   "devDependencies": {
-    "@next/env": "^15.4.0-canary.115",
+    "@next/env": "^15.5.2",
     "@playwright/test": "^1.51.1",
     "@types/react": "^18.3.20",
     "@types/react-dom": "^18.3.6",
@@ -54,5 +54,6 @@
     "eslint-plugin-tsc": "^2.0.0",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
-  }
+  },
+  "packageManager": "pnpm@10.15.0+sha512.486ebc259d3e999a4e8691ce03b5cac4a71cbeca39372a9b762cb500cfdf0873e2cb16abe3d951b1ee2cf012503f027b98b6584e4df22524e0c7450d9ec7aa7b"
 }

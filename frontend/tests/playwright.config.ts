@@ -14,7 +14,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev --silent",
+    command: "pnpm run dev --silent",
     port: 3000,
     reuseExistingServer: true,
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+test.skip(({ browserName }) => browserName === "webkit", "Skip WebKit");
 import fs from "fs";
 import path from "path";
 
@@ -124,6 +125,16 @@ test("renders edits on musicxml renderer", async ({ page }) => {
   // Ensure debug panel is present
   await expect(page.getByText("Debug Panel")).toBeVisible();
 
+  // Wait for OSMD instance to be registered and then inject edit list
+  await expect
+    .poll(
+      async () =>
+        await page.evaluate(() =>
+          Boolean((window as any).__osmdInstances?.["mxml-file"]),
+        ),
+    )
+    .toBeTruthy();
+
   // Inject a minimal edit list via testing hook and redraw
   await page.evaluate(() => {
     const editList = {
@@ -170,6 +181,16 @@ test("renders edits on musicxml renderer", async ({ page }) => {
     `#score-mxml-file .score-container .note-rectangle`,
   );
   await expect
-    .poll(async () => await notesLocator.count(), { timeout: 30000 })
+    .poll(
+      async () => {
+        await page.evaluate(() =>
+          document.dispatchEvent(
+            new CustomEvent("score:redrawAnnotations", { bubbles: true }),
+          ),
+        );
+        return await notesLocator.count();
+      },
+      { timeout: 30000 },
+    )
     .toBeGreaterThan(0);
 });
