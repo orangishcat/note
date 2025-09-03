@@ -133,7 +133,7 @@ const DebugPanel = ({
 
   const redrawAnnotations = useCallback(() => {
     if (!editList) {
-      log.warn("No annotations to redraw");
+      log.debug("No annotations to redraw");
       return;
     }
     setTimeout(() => {

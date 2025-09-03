@@ -13,6 +13,10 @@ Strict engineering guidelines for automated and human contributors.
 - The entire Next.js app resides in `frontend`. Always `cd frontend` before
   running `next`, `pnpm`, or `playwright`
   commands.
+- Prefer event-driven flows over waits: do not block on visibility checks
+  (e.g., `waitForSelector({ state: 'visible' })`) when an event listener can
+  signal readiness. Avoid arbitrary delays; use DOM/events and state
+  subscriptions instead.
 - Use `notes_patch` for protobuf types on the Python backend. Do not hand-edit
   generated types.
 - When touching Python, prefer `numpy` for vectorized operations if it is

@@ -18,13 +18,13 @@ import {
   Clock,
   Download,
   Fullscreen,
-  ZoomIn,
-  ZoomOut,
   Maximize2,
   Mic,
   Minimize2,
   SquareIcon,
   Star,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/layout";
@@ -203,11 +203,11 @@ export default function ScorePage() {
 
     async function fetchScore() {
       try {
-        const response = await databases.getDocument(
-          process.env.NEXT_PUBLIC_DATABASE!,
-          process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
-          id,
-        );
+        const response = await databases.getDocument({
+          databaseId: process.env.NEXT_PUBLIC_DATABASE!,
+          collectionId: process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
+          documentId: id,
+        });
         log.debug(`Score data received:`, {
           id: response.$id,
           title: response.name,
@@ -236,10 +236,10 @@ export default function ScorePage() {
         log.debug(
           `Fetching notes for score ID: ${score.$id}, notes_id: ${score.notes_id}`,
         );
-        const url = storage.getFileDownload(
-          process.env.NEXT_PUBLIC_FILES_BUCKET!,
-          score.notes_id!,
-        );
+        const url = storage.getFileDownload({
+          bucketId: process.env.NEXT_PUBLIC_FILES_BUCKET!,
+          fileId: score.notes_id!,
+        });
         const response = await api.get(url, { responseType: "arraybuffer" });
         const buffer = response.data;
         log.debug(
@@ -457,12 +457,12 @@ export default function ScorePage() {
     if (Date.now() - lastStarTime < 700) return;
     setScore({ ...score, starred: !score.starred });
     databases
-      .updateDocument(
-        process.env.NEXT_PUBLIC_DATABASE!,
-        process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
-        score.$id,
-        { starred_users: [] },
-      )
+      .updateDocument({
+        databaseId: process.env.NEXT_PUBLIC_DATABASE!,
+        collectionId: process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
+        documentId: score.$id,
+        data: { starred_users: [] },
+      })
       .catch(log.error);
   };
 
@@ -482,11 +482,11 @@ export default function ScorePage() {
       log.debug(`React Query fetching score data for ID: ${id}`);
 
       try {
-        const response = await databases.getDocument(
-          process.env.NEXT_PUBLIC_DATABASE!,
-          process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
-          id,
-        );
+        const response = await databases.getDocument({
+          databaseId: process.env.NEXT_PUBLIC_DATABASE!,
+          collectionId: process.env.NEXT_PUBLIC_SCORES_COLLECTION!,
+          documentId: id,
+        });
         return response as unknown as MusicScore;
       } catch (error) {
         log.error("Error in React Query fetch:", error);
@@ -708,10 +708,7 @@ export default function ScorePage() {
                 size="icon"
                 onClick={() =>
                   document.dispatchEvent(
-                    new CustomEvent("score:zoomOut", {
-                      detail: { scoreId: score.file_id },
-                      bubbles: true,
-                    }),
+                    new CustomEvent("score:zoomOut", { bubbles: true }),
                   )
                 }
                 className="text-gray-900 dark:text-white"
@@ -728,10 +725,7 @@ export default function ScorePage() {
                 size="icon"
                 onClick={() =>
                   document.dispatchEvent(
-                    new CustomEvent("score:zoomIn", {
-                      detail: { scoreId: score.file_id },
-                      bubbles: true,
-                    }),
+                    new CustomEvent("score:zoomIn", { bubbles: true }),
                   )
                 }
                 className="text-gray-900 dark:text-white"
@@ -749,10 +743,7 @@ export default function ScorePage() {
                 ref={recenterButton}
                 onClick={() =>
                   document.dispatchEvent(
-                    new CustomEvent("score:zoomReset", {
-                      detail: { scoreId: score.file_id },
-                      bubbles: true,
-                    }),
+                    new CustomEvent("score:zoomReset", { bubbles: true }),
                   )
                 }
                 className="text-gray-900 dark:text-white"
@@ -792,10 +783,10 @@ export default function ScorePage() {
                 size="icon"
                 onClick={() =>
                   window.open(
-                    storage.getFileDownload(
-                      process.env.NEXT_PUBLIC_SCORES_BUCKET!,
-                      score.file_id!,
-                    ),
+                    storage.getFileDownload({
+                      bucketId: process.env.NEXT_PUBLIC_SCORES_BUCKET!,
+                      fileId: score.file_id!,
+                    }),
                   )
                 }
                 className="text-gray-900 dark:text-white"
@@ -886,7 +877,6 @@ export default function ScorePage() {
                   void refetch();
                 }}
                 currentPage={currentPage}
-                setPage={setCurrentPage}
                 pagesPerView={1}
                 displayMode={displayMode}
                 verticalLoading={verticalLoading}
