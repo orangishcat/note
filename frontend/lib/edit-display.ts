@@ -75,10 +75,8 @@ export function useEditDisplay(
   function createAnnotDiv(
     edit: Edit,
     note: Note,
-    pageScale: number,
-    pageZoom: number,
-    offsetX: number,
-    offsetY: number,
+    scaleX: number,
+    scaleY: number,
     color: string | null = null,
   ) {
     const div = document.createElement("div");
@@ -86,11 +84,11 @@ export function useEditDisplay(
 
     const [x1, y1, x2, y2] = note.bbox;
 
-    // Scale coordinates with base scale only
-    const scaledX1 = x1 * pageScale + offsetX;
-    const scaledY1 = y1 * pageScale + offsetY;
-    const scaledX2 = x2 * pageScale + offsetX;
-    const scaledY2 = y2 * pageScale + offsetY;
+    // Scale coordinates relative to canvas size with per-axis scaling
+    const scaledX1 = x1 * scaleX;
+    const scaledY1 = y1 * scaleY;
+    const scaledX2 = x2 * scaleX;
+    const scaledY2 = y2 * scaleY;
 
     color = color ?? colorFor(edit.operation);
 
@@ -101,7 +99,6 @@ export function useEditDisplay(
       height: `${scaledY2 - scaledY1}px`,
       backgroundColor: color,
       border: `1px solid ${color.replace("0.5", "1")}`,
-      transform: `scale(${pageZoom})`,
       transformOrigin: "top left",
     });
 
@@ -123,13 +120,7 @@ export function useEditDisplay(
   }
 
   const createTempoBrackets = useCallback(
-    (
-      section: TempoSection,
-      pageScale: number,
-      pageZoom: number,
-      offsetX: number,
-      offsetY: number,
-    ): HTMLElement[] => {
+    (section: TempoSection, scaleX: number, scaleY: number): HTMLElement[] => {
       if (!editList || !actualNotes) return [];
       const startNote = actualNotes.notes[section.startIndex];
       const endNote = actualNotes.notes[section.endIndex];
@@ -152,16 +143,18 @@ export function useEditDisplay(
         }
       }
 
-      log.debug("Nearest:", actualNotes.lines);
-      if (!nearest) return [];
+      if (!nearest) {
+        log.warn("No nearest line for tempo section", section);
+        return [];
+      }
 
-      const lineTop = nearest.bbox[1] * pageScale + offsetY;
-      const lineBottom = nearest.bbox[3] * pageScale + offsetY;
+      const lineTop = nearest.bbox[1] * scaleY;
+      const lineBottom = nearest.bbox[3] * scaleY;
       const bracketTop = lineTop - 15;
       const bracketHeight = lineBottom - lineTop + 30;
 
-      const startX = startNote.bbox[0] * pageScale + offsetX - 10;
-      const endX = endNote.bbox[2] * pageScale + offsetX + 30;
+      const startX = startNote.bbox[0] * scaleX - 10;
+      const endX = endNote.bbox[2] * scaleX + 30;
 
       function createBracket(x: number, isStart: boolean) {
         const bracket = document.createElement("div");
@@ -171,7 +164,6 @@ export function useEditDisplay(
           top: `${bracketTop}px`,
           width: "10px",
           height: `${bracketHeight}px`,
-          transform: `scale(${pageZoom})`,
           transformOrigin: "top left",
         });
 
@@ -221,7 +213,10 @@ export function useEditDisplay(
 
   const renderEdits = useCallback(() => {
     if (!enabled) return;
-    log.debug("Rendering annotations for page", currentPage);
+    log.debug(
+      "Rendering annotations for all pages; current page:",
+      currentPage,
+    );
     const container = containerRef.current;
     if (!editList || !container) return;
     const pageSizes = editList.size;
@@ -230,144 +225,135 @@ export function useEditDisplay(
     log.debug("Edit list:", editList);
     log.debug("Actual notes:", actualNotes);
 
-    // Use the actual PDF.js current page if available, else fall back to provided currentPage
-    let effectivePage = currentPage;
-    try {
-      // viewer is keyed by file id when rendering ImageScoreRenderer
-      const viewer = (window as any).__pdfViewers?.[scoreFileId];
-      const num = viewer?.currentPageNumber;
-      if (typeof num === "number" && num > 0) effectivePage = num - 1;
-    } catch {}
+    // Determine visible/instantiated pages in the PDF.js viewer
+    const pageEls = Array.from(
+      container.querySelectorAll(
+        ".pdfViewer .page[data-page-number]",
+      ) as NodeListOf<HTMLElement>,
+    );
 
-    // Determine mapping area (PDF.js current page element) for accurate, offset-aware scaling
-    const pageIndex = pageSizes.length === 2 ? 0 : effectivePage;
-    const pageWidth = pageSizes[pageIndex * 2];
-    const pageHeight = pageSizes[pageIndex * 2 + 1];
+    log.debug("Page elements:", pageEls);
 
-    // Prefer the actual rendered page element for hosting overlays so they scroll with content
-    const pageNumber = pageIndex + 1; // PDF.js uses 1-based
-    const pageEl = container.querySelector(
-      `.pdfViewer .page[data-page-number="${pageNumber}"]`,
-    ) as HTMLElement | null;
+    // Keep a running total for current page's edits (UI badge)
+    let editsOnCurrent = 0;
 
-    // Determine the host element to append annotations to
-    const host: HTMLElement = pageEl ?? (container as HTMLElement);
-    const hostRect = host.getBoundingClientRect();
-
-    let scale = 1;
-    let offsetX = 0;
-    let offsetY = 0;
-    if (pageEl) {
-      // When appending inside the page element, offsets are zero (coordinates relative to page)
-      offsetX = 0;
-      offsetY = 0;
-      const pr = pageEl.getBoundingClientRect();
-      const scaleX = pr.width / pageWidth;
-      const scaleY = pr.height / pageHeight;
-      scale = Math.min(scaleX, scaleY);
-    } else {
-      // Fallback: fit within container as before
-      const scaleX = hostRect.width / pageWidth;
-      const scaleY = hostRect.height / pageHeight;
-      scale = Math.min(scaleX, scaleY);
-      offsetX = (hostRect.width - pageWidth * scale) / 2;
-      offsetY = (hostRect.height - pageHeight * scale) / 2;
-    }
-
-    // Ensure an overlay layer to contain edit rectangles, above text/annotation layers
-    let overlay = host.querySelector(".edit-overlay") as HTMLElement | null;
-    if (!overlay) {
-      overlay = document.createElement("div");
-      overlay.className = "edit-overlay";
-      Object.assign(overlay.style, {
-        position: "absolute",
-        inset: "0",
-        pointerEvents: "none",
-        zIndex: 1000,
-      });
-      host.appendChild(overlay);
-    }
-
-    // Clear existing annotations and reset the ref
-    overlay
-      .querySelectorAll(".note-rectangle, .tempo-bracket")
+    // Clear all existing annotations across all overlays
+    (container as HTMLElement)
+      .querySelectorAll(
+        ".edit-overlay .note-rectangle, .edit-overlay .tempo-bracket",
+      )
       .forEach((e) => e.remove());
     annotationsRef.current = [];
 
-    const edits =
-      editList.edits?.filter((e) => e.sChar?.page === effectivePage) ?? [];
-    setEditCount(edits.length);
+    pageEls.forEach((pageEl) => {
+      const pageNumberAttr = pageEl.getAttribute("data-page-number");
+      if (!pageNumberAttr) {
+        log.warn("No page number attribute for page element", pageEl);
+        return;
+      }
 
-    if (!zoomCtx) return;
-    // const currentZoom = zoomCtx.getZoomLevel(scoreId) ?? 1;
-    const currentZoom = 1;
+      // if page size length == 2, set all page sizes to first page
+      const pageIndex =
+        pageSizes.length > 2
+          ? Math.max(0, parseInt(pageNumberAttr, 10) - 1)
+          : 0;
 
-    edits.forEach((edit: Edit) => {
-      if (edit.sChar.page !== currentPage) return;
+      const pageWidth = pageSizes[pageIndex * 2];
+      const pageHeight = pageSizes[pageIndex * 2 + 1];
+      if (!pageWidth || !pageHeight) {
+        log.warn("No page size for page", pageIndex);
+        return;
+      }
 
-      const div = createAnnotDiv(
-        edit,
-        edit.sChar,
-        scale,
-        currentZoom,
-        offsetX,
-        offsetY,
-      );
-      // enable interaction while overlay preserves pointer-events none
-      div.style.pointerEvents = "auto";
-      // keep edits above PDF content
-      div.style.zIndex = "1001";
-      overlay.appendChild(div);
-      annotationsRef.current.push(div);
+      // Prefer the canvas' wrapper as the host to align overlays precisely
+      const host = (pageEl.querySelector(".canvasWrapper") ||
+        pageEl) as HTMLElement;
+      const canvas = pageEl.querySelector("canvas") as HTMLCanvasElement | null;
+      const hostWidth = canvas?.clientWidth ?? host.clientWidth;
+      const hostHeight = canvas?.clientHeight ?? host.clientHeight;
+      if (!hostWidth || !hostHeight) {
+        log.warn("No host width/height for page", pageIndex, canvas);
+        return;
+      }
 
-      if (edit.operation === EditOperation.SUBSTITUTE) {
-        if (!edit.tChar.bbox) {
-          const sizeY = edit.sChar.bbox[3] - edit.sChar.bbox[1];
-          const offset = ((edit.sChar.pitch - edit.tChar.pitch) * sizeY) / 2;
-          edit.tChar.bbox = Array.of(...edit.sChar.bbox);
-          edit.tChar.bbox[1] = edit.sChar.bbox[1] + offset;
-          edit.tChar.bbox[3] = edit.sChar.bbox[3] + offset;
+      const scaleX = hostWidth / pageWidth;
+      const scaleY = hostHeight / pageHeight;
+
+      // Ensure an overlay layer within the host
+      let overlay = host.querySelector(".edit-overlay") as HTMLElement | null;
+      if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.className = "edit-overlay";
+        Object.assign(overlay.style, {
+          position: "absolute",
+          inset: "0",
+          pointerEvents: "none",
+          zIndex: 1000,
+        });
+        host.appendChild(overlay);
+      }
+
+      overlay
+        .querySelectorAll(".note-rectangle, .tempo-bracket")
+        .forEach((e) => e.remove());
+
+      const pageEdits =
+        editList.edits?.filter((e) => e.sChar?.page === pageIndex) ?? [];
+      if (pageIndex === currentPage) editsOnCurrent = pageEdits.length;
+
+      pageEdits.forEach((edit: Edit) => {
+        const div = createAnnotDiv(edit, edit.sChar, scaleX, scaleY);
+        div.style.pointerEvents = "auto";
+        div.style.zIndex = "1001";
+        overlay!.appendChild(div);
+        annotationsRef.current.push(div);
+
+        if (edit.operation === EditOperation.SUBSTITUTE) {
+          if (!edit.tChar.bbox) {
+            const sizeY = edit.sChar.bbox[3] - edit.sChar.bbox[1];
+            const offset = ((edit.sChar.pitch - edit.tChar.pitch) * sizeY) / 2;
+            edit.tChar.bbox = Array.of(...edit.sChar.bbox);
+            edit.tChar.bbox[1] = edit.sChar.bbox[1] + offset;
+            edit.tChar.bbox[3] = edit.sChar.bbox[3] + offset;
+          }
+          const targetDiv = createAnnotDiv(
+            edit,
+            edit.tChar,
+            scaleX,
+            scaleY,
+            "rgb(31,151,176)",
+          );
+          targetDiv.style.pointerEvents = "auto";
+          targetDiv.style.zIndex = "1001";
+          overlay!.appendChild(targetDiv);
+          annotationsRef.current.push(targetDiv);
         }
+      });
 
-        const targetDiv = createAnnotDiv(
-          edit,
-          edit.tChar,
-          scale,
-          currentZoom,
-          offsetX,
-          offsetY,
-          "rgb(31,151,176)",
-        );
-        targetDiv.style.pointerEvents = "auto";
-        targetDiv.style.zIndex = "1001";
-        overlay.appendChild(targetDiv);
-        annotationsRef.current.push(targetDiv);
+      // Render tempo brackets that belong to this page
+      if (actualNotes) {
+        editList.tempoSections.forEach((section) => {
+          const startNote = actualNotes.notes[section.startIndex];
+          if (!startNote || startNote.page !== pageIndex) return;
+          const brackets = createTempoBrackets(section, scaleX, scaleY);
+          brackets.forEach((div) => {
+            div.style.pointerEvents = "none";
+            div.style.zIndex = "1001";
+            overlay!.appendChild(div);
+            annotationsRef.current.push(div);
+          });
+        });
       }
     });
 
-    if (!actualNotes) {
-      log.warn("played note is empty:", actualNotes);
-    } else {
-      editList.tempoSections.forEach((section) => {
-        const brackets = createTempoBrackets(
-          section,
-          scale,
-          currentZoom,
-          offsetX,
-          offsetY,
-        );
-        brackets.forEach((div) => {
-          div.style.pointerEvents = "none";
-          div.style.zIndex = "1001";
-          overlay.appendChild(div);
-          annotationsRef.current.push(div);
-        });
-      });
-    }
+    // Update count for current page consumers
+    setEditCount(editsOnCurrent);
 
     return () => {
-      overlay
-        ?.querySelectorAll(".note-rectangle, .tempo-bracket")
+      (container as HTMLElement)
+        .querySelectorAll(
+          ".edit-overlay .note-rectangle, .edit-overlay .tempo-bracket",
+        )
         .forEach((e) => e.remove());
       annotationsRef.current = [];
     };

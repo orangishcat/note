@@ -1,10 +1,11 @@
 import numpy as np
 from loguru import logger
+from numba import njit
 from numpy._typing import NDArray
 
 from scoring import extract_midi_notes, extract_pb_notes
 from timer import timeit
-from .notes_patch import *
+from .notes_pb2 import *
 
 OCTAVE_CHECK_SECS = 0.1
 
@@ -15,7 +16,7 @@ OP_COST = 5
 
 
 def key(note):
-    return round(note.start_time / ROUND_TO) * ROUND_TO, note.pitch
+    return note.page, round(note.start_time / ROUND_TO) * ROUND_TO, note.pitch
 
 
 @timeit()
@@ -32,6 +33,7 @@ def preprocess(s: list[Note], t: list[Note]):
 
 # noinspection PyTypeChecker
 @timeit()
+@njit
 def compute_dp(s_pitches, t_pitches):
     n = s_pitches.shape[0]
     m = t_pitches.shape[0]
@@ -234,7 +236,7 @@ def find_ops(
     """
     n, m = len(s), len(t)
 
-    if n + m < 10000:
+    if n + m > 10000:
         raise ValueError(f"Too big: {n + m}")
 
     s_pitches, t_pitches, s_times, t_times = preprocess(s, t)

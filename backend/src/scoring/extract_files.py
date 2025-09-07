@@ -5,11 +5,7 @@ from zipfile import ZipFile
 import pretty_midi
 from music21 import converter
 
-try:
-    from .notes_patch import *
-except ImportError:
-    from notes_patch import *
-from .notes_patch import *
+from .notes_pb2 import *
 
 ROUND_TO = 0.1
 
@@ -68,7 +64,4 @@ def extract_midi_notes(midi_file: str) -> NoteList:
 
 def extract_pb_notes(pb_bytes):
     (note_list := NoteList()).ParseFromString(pb_bytes)
-    # note_list.notes.sort(key=key)
-    for idx, n in enumerate(note_list.notes):
-        n.id = idx
     return note_list

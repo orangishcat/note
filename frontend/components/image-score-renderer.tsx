@@ -15,6 +15,7 @@ export default function ImageScoreRenderer({
   scoreId,
   recenter,
   currentPage,
+  setPage,
   pagesPerView: _pagesPerView,
   displayMode = "paged",
 }: ImageScoreRendererProps) {
@@ -43,13 +44,14 @@ export default function ImageScoreRenderer({
     requestAnimationFrame(() => waitMeasurable(cb, attempts - 1));
   }
 
-  function setPage(page: number | null) {
+  function setPDFPage(page: number | null) {
     const v = linkServiceRef.current?.pdfViewer;
     const doc = pdfDocRef.current;
     if (!v || !doc) return;
     const total = doc.numPages;
     const pageNum = Math.min(Math.max(1, (page ?? 0) + 1), total);
     const ls = linkServiceRef.current;
+    setPage(pageNum - 1);
     log.debug("Navigating to page", pageNum);
     if (ls?.goToPage) ls.goToPage(pageNum);
     else v.currentPageNumber = pageNum;
@@ -137,7 +139,7 @@ export default function ImageScoreRenderer({
         if (cancelled) return;
         const zeroBased = evt.pageNumber - 1;
         setTimeout(() => {
-          setPage(zeroBased);
+          setPDFPage(zeroBased);
           document.dispatchEvent(
             new CustomEvent("score:redrawAnnotations", { bubbles: true }),
           );
@@ -157,7 +159,7 @@ export default function ImageScoreRenderer({
       eventBus.on("pagesinit", onPagesInit);
       cleanupFns.push(() => eventBus.off("pagesinit", onPagesInit));
 
-      const onPagesLoaded = () => setPage(currentPage);
+      const onPagesLoaded = () => setPDFPage(currentPage);
       eventBus.on("pagesloaded", onPagesLoaded);
       cleanupFns.push(() => eventBus.off("pagesloaded", onPagesLoaded));
     }
@@ -209,7 +211,7 @@ export default function ImageScoreRenderer({
   }, []);
 
   // Sync page from external state
-  useEffect(() => setPage(currentPage), [currentPage]);
+  useEffect(() => setPDFPage(currentPage), [currentPage]);
 
   // Attach recenter click when the button becomes available
   useEffect(() => {

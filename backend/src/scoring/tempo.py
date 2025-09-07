@@ -1,5 +1,5 @@
 import numpy as np
-from .notes_patch import Note, TempoSection
+from .notes_pb2 import Note, TempoSection
 
 
 def analyze_tempo(

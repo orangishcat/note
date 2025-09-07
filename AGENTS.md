@@ -17,7 +17,7 @@ Strict engineering guidelines for automated and human contributors.
   (e.g., `waitForSelector({ state: 'visible' })`) when an event listener can
   signal readiness. Avoid arbitrary delays; use DOM/events and state
   subscriptions instead.
-- Use `notes_patch` for protobuf types on the Python backend. Do not hand-edit
+- Use `notes_pb2.py` for protobuf types on the Python backend. Do not hand-edit
   generated types.
 - When touching Python, prefer `numpy` for vectorized operations if it is
   clearly faster and equally readable; otherwise
@@ -86,7 +86,7 @@ Strict engineering guidelines for automated and human contributors.
   in `types/proto-types.ts` and
   `lib/proto.ts`. If the schema changes, update the proto file and keep the TS
   mirrors in sync.
-- Backend changes to notes should be done through `notes_patch` to keep parity
+- Backend changes to notes should be done through `notes_pb2.py` to keep parity
   with the `.proto`. Do not edit generated
   Python protobufs directly.
 - When fetching binary note lists, request `arraybuffer`, decode with the cached
@@ -154,7 +154,7 @@ Strict engineering guidelines for automated and human contributors.
 
 - Prefer `numpy` for vectorized math when it is clearly faster and remains
   readable; otherwise use simple Python.
-- Keep protobuf handling aligned with `notes_patch`. Do not hand‑edit generated
+- Keep protobuf handling aligned with `notes_pb2.py`. Do not hand‑edit generated
   code.
 - After changes, run the Flask server (`app_main.py`) to catch syntax and import
   issues early.
@@ -183,6 +183,10 @@ Strict engineering guidelines for automated and human contributors.
 - Are logging and user‑visible errors handled appropriately?
 - Is the change minimal, focused, and consistent with existing patterns?
 
+## General Notes
+
+- For the notes protobuf object, if there are only two elements for page sizes,
+  then assume all pages are the same size.
+
 These rules are strict by design. Changes that violate them should be treated as
-regressions and corrected before
-merging.
+regressions and corrected before merging.

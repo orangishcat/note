@@ -36,6 +36,7 @@ export interface ImageScoreRendererProps {
   recenter: RefObject<HTMLButtonElement>;
   currentPage: number;
   pagesPerView: number;
+  setPage: (page: number) => void;
   displayMode?: "paged" | "scroll";
   verticalLoading?: boolean;
   editList?: ScoringResult | null;

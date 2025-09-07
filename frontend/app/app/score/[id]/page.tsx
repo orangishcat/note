@@ -881,6 +881,7 @@ export default function ScorePage() {
                 displayMode={displayMode}
                 verticalLoading={verticalLoading}
                 editList={filteredEditList}
+                setPage={setCurrentPage}
                 confidenceFilter={confidenceThreshold}
               />
             )
