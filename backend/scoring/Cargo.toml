@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.26", features = ["extension-module"] }
+array2d = "0.3.2"
 
 [build-dependencies]
 pyo3-build-config = "0.26"
-

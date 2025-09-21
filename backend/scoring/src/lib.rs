@@ -1,3 +1,4 @@
+use array2d::Array2D;
 use pyo3::prelude::*;
 
 const MAX_MOVE_SWAP: usize = 5;
@@ -47,34 +48,34 @@ fn compute_edit_distance(
 ) -> (Vec<OperationRecord>, Vec<(usize, usize)>) {
     let n = s_pitches.len();
     let m = t_pitches.len();
-    let mut dp = vec![0_i64; (n + 1) * (m + 1)];
+    let mut dp = Array2D::filled_with(0_i64, n + 1, m + 1);
 
     for j in 1..=m {
-        dp[idx(0, j, m)] = (j as i64) * OP_COST;
+        dp[(0, j)] = (j as i64) * OP_COST;
     }
 
     for i in 1..=n {
         for j in 1..=m {
             let mut best = min3(
-                dp[idx(i - 1, j - 1, m)]
+                dp[(i - 1, j - 1)]
                     + if s_pitches[i - 1] == t_pitches[j - 1] {
                         0
                     } else {
                         OP_COST
                     },
-                dp[idx(i - 1, j, m)] + OP_COST,
-                dp[idx(i, j - 1, m)] + OP_COST,
+                dp[(i - 1, j)] + OP_COST,
+                dp[(i, j - 1)] + OP_COST,
             );
 
             for k in 1..=MAX_MOVE_SWAP {
                 if j + k <= m && s_pitches[i - 1] == t_pitches[j + k - 1] {
-                    best = best.min(dp[idx(i - 1, j + k, m)] + MOVE_SWAP_COST);
+                    best = best.min(dp[(i - 1, j + k)] + MOVE_SWAP_COST);
                 }
             }
 
             for k in 1..=MAX_MOVE_SWAP {
                 if j >= 1 + k && s_pitches[i - 1] == t_pitches[j - 1 - k] {
-                    best = best.min(dp[idx(i - 1, j - 1 - k, m)] + MOVE_SWAP_COST);
+                    best = best.min(dp[(i - 1, j - 1 - k)] + MOVE_SWAP_COST);
                 }
             }
 
@@ -83,12 +84,12 @@ fn compute_edit_distance(
                     if s_pitches[i - 1] == t_pitches[j - 1 - k]
                         && s_pitches[i - 1 - k] == t_pitches[j - 1]
                     {
-                        best = best.min(dp[idx(i - 1 - k, j - 1 - k, m)] + MOVE_SWAP_COST);
+                        best = best.min(dp[(i - 1 - k, j - 1 - k)] + MOVE_SWAP_COST);
                     }
                 }
             }
 
-            dp[idx(i, j, m)] = best;
+            dp[(i, j)] = best;
         }
     }
 
@@ -96,7 +97,7 @@ fn compute_edit_distance(
 }
 
 fn backtrack(
-    dp: &[i64],
+    dp: &Array2D<i64>,
     s_pitches: &[i64],
     t_pitches: &[i64],
     n: usize,
@@ -119,7 +120,7 @@ fn backtrack(
             OP_COST
         };
 
-        if dp[idx(i, j, m)] == dp[idx(i - 1, j - 1, m)] + sub_cost {
+        if dp[(i, j)] == dp[(i - 1, j - 1)] + sub_cost {
             aligned_indices.push((i - 1, j - 1));
             if sub_cost != 0 {
                 edits.push(OperationRecord::new(0, i - 1, Some(j - 1), i - 1, j - 1));
@@ -129,13 +130,13 @@ fn backtrack(
             continue;
         }
 
-        if dp[idx(i, j, m)] == dp[idx(i - 1, j, m)] + OP_COST {
+        if dp[(i, j)] == dp[(i - 1, j)] + OP_COST {
             edits.push(OperationRecord::new(1, i - 1, None, i - 1, j));
             i -= 1;
             continue;
         }
 
-        if dp[idx(i, j, m)] == dp[idx(i, j - 1, m)] + OP_COST {
+        if dp[(i, j)] == dp[(i, j - 1)] + OP_COST {
             edits.push(OperationRecord::new(2, i - 1, Some(j - 1), i, j - 1));
             j -= 1;
             continue;
@@ -143,7 +144,7 @@ fn backtrack(
 
         let mut moved = false;
         for k in 1..=MAX_MOVE_SWAP {
-            if j >= 1 + k && dp[idx(i, j, m)] == dp[idx(i - 1, j - 1 - k, m)] + MOVE_SWAP_COST {
+            if j >= 1 + k && dp[(i, j)] == dp[(i - 1, j - 1 - k)] + MOVE_SWAP_COST {
                 aligned_indices.push((i - 1, j - 1 - k));
                 i -= 1;
                 j -= 1 + k;
@@ -156,7 +157,7 @@ fn backtrack(
         }
 
         for k in 1..=MAX_MOVE_SWAP {
-            if j + k <= m && dp[idx(i, j, m)] == dp[idx(i - 1, j + k, m)] + MOVE_SWAP_COST {
+            if j + k <= m && dp[(i, j)] == dp[(i - 1, j + k)] + MOVE_SWAP_COST {
                 aligned_indices.push((i - 1, j + k));
                 i -= 1;
                 j += k;
@@ -172,7 +173,7 @@ fn backtrack(
         for k in 1..=MAX_MOVE_SWAP {
             if i >= 1 + k
                 && j >= 1 + k
-                && dp[idx(i, j, m)] == dp[idx(i - 1 - k, j - 1 - k, m)] + MOVE_SWAP_COST
+                && dp[(i, j)] == dp[(i - 1 - k, j - 1 - k)] + MOVE_SWAP_COST
                 && s_pitches[i - 1] == t_pitches[j - 1 - k]
                 && s_pitches[i - 1 - k] == t_pitches[j - 1]
             {
@@ -202,19 +203,15 @@ fn backtrack(
     (edits, aligned_indices)
 }
 
-fn idx(i: usize, j: usize, m: usize) -> usize {
-    i * (m + 1) + j
-}
-
 fn min3(a: i64, b: i64, c: i64) -> i64 {
     a.min(b).min(c)
 }
 
-fn argmin_last_column(dp: &[i64], n: usize, m: usize) -> usize {
+fn argmin_last_column(dp: &Array2D<i64>, n: usize, m: usize) -> usize {
     let mut best_idx = 0usize;
-    let mut best_val = dp[idx(0, m, m)];
+    let mut best_val = dp[(0, m)];
     for i in 1..=n {
-        let val = dp[idx(i, m, m)];
+        let val = dp[(i, m)];
         if val < best_val {
             best_val = val;
             best_idx = i;
