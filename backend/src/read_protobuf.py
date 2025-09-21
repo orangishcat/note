@@ -29,7 +29,7 @@ def pitch_name(midi_pitch: int) -> str:
 
 
 scores_dir = Path(__file__).parent.parent / "resources" / "scores"
-file = scores_dir / "spider dance oemer.noteslist"
+file = scores_dir / "spider dance oemer.notelist"
 
 with open(file, "rb") as f:
     (notes := NoteList()).ParseFromString(f.read())

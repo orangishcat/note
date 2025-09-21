@@ -41,4 +41,5 @@ export interface ImageScoreRendererProps {
   verticalLoading?: boolean;
   editList?: ScoringResult | null;
   confidenceFilter?: number;
+  onCanvasWrappersChange?: (wrappers: HTMLDivElement[]) => void;
 }

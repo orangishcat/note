@@ -1,2 +1,2 @@
-from .app_main import app
+from .app import app
 from .api import *

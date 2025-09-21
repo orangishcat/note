@@ -18,9 +18,16 @@ export default function ImageScoreRenderer({
   setPage,
   pagesPerView: _pagesPerView,
   displayMode = "paged",
+  verticalLoading,
+  editList,
+  confidenceFilter,
+  onCanvasWrappersChange,
 }: ImageScoreRendererProps) {
   void _pagesPerView;
   void displayMode;
+  void verticalLoading;
+  void editList;
+  void confidenceFilter;
 
   const viewerContainerRef = useRef<HTMLDivElement>(null);
   const viewerElRef = useRef<HTMLDivElement>(null);
@@ -177,6 +184,30 @@ export default function ImageScoreRenderer({
       linkServiceRef.current = null;
     };
   }, [scoreId, recenter, displayMode]);
+
+  useEffect(() => {
+    const viewerEl = viewerElRef.current;
+    if (!viewerEl || !onCanvasWrappersChange) return;
+
+    const emitWrappers = () => {
+      const wrappers = Array.from(
+        viewerEl.querySelectorAll<HTMLElement>(".canvasWrapper"),
+      ).filter(
+        (node): node is HTMLDivElement => node instanceof HTMLDivElement,
+      );
+      onCanvasWrappersChange(wrappers);
+    };
+
+    emitWrappers();
+
+    const observer = new MutationObserver(emitWrappers);
+    observer.observe(viewerEl, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      onCanvasWrappersChange([]);
+    };
+  }, [onCanvasWrappersChange]);
 
   const CLAMP = (n: number, lo = 0.1, hi = 5) => Math.min(hi, Math.max(lo, n));
 

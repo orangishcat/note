@@ -92,11 +92,24 @@ export default function ScorePage() {
   const [editsOnPage, setEditsOnPage] = useState(0);
   const [isClient, setIsClient] = useState(false); // Track if we're on client side
   const [confidenceThreshold, setConfidenceThreshold] = useState(3);
+  const [canvasWrappers, setCanvasWrappers] = useState<HTMLDivElement[]>([]);
   const { addToast } = useToast(); // Use the toast context
   const [recordingCompatible, setRecordingCompatible] = useState<
     boolean | null
   >(null);
   const hasShownCompatibilityToast = useRef(false);
+
+  const updateCanvasWrappers = useCallback((wrappers: HTMLDivElement[]) => {
+    setCanvasWrappers((prev) => {
+      if (
+        prev.length === wrappers.length &&
+        prev.every((el, idx) => el === wrappers[idx])
+      ) {
+        return prev;
+      }
+      return wrappers;
+    });
+  }, []);
 
   // Use effect to detect client side rendering and initialize debug mode
   useEffect(() => {
@@ -338,6 +351,7 @@ export default function ScorePage() {
     score.file_id,
     setEditsOnPage,
     !isMxml,
+    canvasWrappers,
   );
 
   // Check for recording compatibility on component mount
@@ -883,6 +897,7 @@ export default function ScorePage() {
                 editList={filteredEditList}
                 setPage={setCurrentPage}
                 confidenceFilter={confidenceThreshold}
+                onCanvasWrappersChange={updateCanvasWrappers}
               />
             )
           ) : (

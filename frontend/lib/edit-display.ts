@@ -52,6 +52,7 @@ export function useEditDisplay(
   scoreFileId: string,
   setEditCount: (count: number) => void,
   enabled: boolean = true,
+  canvasWrappers: HTMLDivElement[] | null = null,
 ) {
   const containerRef = useRef<Element | null>(null);
   const zoomCtx = useContext(ZoomContext);
@@ -225,14 +226,16 @@ export function useEditDisplay(
     log.debug("Edit list:", editList);
     log.debug("Actual notes:", actualNotes);
 
-    // Determine visible/instantiated pages in the PDF.js viewer
-    const pageEls = Array.from(
-      container.querySelectorAll(
-        ".pdfViewer .page[data-page-number]",
-      ) as NodeListOf<HTMLElement>,
-    );
+    const hostWrappers =
+      canvasWrappers && canvasWrappers.length > 0
+        ? canvasWrappers
+        : Array.from(
+            container.querySelectorAll<HTMLElement>(".canvasWrapper"),
+          ).filter(
+            (node): node is HTMLDivElement => node instanceof HTMLDivElement,
+          );
 
-    log.debug("Page elements:", pageEls);
+    log.debug("Canvas wrappers:", hostWrappers);
 
     // Keep a running total for current page's edits (UI badge)
     let editsOnCurrent = 0;
@@ -245,30 +248,18 @@ export function useEditDisplay(
       .forEach((e) => e.remove());
     annotationsRef.current = [];
 
-    pageEls.forEach((pageEl) => {
-      const pageNumberAttr = pageEl.getAttribute("data-page-number");
-      if (!pageNumberAttr) {
-        log.warn("No page number attribute for page element", pageEl);
-        return;
-      }
-
+    hostWrappers.forEach((host, pageIndex) => {
       // if page size length == 2, set all page sizes to first page
-      const pageIndex =
-        pageSizes.length > 2
-          ? Math.max(0, parseInt(pageNumberAttr, 10) - 1)
-          : 0;
+      const pageMetaIndex = pageSizes.length > 2 ? pageIndex : 0;
 
-      const pageWidth = pageSizes[pageIndex * 2];
-      const pageHeight = pageSizes[pageIndex * 2 + 1];
+      const pageWidth = pageSizes[pageMetaIndex * 2];
+      const pageHeight = pageSizes[pageMetaIndex * 2 + 1];
       if (!pageWidth || !pageHeight) {
         log.warn("No page size for page", pageIndex);
         return;
       }
 
-      // Prefer the canvas' wrapper as the host to align overlays precisely
-      const host = (pageEl.querySelector(".canvasWrapper") ||
-        pageEl) as HTMLElement;
-      const canvas = pageEl.querySelector("canvas") as HTMLCanvasElement | null;
+      const canvas = host.querySelector("canvas") as HTMLCanvasElement | null;
       const hostWidth = canvas?.clientWidth ?? host.clientWidth;
       const hostHeight = canvas?.clientHeight ?? host.clientHeight;
       if (!hostWidth || !hostHeight) {
@@ -365,6 +356,7 @@ export function useEditDisplay(
     zoomCtx,
     createTempoBrackets,
     enabled,
+    canvasWrappers,
   ]);
 
   // Trigger render when dependencies change

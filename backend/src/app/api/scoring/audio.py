@@ -26,13 +26,12 @@ from .. import get_user_client, misc_bucket, database
 # Test file mapping
 test_cfg = {
     "spider_dance_played": {
-        "played": "spider dance played",
-        "actual": "spiderdance_notes",
-        "edits": "scores/spider_dance_edits.pb",
+        "played": "spider dance played.midi",
+        "actual": "spider dance transkun.notelist",
     },
     "spider_dance_actual": {
-        "played": "spider dance actual",
-        "actual": "spiderdance_notes",
+        "played": "spider dance transkun.notelist",
+        "actual": "spider dance transkun.notelist",
     },
 }
 
@@ -41,10 +40,10 @@ test_cfg = {
 def load_notes(notes_id) -> NoteList:
     if os.environ.get("DEBUG") == "True":
         # Check if stored locally for convenience
-        if os.path.exists(notes_path := f"audio/{notes_id}.midi"):
-            return extract_midi_notes(notes_path)
+        if os.path.exists(audio_path := f"audio/{notes_id}"):
+            return extract_midi_notes(audio_path)
 
-        if os.path.exists(notes_path := f"scores/{notes_id}.pb"):
+        if os.path.exists(notes_path := f"scores/{notes_id}"):
             with open(notes_path, "rb") as f:
                 notes = NoteList()
                 notes.ParseFromString(f.read())
@@ -53,7 +52,7 @@ def load_notes(notes_id) -> NoteList:
             return notes
 
         logger.info(
-            f"Neither path of {f'audio/{notes_id}.midi'} and {f'scores/{notes_id}.pb'} exists, fetching from Appwrite"
+            f"Neither path of {audio_path} and {notes_path} exists, fetching from Appwrite"
         )
 
     byte_content = Storage(get_user_client()).get_file_view(misc_bucket, notes_id)
@@ -71,6 +70,7 @@ def load_notes(notes_id) -> NoteList:
 )
 def beam_transkun(audio_bytes):
     """Run Transkun on audio bytes and return NoteList."""
+    # noinspection PyUnresolvedReferences
     from transkun.predict_return_notes import predict
 
     return predict(audio_bytes)

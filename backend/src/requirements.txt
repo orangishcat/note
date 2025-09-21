@@ -1,5 +1,0 @@
-loguru
-protobuf
-betterproto
-beam-client
-statsmodels
