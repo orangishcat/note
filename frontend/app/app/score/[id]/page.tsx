@@ -82,7 +82,6 @@ export default function ScorePage() {
     total_pages: 1,
   });
   const [editList, setEditList] = useState<ScoringResult | null>(null);
-  const [playedNotes, setPlayedNotes] = useState<NoteList | null>(null);
   const [scoreNotes, setScoreNotes] = useState<NoteList | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [displayMode, setDisplayMode] = useState<"paged" | "scroll">("paged");
@@ -200,7 +199,6 @@ export default function ScorePage() {
     notesId: score.notes_id || "",
     refetchTypes,
     onEditListChange: setEditList,
-    onPlayedNotesChange: setPlayedNotes,
     onError: handleRecordingError,
   });
 
@@ -346,10 +344,7 @@ export default function ScorePage() {
   useEditDisplay(
     filteredEditList,
     scoreNotes,
-    currentPage,
-    id,
     score.file_id,
-    setEditsOnPage,
     !isMxml,
     canvasWrappers,
   );
@@ -914,11 +909,8 @@ export default function ScorePage() {
             scoreId={id}
             editList={filteredEditList}
             setEditList={setEditList}
-            playedNotes={playedNotes}
-            scoreNotes={scoreNotes}
             currentPage={currentPage}
             editsOnPage={editsOnPage}
-            setPlayedNotes={setPlayedNotes}
             confidenceFilter={confidenceThreshold}
             setConfidenceFilter={setConfidenceThreshold}
           />

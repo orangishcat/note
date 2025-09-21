@@ -23,7 +23,7 @@ export interface AudioRecorderHookProps {
     NoteListType: Type | null;
   }>;
   onEditListChange: (editList: ScoringResult | null) => void;
-  onPlayedNotesChange: (playedNotes: NoteList | null) => void;
+  onPlayedNotesChange?: (playedNotes: NoteList | null) => void;
   onError?: (error: RecordingError) => void;
 }
 
@@ -165,7 +165,7 @@ export function useAudioRecorder({
       // Clone to avoid accidental mutations downstream
       const editListCopy = JSON.parse(JSON.stringify(editList));
       onEditListChange(editListCopy);
-      if (playedNotes) onPlayedNotesChange(playedNotes);
+      if (playedNotes) onPlayedNotesChange?.(playedNotes);
     } catch (err) {
       log.error("Error stopping/processing recording:", err);
       onError?.({

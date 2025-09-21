@@ -147,9 +147,6 @@ export default function ImageScoreRenderer({
         const zeroBased = evt.pageNumber - 1;
         setTimeout(() => {
           setPDFPage(zeroBased);
-          document.dispatchEvent(
-            new CustomEvent("score:redrawAnnotations", { bubbles: true }),
-          );
         }, 0);
       };
       eventBus.on("pagechanging", onPageChanging);
@@ -158,9 +155,6 @@ export default function ImageScoreRenderer({
       const onPagesInit = () => {
         const v = linkServiceRef.current?.pdfViewer;
         if (v) v.currentScaleValue = "page-height";
-        document.dispatchEvent(
-          new CustomEvent("score:redrawAnnotations", { bubbles: true }),
-        );
       };
 
       eventBus.on("pagesinit", onPagesInit);
@@ -257,9 +251,6 @@ export default function ImageScoreRenderer({
         const v = linkServiceRef.current?.pdfViewer;
         if (v) {
           v.currentScaleValue = "page-height";
-          document.dispatchEvent(
-            new CustomEvent("score:redrawAnnotations", { bubbles: true }),
-          );
         }
       };
       btn.addEventListener("click", onRecenter);

@@ -2,11 +2,11 @@ import { useCallback, useContext, useEffect, useRef } from "react";
 import {
   Edit,
   EditOperation,
+  Line,
   Note,
   NoteList,
   ScoringResult,
   TempoSection,
-  Line,
 } from "@/types/proto-types";
 import log from "loglevel";
 import { ZoomContext } from "@/app/providers";
@@ -47,10 +47,7 @@ function colorFor(op: EditOperation): string {
 export function useEditDisplay(
   editList: ScoringResult | null,
   actualNotes: NoteList | null,
-  currentPage: number,
-  scoreId: string,
   scoreFileId: string,
-  setEditCount: (count: number) => void,
   enabled: boolean = true,
   canvasWrappers: HTMLDivElement[] | null = null,
 ) {
@@ -63,15 +60,6 @@ export function useEditDisplay(
       `#score-${scoreFileId} .score-container`,
     );
   }, [scoreFileId]);
-
-  // On zoom changes, re-render annotations to keep positions accurate
-  useEffect(() => {
-    if (!zoomCtx) return;
-    // Trigger a redraw; renderEdits is bound to this event below
-    document.dispatchEvent(
-      new CustomEvent("score:redrawAnnotations", { bubbles: true }),
-    );
-  }, [zoomCtx, zoomCtx?.zoomLevels[scoreId], scoreId]);
 
   function createAnnotDiv(
     edit: Edit,
@@ -214,10 +202,7 @@ export function useEditDisplay(
 
   const renderEdits = useCallback(() => {
     if (!enabled) return;
-    log.debug(
-      "Rendering annotations for all pages; current page:",
-      currentPage,
-    );
+    log.trace("Rendering annotations for all pages");
     const container = containerRef.current;
     if (!editList || !container) return;
     const pageSizes = editList.size;
@@ -237,10 +222,6 @@ export function useEditDisplay(
 
     log.debug("Canvas wrappers:", hostWrappers);
 
-    // Keep a running total for current page's edits (UI badge)
-    let editsOnCurrent = 0;
-
-    // Clear all existing annotations across all overlays
     (container as HTMLElement)
       .querySelectorAll(
         ".edit-overlay .note-rectangle, .edit-overlay .tempo-bracket",
@@ -290,7 +271,6 @@ export function useEditDisplay(
 
       const pageEdits =
         editList.edits?.filter((e) => e.sChar?.page === pageIndex) ?? [];
-      if (pageIndex === currentPage) editsOnCurrent = pageEdits.length;
 
       pageEdits.forEach((edit: Edit) => {
         const div = createAnnotDiv(edit, edit.sChar, scaleX, scaleY);
@@ -337,9 +317,6 @@ export function useEditDisplay(
       }
     });
 
-    // Update count for current page consumers
-    setEditCount(editsOnCurrent);
-
     return () => {
       (container as HTMLElement)
         .querySelectorAll(
@@ -350,20 +327,12 @@ export function useEditDisplay(
     };
   }, [
     actualNotes,
-    currentPage,
     editList,
-    setEditCount,
     zoomCtx,
     createTempoBrackets,
     enabled,
     canvasWrappers,
   ]);
-
-  // Trigger render when dependencies change
-  useEffect(() => {
-    if (!enabled) return;
-    renderEdits();
-  }, [renderEdits, enabled]);
 
   // Listen for redraw events
   useEffect(() => {

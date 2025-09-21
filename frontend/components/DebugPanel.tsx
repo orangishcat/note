@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ScoringResult, Note, NoteList } from "@/types/proto-types";
-import ComparisonDialog from "@/components/ComparisonDialog";
+import { ScoringResult } from "@/types/proto-types";
 import log from "@/lib/logger";
 import { splitCombinedResponse } from "@/lib/audio-recorder";
 import api from "@/lib/network";
@@ -61,11 +60,8 @@ const DebugPanel = ({
   scoreId,
   editList,
   setEditList,
-  playedNotes,
-  scoreNotes,
   currentPage,
   editsOnPage,
-  setPlayedNotes,
   confidenceFilter,
   setConfidenceFilter,
 }: DebugPanelProps) => {
@@ -83,25 +79,10 @@ const DebugPanel = ({
     message: string;
     isError: boolean;
   } | null>(null);
-  const [showNoteNames, setShowNoteNames] = useState(false);
-  const [showComparisonDialog, setShowComparisonDialog] = useState(false);
   const [showTestTypeSelector, setShowTestTypeSelector] = useState(false);
   const [currentTestType, setCurrentTestType] = useState("spider_dance_played");
-  const [comparisonData, setComparisonData] = useState<{
-    note: Note | null;
-    targetNote: Note | null;
-    editOperation: string;
-    position: number;
-  }>({
-    note: null,
-    targetNote: null,
-    editOperation: "",
-    position: 0,
-  });
-  const [comparisonNoteCount, setComparisonNoteCount] = useState<number>(15);
   const [localConf, setLocalConf] = useState(confidenceFilter);
   const dragStartPos = useRef({ x: 0, y: 0 });
-  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (testStatus) {
@@ -115,10 +96,6 @@ const DebugPanel = ({
     try {
       const savedPosition = localStorage.getItem("debugPanelPosition");
       if (savedPosition) setPosition(JSON.parse(savedPosition));
-      const savedShowNoteNames = localStorage.getItem("debugShowNoteNames");
-      if (savedShowNoteNames) setShowNoteNames(savedShowNoteNames === "true");
-      const savedCnt = localStorage.getItem("debugComparisonNoteCount");
-      if (savedCnt) setComparisonNoteCount(parseInt(savedCnt, 10));
     } catch (e) {
       log.error("Error loading debug panel position:", e);
     }
@@ -131,9 +108,13 @@ const DebugPanel = ({
     }
   }, [position]);
 
+  useEffect(() => {
+    setLocalConf(confidenceFilter);
+  }, [confidenceFilter]);
+
   const redrawAnnotations = useCallback(() => {
     if (!editList) {
-      log.debug("No annotations to redraw");
+      log.trace("No annotations to redraw");
       return;
     }
     setTimeout(() => {
@@ -144,37 +125,6 @@ const DebugPanel = ({
       document.dispatchEvent(event);
     }, 50);
   }, [editList, scoreId, currentPage]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem("debugShowNoteNames", String(showNoteNames));
-    redrawAnnotations();
-    const event = new CustomEvent("debug:toggleNoteNames", {
-      detail: { showNoteNames },
-      bubbles: true,
-    });
-    document.dispatchEvent(event);
-  }, [showNoteNames, redrawAnnotations]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(
-      "debugComparisonNoteCount",
-      String(comparisonNoteCount),
-    );
-    const event = new CustomEvent("debug:updateComparisonNoteCount", {
-      detail: { comparisonNoteCount },
-      bubbles: true,
-    });
-    document.dispatchEvent(event);
-  }, [comparisonNoteCount]);
-
-  const handleComparisonNoteCountChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const v = parseInt(e.target.value, 10);
-    if (!isNaN(v) && v >= 1 && v <= 50) setComparisonNoteCount(v);
-  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -202,8 +152,6 @@ const DebugPanel = ({
       document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDragging]);
-
-  const toggleNoteNames = () => setShowNoteNames(!showNoteNames);
 
   const sendTestRequest = async (e?: React.MouseEvent) => {
     if (isSendingTest) return;
@@ -262,19 +210,18 @@ const DebugPanel = ({
             setEditList(cloned);
 
             // Also update played notes if available
-            if (receivedPlayedNotes) {
-              const noteCount = receivedPlayedNotes.notes?.length || 0;
+            const noteCount = receivedPlayedNotes?.notes?.length || 0;
+            if (noteCount) {
               log.debug(
                 `Successfully decoded test response with ${noteCount} played notes`,
               );
-              setPlayedNotes(receivedPlayedNotes);
             }
 
             // Set success status message
             setTestStatus({
-              message: `Success! Received ${editCount} edits and ${
-                (receivedPlayedNotes as NoteList)?.notes?.length || 0
-              } notes`,
+              message:
+                `Success! Received ${editCount} edits` +
+                (noteCount ? ` and ${noteCount} notes` : ""),
               isError: false,
             });
           } else {
@@ -342,29 +289,8 @@ const DebugPanel = ({
     window.dispatchEvent(new Event("storage"));
   };
 
-  useEffect(() => {
-    const handleShowComparison = (event: Event) => {
-      const { note, targetNote, editOperation, isTarget, position } = (
-        event as CustomEvent
-      ).detail;
-      setComparisonData({
-        note: isTarget ? targetNote : note,
-        targetNote: isTarget ? note : targetNote,
-        editOperation,
-        position,
-      });
-      setShowComparisonDialog(true);
-    };
-    document.addEventListener("edit:showComparison", handleShowComparison);
-    return () =>
-      document.removeEventListener("edit:showComparison", handleShowComparison);
-  }, []);
-
-  const closeComparisonDialog = () => setShowComparisonDialog(false);
-
   return (
     <div
-      ref={panelRef}
       className="fixed z-50 bg-black/70 text-white p-3 rounded-md shadow-lg"
       style={{
         left: `${position.x}px`,
@@ -394,16 +320,6 @@ const DebugPanel = ({
           Redraw Annotations
         </button>
         <button
-          onClick={toggleNoteNames}
-          className={`${
-            showNoteNames ? "bg-purple-600" : "bg-gray-600"
-          } hover:${
-            showNoteNames ? "bg-purple-700" : "bg-gray-700"
-          } text-white text-xs px-2 py-1 rounded`}
-        >
-          {showNoteNames ? "Hide Note Names" : "Show Note Names"}
-        </button>
-        <button
           onClick={sendTestRequest}
           disabled={isSendingTest}
           className={`${
@@ -427,27 +343,6 @@ const DebugPanel = ({
               ? (editList as unknown as ScoringResult).edits?.length || 0
               : 0}
           </p>
-          <div className="mt-2 flex flex-col gap-1">
-            <label className="text-gray-300 text-xs flex justify-between items-center">
-              <span>Comparison Note Count:</span>
-              <span className="text-white font-mono">
-                {comparisonNoteCount}
-              </span>
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="50"
-              value={comparisonNoteCount}
-              onChange={handleComparisonNoteCountChange}
-              className="w-full accent-blue-500"
-            />
-            <div className="flex justify-between text-[10px] text-gray-400">
-              <span>1</span>
-              <span>25</span>
-              <span>50</span>
-            </div>
-          </div>
           <div className="mt-2 flex flex-col gap-1">
             <label className="text-gray-300 text-xs flex justify-between items-center">
               <span>Min Confidence:</span>
@@ -488,20 +383,6 @@ const DebugPanel = ({
           </div>
         </div>
       </div>
-      {showComparisonDialog &&
-        comparisonData.note &&
-        comparisonData.targetNote && (
-          <ComparisonDialog
-            isOpen={showComparisonDialog}
-            onClose={closeComparisonDialog}
-            note={comparisonData.note}
-            targetNote={comparisonData.targetNote}
-            editOperation={comparisonData.editOperation}
-            position={comparisonData.position}
-            playedNotes={playedNotes}
-            scoreNotes={scoreNotes}
-          />
-        )}
       <TestTypeSelector
         isOpen={showTestTypeSelector}
         onClose={() => setShowTestTypeSelector(false)}
