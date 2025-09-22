@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   Edit,
   EditOperation,
@@ -9,7 +9,6 @@ import {
   TempoSection,
 } from "@/types/proto-types";
 import log from "loglevel";
-import { ZoomContext } from "@/app/providers";
 
 export function midiPitchToNoteName(midiPitch: number): string {
   if (midiPitch === undefined || midiPitch === null) return "";
@@ -50,9 +49,9 @@ export function useEditDisplay(
   scoreFileId: string,
   enabled: boolean = true,
   canvasWrappers: HTMLDivElement[] | null = null,
+  minConfidence: number = 1,
 ) {
   const containerRef = useRef<Element | null>(null);
-  const zoomCtx = useContext(ZoomContext);
   const annotationsRef = useRef<HTMLElement[]>([]);
 
   useEffect(() => {
@@ -67,6 +66,7 @@ export function useEditDisplay(
     scaleX: number,
     scaleY: number,
     color: string | null = null,
+    isTarget = false,
   ) {
     const div = document.createElement("div");
     div.className = "note-rectangle cursor-pointer rounded-full absolute";
@@ -89,16 +89,17 @@ export function useEditDisplay(
       backgroundColor: color,
       border: `1px solid ${color.replace("0.5", "1")}`,
       transformOrigin: "top left",
+      pointerEvents: "auto",
     });
 
     div.addEventListener("click", (e) => {
       e.stopPropagation();
       const ev = new CustomEvent("edit:showComparison", {
         detail: {
-          note: edit.sChar,
-          targetNote: edit.tChar,
+          note,
+          targetNote: isTarget ? edit.sChar : edit.tChar,
           editOperation: EditOperation[edit.operation],
-          isTarget: false,
+          isTarget,
           position: edit.pos,
         },
         bubbles: true,
@@ -200,6 +201,42 @@ export function useEditDisplay(
     [actualNotes, editList],
   );
 
+  const hasBBox = (note?: Note | null): note is Note =>
+    !!note && Array.isArray(note.bbox) && note.bbox.length === 4;
+
+  const primaryNoteFor = (edit: Edit): Note | null => {
+    if (edit.operation === EditOperation.INSERT) {
+      return (
+        (hasBBox(edit.tChar) ? edit.tChar : null) ??
+        ((hasBBox(edit.sChar) ? edit.sChar : null) as Note | null)
+      );
+    }
+    if (edit.operation === EditOperation.DELETE) {
+      return (
+        (hasBBox(edit.sChar) ? edit.sChar : null) ??
+        ((hasBBox(edit.tChar) ? edit.tChar : null) as Note | null)
+      );
+    }
+    return (
+      (hasBBox(edit.sChar) ? edit.sChar : null) ??
+      ((hasBBox(edit.tChar) ? edit.tChar : null) as Note | null)
+    );
+  };
+
+  const secondaryNoteFor = (edit: Edit, primary: Note | null): Note | null => {
+    if (edit.operation !== EditOperation.SUBSTITUTE) return null;
+    if (hasBBox(edit.tChar) && edit.tChar !== primary) return edit.tChar;
+    if (hasBBox(edit.sChar) && edit.sChar !== primary) return edit.sChar;
+    return null;
+  };
+
+  const confidenceFor = (edit: Edit, note: Note | null): number => {
+    if (note?.confidence !== undefined) return note.confidence;
+    if (edit.tChar?.confidence !== undefined) return edit.tChar.confidence;
+    if (edit.sChar?.confidence !== undefined) return edit.sChar.confidence;
+    return 0;
+  };
+
   const renderEdits = useCallback(() => {
     if (!enabled) return;
     log.trace("Rendering annotations for all pages");
@@ -269,32 +306,54 @@ export function useEditDisplay(
         .querySelectorAll(".note-rectangle, .tempo-bracket")
         .forEach((e) => e.remove());
 
-      const pageEdits =
-        editList.edits?.filter((e) => e.sChar?.page === pageIndex) ?? [];
+      const pageEdits = (editList.edits ?? []).filter((edit) => {
+        const primary = primaryNoteFor(edit);
+        if (!primary || primary.page !== pageIndex) return false;
+        return confidenceFor(edit, primary) >= minConfidence;
+      });
 
       pageEdits.forEach((edit: Edit) => {
-        const div = createAnnotDiv(edit, edit.sChar, scaleX, scaleY);
-        div.style.pointerEvents = "auto";
+        const primary = primaryNoteFor(edit);
+        if (!primary) return;
+
+        const div = createAnnotDiv(
+          edit,
+          primary,
+          scaleX,
+          scaleY,
+          colorFor(edit.operation),
+        );
         div.style.zIndex = "1001";
         overlay!.appendChild(div);
         annotationsRef.current.push(div);
 
-        if (edit.operation === EditOperation.SUBSTITUTE) {
-          if (!edit.tChar.bbox) {
-            const sizeY = edit.sChar.bbox[3] - edit.sChar.bbox[1];
-            const offset = ((edit.sChar.pitch - edit.tChar.pitch) * sizeY) / 2;
-            edit.tChar.bbox = Array.of(...edit.sChar.bbox);
-            edit.tChar.bbox[1] = edit.sChar.bbox[1] + offset;
-            edit.tChar.bbox[3] = edit.sChar.bbox[3] + offset;
-          }
+        let secondary = secondaryNoteFor(edit, primary);
+        if (
+          !secondary &&
+          edit.operation === EditOperation.SUBSTITUTE &&
+          edit.tChar &&
+          !hasBBox(edit.tChar) &&
+          hasBBox(primary)
+        ) {
+          const [sx1, sy1, sx2, sy2] = primary.bbox;
+          const sizeY = sy2 - sy1 || 1;
+          const pitchDiff =
+            (primary.pitch ?? 0) - ((edit.tChar as Note).pitch ?? 0);
+          const offset = (pitchDiff * sizeY) / 2;
+          secondary = {
+            ...(edit.tChar as Note),
+            bbox: [sx1, sy1 + offset, sx2, sy2 + offset],
+          } as Note;
+        }
+        if (secondary) {
           const targetDiv = createAnnotDiv(
             edit,
-            edit.tChar,
+            secondary,
             scaleX,
             scaleY,
             "rgb(31,151,176)",
+            true,
           );
-          targetDiv.style.pointerEvents = "auto";
           targetDiv.style.zIndex = "1001";
           overlay!.appendChild(targetDiv);
           annotationsRef.current.push(targetDiv);
@@ -325,21 +384,21 @@ export function useEditDisplay(
         .forEach((e) => e.remove());
       annotationsRef.current = [];
     };
-  }, [
-    actualNotes,
-    editList,
-    zoomCtx,
-    createTempoBrackets,
-    enabled,
-    canvasWrappers,
-  ]);
+  }, [actualNotes, editList, createTempoBrackets, enabled, canvasWrappers]);
 
   // Listen for redraw events
   useEffect(() => {
     if (!enabled || typeof document === "undefined") return;
-    document.addEventListener("score:redrawAnnotations", renderEdits);
-    return () => {
-      document.removeEventListener("score:redrawAnnotations", renderEdits);
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent)?.detail as
+        | { scoreId?: string | null }
+        | undefined;
+      if (detail?.scoreId && detail.scoreId !== scoreFileId) return;
+      renderEdits();
     };
-  }, [renderEdits, enabled]);
+    document.addEventListener("score:redrawAnnotations", handler);
+    return () => {
+      document.removeEventListener("score:redrawAnnotations", handler);
+    };
+  }, [renderEdits, enabled, scoreFileId]);
 }

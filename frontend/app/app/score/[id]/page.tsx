@@ -347,6 +347,7 @@ export default function ScorePage() {
     score.file_id,
     !isMxml,
     canvasWrappers,
+    confidenceThreshold,
   );
 
   // Check for recording compatibility on component mount
