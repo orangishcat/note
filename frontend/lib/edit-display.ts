@@ -10,34 +10,14 @@ import {
 } from "@/types/proto-types";
 import log from "loglevel";
 
-export function midiPitchToNoteName(midiPitch: number): string {
-  if (midiPitch === undefined || midiPitch === null) return "";
-  const names = [
-    "C",
-    "C#",
-    "D",
-    "D#",
-    "E",
-    "F",
-    "F#",
-    "G",
-    "G#",
-    "A",
-    "A#",
-    "B",
-  ];
-  const octave = Math.floor(midiPitch / 12) - 1;
-  return `${names[midiPitch % 12]}${octave}`;
-}
-
-function colorFor(op: EditOperation): string {
+function colorFor(op: EditOperation, second: boolean = false): string {
   switch (op) {
     case EditOperation.INSERT:
       return "rgba(0,255,0,0.5)";
     case EditOperation.DELETE:
       return "rgba(255,0,0,0.5)";
     case EditOperation.SUBSTITUTE:
-      return "rgba(255,165,0,0.5)";
+      return second ? "rgba(255,165,0,0.5)" : "rgba(0,165,255,0.5)";
     default:
       return "rgba(0,0,0,0.5)";
   }
@@ -45,7 +25,7 @@ function colorFor(op: EditOperation): string {
 
 export function useEditDisplay(
   editList: ScoringResult | null,
-  actualNotes: NoteList | null,
+  scoreNotes: NoteList | null,
   scoreFileId: string,
   enabled: boolean = true,
   canvasWrappers: HTMLDivElement[] | null = null,
@@ -70,6 +50,7 @@ export function useEditDisplay(
   ) {
     const div = document.createElement("div");
     div.className = "note-rectangle cursor-pointer rounded-full absolute";
+    div.addEventListener("click", () => log.debug("Edit clicked:", edit));
 
     const [x1, y1, x2, y2] = note.bbox;
 
@@ -111,9 +92,9 @@ export function useEditDisplay(
 
   const createTempoBrackets = useCallback(
     (section: TempoSection, scaleX: number, scaleY: number): HTMLElement[] => {
-      if (!editList || !actualNotes) return [];
-      const startNote = actualNotes.notes[section.startIndex];
-      const endNote = actualNotes.notes[section.endIndex];
+      if (!editList || !scoreNotes) return [];
+      const startNote = scoreNotes.notes[section.startIndex];
+      const endNote = scoreNotes.notes[section.endIndex];
 
       if (!startNote || !endNote) {
         log.warn("No start or end note for tempo section", section);
@@ -124,7 +105,7 @@ export function useEditDisplay(
       const noteCenterY = (startNote.bbox[1] + startNote.bbox[3]) / 2;
       let nearest: Line | null = null;
       let minDist = Number.POSITIVE_INFINITY;
-      for (const line of actualNotes.lines as Line[]) {
+      for (const line of scoreNotes.lines as Line[]) {
         const lineCenterY = (line.bbox[1] + line.bbox[3]) / 2;
         const dist = Math.abs(noteCenterY - lineCenterY);
         if (dist < minDist) {
@@ -198,55 +179,30 @@ export function useEditDisplay(
 
       return [createBracket(startX, true), createBracket(endX, false)];
     },
-    [actualNotes, editList],
+    [scoreNotes, editList],
   );
-
-  const hasBBox = (note?: Note | null): note is Note =>
-    !!note && Array.isArray(note.bbox) && note.bbox.length === 4;
-
-  const primaryNoteFor = (edit: Edit): Note | null => {
-    if (edit.operation === EditOperation.INSERT) {
-      return (
-        (hasBBox(edit.tChar) ? edit.tChar : null) ??
-        ((hasBBox(edit.sChar) ? edit.sChar : null) as Note | null)
-      );
-    }
-    if (edit.operation === EditOperation.DELETE) {
-      return (
-        (hasBBox(edit.sChar) ? edit.sChar : null) ??
-        ((hasBBox(edit.tChar) ? edit.tChar : null) as Note | null)
-      );
-    }
-    return (
-      (hasBBox(edit.sChar) ? edit.sChar : null) ??
-      ((hasBBox(edit.tChar) ? edit.tChar : null) as Note | null)
-    );
-  };
-
-  const secondaryNoteFor = (edit: Edit, primary: Note | null): Note | null => {
-    if (edit.operation !== EditOperation.SUBSTITUTE) return null;
-    if (hasBBox(edit.tChar) && edit.tChar !== primary) return edit.tChar;
-    if (hasBBox(edit.sChar) && edit.sChar !== primary) return edit.sChar;
-    return null;
-  };
-
-  const confidenceFor = (edit: Edit, note: Note | null): number => {
-    if (note?.confidence !== undefined) return note.confidence;
-    if (edit.tChar?.confidence !== undefined) return edit.tChar.confidence;
-    if (edit.sChar?.confidence !== undefined) return edit.sChar.confidence;
-    return 0;
-  };
 
   const renderEdits = useCallback(() => {
     if (!enabled) return;
     log.trace("Rendering annotations for all pages");
-    const container = containerRef.current;
-    if (!editList || !container) return;
-    const pageSizes = editList.size;
-    if (!Array.isArray(pageSizes)) return;
 
     log.debug("Edit list:", editList);
-    log.debug("Actual notes:", actualNotes);
+    log.debug("Actual notes:", scoreNotes);
+
+    const container = containerRef.current;
+    if (!editList || !container) {
+      log.warn("No edit list or container for annotations");
+      return;
+    }
+    if (!scoreNotes) {
+      log.warn("No score notes for annotations");
+      return;
+    }
+    const pageSizes = scoreNotes.size;
+    if (!Array.isArray(pageSizes)) {
+      log.warn("No page sizes in edit list:", pageSizes);
+      return;
+    }
 
     const hostWrappers =
       canvasWrappers && canvasWrappers.length > 0
@@ -269,7 +225,6 @@ export function useEditDisplay(
     hostWrappers.forEach((host, pageIndex) => {
       // if page size length == 2, set all page sizes to first page
       const pageMetaIndex = pageSizes.length > 2 ? pageIndex : 0;
-
       const pageWidth = pageSizes[pageMetaIndex * 2];
       const pageHeight = pageSizes[pageMetaIndex * 2 + 1];
       if (!pageWidth || !pageHeight) {
@@ -306,64 +261,57 @@ export function useEditDisplay(
         .querySelectorAll(".note-rectangle, .tempo-bracket")
         .forEach((e) => e.remove());
 
-      const pageEdits = (editList.edits ?? []).filter((edit) => {
-        const primary = primaryNoteFor(edit);
-        if (!primary || primary.page !== pageIndex) return false;
-        return confidenceFor(edit, primary) >= minConfidence;
-      });
+      const pageEdits = (editList.edits ?? []).filter(
+        (edit) =>
+          edit.sChar.page === pageIndex &&
+          edit.sChar.confidence >= minConfidence &&
+          (edit.tChar?.confidence ?? 5) >= minConfidence,
+      );
+
+      if (pageEdits.length === 0) {
+        log.debug("No edits for page", pageIndex);
+        return;
+      }
 
       pageEdits.forEach((edit: Edit) => {
-        const primary = primaryNoteFor(edit);
-        if (!primary) return;
-
-        const div = createAnnotDiv(
+        const sDiv = createAnnotDiv(
           edit,
-          primary,
+          edit.sChar,
           scaleX,
           scaleY,
           colorFor(edit.operation),
         );
-        div.style.zIndex = "1001";
-        overlay!.appendChild(div);
-        annotationsRef.current.push(div);
-
-        let secondary = secondaryNoteFor(edit, primary);
-        if (
-          !secondary &&
-          edit.operation === EditOperation.SUBSTITUTE &&
-          edit.tChar &&
-          !hasBBox(edit.tChar) &&
-          hasBBox(primary)
-        ) {
-          const [sx1, sy1, sx2, sy2] = primary.bbox;
-          const sizeY = sy2 - sy1 || 1;
-          const pitchDiff =
-            (primary.pitch ?? 0) - ((edit.tChar as Note).pitch ?? 0);
-          const offset = (pitchDiff * sizeY) / 2;
-          secondary = {
-            ...(edit.tChar as Note),
-            bbox: [sx1, sy1 + offset, sx2, sy2 + offset],
-          } as Note;
-        }
-        if (secondary) {
-          const targetDiv = createAnnotDiv(
+        sDiv.style.zIndex = "1001";
+        overlay!.appendChild(sDiv);
+        annotationsRef.current.push(sDiv);
+        if (edit.tChar) {
+          if (!edit.tChar.bbox) {
+            edit.tChar.bbox = [0, 0, 0, 0];
+            const sY = edit.sChar.bbox[3] - edit.sChar.bbox[1];
+            const diff = (edit.tChar.pitch - edit.sChar.pitch) / 2;
+            log.debug(edit.sChar.bbox, sY, diff);
+            edit.tChar.bbox[0] = edit.sChar.bbox[0];
+            edit.tChar.bbox[1] = edit.sChar.bbox[1] + sY * diff;
+            edit.tChar.bbox[2] = edit.sChar.bbox[2];
+            edit.tChar.bbox[3] = edit.sChar.bbox[3] + sY * diff;
+          }
+          const tDiv = createAnnotDiv(
             edit,
-            secondary,
+            edit.tChar,
             scaleX,
             scaleY,
-            "rgb(31,151,176)",
-            true,
+            colorFor(edit.operation, true),
           );
-          targetDiv.style.zIndex = "1001";
-          overlay!.appendChild(targetDiv);
-          annotationsRef.current.push(targetDiv);
+          tDiv.style.zIndex = "1001";
+          overlay!.appendChild(tDiv);
+          annotationsRef.current.push(tDiv);
         }
       });
 
       // Render tempo brackets that belong to this page
-      if (actualNotes) {
+      if (scoreNotes) {
         editList.tempoSections.forEach((section) => {
-          const startNote = actualNotes.notes[section.startIndex];
+          const startNote = scoreNotes.notes[section.startIndex];
           if (!startNote || startNote.page !== pageIndex) return;
           const brackets = createTempoBrackets(section, scaleX, scaleY);
           brackets.forEach((div) => {
@@ -384,7 +332,7 @@ export function useEditDisplay(
         .forEach((e) => e.remove());
       annotationsRef.current = [];
     };
-  }, [actualNotes, editList, createTempoBrackets, enabled, canvasWrappers]);
+  }, [scoreNotes, editList, createTempoBrackets, enabled, canvasWrappers]);
 
   // Listen for redraw events
   useEffect(() => {
@@ -393,7 +341,15 @@ export function useEditDisplay(
       const detail = (event as CustomEvent)?.detail as
         | { scoreId?: string | null }
         | undefined;
-      if (detail?.scoreId && detail.scoreId !== scoreFileId) return;
+      if (detail?.scoreId && detail.scoreId !== scoreFileId) {
+        log.trace(
+          "Skipping redraw for score",
+          detail.scoreId,
+          "because we are",
+          scoreFileId,
+        );
+        return;
+      }
       renderEdits();
     };
     document.addEventListener("score:redrawAnnotations", handler);

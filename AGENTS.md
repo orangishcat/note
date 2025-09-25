@@ -22,8 +22,9 @@ Strict engineering guidelines for automated and human contributors.
 - When touching Python, prefer `numpy` for vectorized operations if it is
   clearly faster and equally readable; otherwise
   keep it simple. After any Python change, start the Flask app (`app_main.py`)
-  locally to verify no
-  syntax/circular‑import errors.
+  locally to verify no syntax/circular‑import errors.
+- Add robust logging and error handling, especially extra trace and debug logs
+  for easier troubleshooting.
 - Appwrite collections must match these attributes exactly:
   - Folder: `name:String`, `files:String[]`
   - Score: `user_id:String`, `file_id:String`, `name:String`, `subtitle:String`,

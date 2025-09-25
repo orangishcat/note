@@ -27,11 +27,11 @@ from .. import get_user_client, misc_bucket, database
 test_cfg = {
     "spider_dance_played": {
         "played": "spider dance played.midi",
-        "actual": "spider dance transkun.notelist",
+        "actual": "spider dance.scoredata",
     },
     "spider_dance_actual": {
         "played": "spider dance transkun.notelist",
-        "actual": "spider dance transkun.notelist",
+        "actual": "spider dance.scoredata",
     },
 }
 

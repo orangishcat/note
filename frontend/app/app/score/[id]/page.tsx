@@ -907,7 +907,7 @@ export default function ScorePage() {
         {/* Debug panel - only render on client side */}
         {isClient && isDebugMode && (
           <DebugPanel
-            scoreId={id}
+            scoreId={score.file_id}
             editList={filteredEditList}
             setEditList={setEditList}
             currentPage={currentPage}
