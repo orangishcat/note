@@ -58,8 +58,7 @@ export default function ImageScoreRenderer({
     const total = doc.numPages;
     const pageNum = Math.min(Math.max(1, (page ?? 0) + 1), total);
     const ls = linkServiceRef.current;
-    setPage(pageNum - 1);
-    log.debug("Navigating to page", pageNum);
+    log.trace("Navigating to page", pageNum);
     if (ls?.goToPage) ls.goToPage(pageNum);
     else v.currentPageNumber = pageNum;
   }
@@ -141,13 +140,9 @@ export default function ImageScoreRenderer({
         );
       });
 
-      // page events
       const onPageChanging = (evt: { pageNumber: number }) => {
         if (cancelled) return;
-        const zeroBased = evt.pageNumber - 1;
-        setTimeout(() => {
-          setPDFPage(zeroBased);
-        }, 0);
+        setTimeout(() => setPage(evt.pageNumber - 1), 0);
       };
       eventBus.on("pagechanging", onPageChanging);
       cleanupFns.push(() => eventBus.off("pagechanging", onPageChanging));
@@ -235,7 +230,6 @@ export default function ImageScoreRenderer({
     };
   }, []);
 
-  // Sync page from external state
   useEffect(() => setPDFPage(currentPage), [currentPage]);
 
   // Attach recenter click when the button becomes available

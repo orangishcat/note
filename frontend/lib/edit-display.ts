@@ -182,6 +182,12 @@ export function useEditDisplay(
     [scoreNotes, editList],
   );
 
+  function getPDFScale(el: HTMLElement) {
+    return parseFloat(
+      getComputedStyle(el).getPropertyValue("--scale-factor").trim(),
+    );
+  }
+
   const renderEdits = useCallback(() => {
     if (!enabled) return;
     log.trace("Rendering annotations for all pages");
@@ -240,25 +246,24 @@ export function useEditDisplay(
         return;
       }
 
-      const scaleX = hostWidth / pageWidth;
-      const scaleY = hostHeight / pageHeight;
+      const scaleX = hostWidth / pageWidth / getPDFScale(host);
+      const scaleY = hostHeight / pageHeight / getPDFScale(host);
 
       // Ensure an overlay layer within the host
       let overlay = host.querySelector(".edit-overlay") as HTMLElement | null;
       if (!overlay) {
         overlay = document.createElement("div");
-        overlay.className = "edit-overlay";
+        overlay.className =
+          "edit-overlay absolute inset-0 pointer-events-none z-50";
         Object.assign(overlay.style, {
-          position: "absolute",
-          inset: "0",
-          pointerEvents: "none",
-          zIndex: 1000,
+          transform: "scale(var(--scale-factor))",
+          transformOrigin: "top left",
         });
         host.appendChild(overlay);
       }
 
       overlay
-        .querySelectorAll(".note-rectangle, .tempo-bracket")
+        .querySelectorAll(".note-rectangle, .tempo-bracket ")
         .forEach((e) => e.remove());
 
       const pageEdits = (editList.edits ?? []).filter(
@@ -289,7 +294,6 @@ export function useEditDisplay(
             edit.tChar.bbox = [0, 0, 0, 0];
             const sY = edit.sChar.bbox[3] - edit.sChar.bbox[1];
             const diff = (edit.tChar.pitch - edit.sChar.pitch) / 2;
-            log.debug(edit.sChar.bbox, sY, diff);
             edit.tChar.bbox[0] = edit.sChar.bbox[0];
             edit.tChar.bbox[1] = edit.sChar.bbox[1] + sY * diff;
             edit.tChar.bbox[2] = edit.sChar.bbox[2];
