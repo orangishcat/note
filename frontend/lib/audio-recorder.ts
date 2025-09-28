@@ -3,7 +3,7 @@ import { Type } from "protobufjs";
 import api from "@/lib/network";
 import log from "./logger";
 import type { RecordRTCPromisesHandler } from "recordrtc";
-import { NoteList, ScoringResult } from "@/types/proto-types";
+import { NoteList, Recording, ScoringResult } from "@/types/proto-types";
 export interface RecordingError {
   message: string;
   code?: string;
@@ -11,11 +11,11 @@ export interface RecordingError {
 }
 export interface AudioRecorderHookProps {
   isRecording: boolean;
-  ScoringResultType: Type | null;
-  NoteListType: Type | null;
+  RecordingType: Type | null;
   scoreId: string;
   notesId: string;
   refetchTypes: () => Promise<{
+    RecordingType: Type | null;
     ScoringResultType: Type | null;
     NoteListType: Type | null;
   }>;
@@ -23,42 +23,12 @@ export interface AudioRecorderHookProps {
   onPlayedNotesChange?: (playedNotes: NoteList | null) => void;
   onError?: (error: RecordingError) => void;
 }
-export function splitCombinedResponse(
-  buffer: ArrayBuffer,
-  ScoringResultType: Type,
-  NoteListType: Type,
-): {
-  editList: ScoringResult | null;
-  playedNotes: NoteList | null;
-} {
-  try {
-    const dataView = new Uint8Array(buffer);
-    const editListSize = new DataView(dataView.slice(0, 4).buffer).getUint32(
-      0,
-      false,
-    );
-    log.debug(`EditList size: ${editListSize} bytes`);
-    const editListData = dataView.slice(4, 4 + editListSize);
-    const playedNotesData = dataView.slice(4 + editListSize);
-    const editList = ScoringResultType.decode(editListData) as ScoringResult;
-    const playedNotes = NoteListType.decode(playedNotesData) as NoteList;
-    log.debug(
-      `Decoded EditList (${editList.edits.length ?? 0} edits), NoteList (${
-        playedNotes.notes?.length ?? 0
-      } notes)`,
-    );
-    return { editList, playedNotes };
-  } catch (error) {
-    log.error("Error splitting combined response:", error);
-    return { editList: null, playedNotes: null };
-  }
-}
 export function useAudioRecorder({
   isRecording,
-  ScoringResultType,
-  NoteListType,
+  RecordingType,
   scoreId,
   notesId,
+  refetchTypes,
   onEditListChange,
   onPlayedNotesChange,
   onError,
@@ -129,23 +99,33 @@ export function useAudioRecorder({
         responseType: "arraybuffer",
       });
       const buffer = response.data as ArrayBuffer;
-      const fmt = response.headers["x-response-format"];
-      let editList: ScoringResult | null,
-        playedNotes: NoteList | null = null;
-      if (fmt === "combined") {
-        ({ editList, playedNotes } = splitCombinedResponse(
-          buffer,
-          ScoringResultType!,
-          NoteListType!,
-        ));
-      } else {
-        editList = ScoringResultType!.decode(
-          new Uint8Array(buffer),
-        ) as ScoringResult;
+      let recordingType = RecordingType;
+      if (!recordingType) {
+        log.warn("RecordingType not ready; attempting refetch");
+        const types = await refetchTypes();
+        if (!types.RecordingType) {
+          throw new Error("Recording protobuf type unavailable");
+        }
+        recordingType = types.RecordingType;
       }
-      const editListCopy = JSON.parse(JSON.stringify(editList));
+      if (!recordingType) {
+        throw new Error(
+          "Recording protobuf type still unavailable after refetch",
+        );
+      }
+      const recording = recordingType.decode(
+        new Uint8Array(buffer),
+      ) as Recording;
+      const editListCopy = JSON.parse(
+        JSON.stringify(recording.computedEdits),
+      ) as ScoringResult;
       onEditListChange(editListCopy);
-      if (playedNotes) onPlayedNotesChange?.(playedNotes);
+      if (recording.playedNotes) {
+        const playedNotesCopy = JSON.parse(
+          JSON.stringify(recording.playedNotes),
+        ) as NoteList;
+        onPlayedNotesChange?.(playedNotesCopy);
+      }
     } catch (err) {
       log.error("Error stopping/processing recording:", err);
       onError?.({
@@ -158,9 +138,9 @@ export function useAudioRecorder({
       recorderRef.current = null;
     }
   }, [
-    NoteListType,
-    ScoringResultType,
+    RecordingType,
     notesId,
+    refetchTypes,
     onEditListChange,
     onPlayedNotesChange,
     onError,

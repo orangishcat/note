@@ -38,7 +38,13 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
 
   const viewRecording = async (id: string) => {
     try {
-      const res = await api.post(`/process-recording/${id}?score=${scoreId}`);
+      const res = await api.post(
+        `/process-recording/${id}?score=${scoreId}`,
+        undefined,
+        {
+          responseType: "arraybuffer",
+        },
+      );
       onLoad(res.data);
       onClose();
     } catch (e) {

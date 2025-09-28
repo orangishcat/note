@@ -1,0 +1,13 @@
+[
+  {
+    "title": "Spider Dance Take 1",
+    "actual": "scores/spider dance.scoredata",
+    "played": "audio/spider dance played.midi",
+    "sections": [
+      { "end_ind": 413, "label": "intro" },
+      { "end_ind": 744, "label": "difficult chorus" },
+      { "end_ind": 1381, "label": "bridge" },
+      { "end_ind": 1574, "label": "chorus" }
+    ]
+  }
+]

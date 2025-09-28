@@ -1,8 +1,7 @@
 "use client";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ScoringResult } from "@/types/proto-types";
+import { Recording, ScoringResult } from "@/types/proto-types";
 import log from "@/lib/logger";
-import { splitCombinedResponse } from "@/lib/audio-recorder";
 import api from "@/lib/network";
 import { initProtobufTypes } from "@/lib/proto";
 import { DebugPanelProps } from "@/types/debugpanel-types";
@@ -165,63 +164,39 @@ const DebugPanel = ({
         });
         if (response.status !== 200)
           throw new Error(`Server returned status ${response.status}`);
-        const { ScoringResultType, NoteListType } = await initProtobufTypes();
-        if (!ScoringResultType || !NoteListType)
-          throw new Error(
-            "Failed to initialize ScoringResultType or NoteListType",
-          );
+        const { RecordingType } = await initProtobufTypes();
+        if (!RecordingType)
+          throw new Error("Failed to initialize RecordingType");
         const buffer = response.data;
-        const dataView = new Uint8Array(buffer);
-        const responseFormat = response.headers?.["x-response-format"];
-        if (responseFormat === "combined") {
-          log.debug("Detected combined response format");
-          const { editList, playedNotes: receivedPlayedNotes } =
-            splitCombinedResponse(buffer, ScoringResultType, NoteListType);
-          if (editList) {
-            const editCount =
-              (editList as unknown as ScoringResult).edits?.length || 0;
-            log.debug(
-              `Successfully decoded test response with ${editCount} edits`,
-            );
-            const cloned = JSON.parse(JSON.stringify(editList));
-            setEditList(cloned);
-            const noteCount = receivedPlayedNotes?.notes?.length || 0;
-            if (noteCount) {
-              log.debug(
-                `Successfully decoded test response with ${noteCount} played notes`,
-              );
-            }
-            setTimeout(
-              () =>
-                document.dispatchEvent(
-                  new CustomEvent("score:redrawAnnotations", { bubbles: true }),
-                ),
-              50,
-            );
-            setTestStatus({
-              message:
-                `Success! Received ${editCount} edits` +
-                (noteCount ? ` and ${noteCount} notes` : ""),
-              isError: false,
-            });
-          } else {
-            throw new Error("Failed to decode EditList from combined response");
-          }
-        } else {
-          log.debug("Using legacy format (ScoringResult only)");
-          const decoded = ScoringResultType.decode(dataView);
-          const editCount =
-            (decoded as unknown as ScoringResult).edits?.length || 0;
+        const recording = RecordingType.decode(
+          new Uint8Array(buffer),
+        ) as Recording;
+        const editList = recording.computedEdits as unknown as ScoringResult;
+        const editCount = editList.edits?.length || 0;
+        const noteCount = recording.playedNotes?.notes?.length || 0;
+        log.debug(
+          `Successfully decoded test response with ${editCount} edits and ${noteCount} notes`,
+        );
+        const cloned = JSON.parse(JSON.stringify(editList));
+        setEditList(cloned);
+        if (noteCount) {
           log.debug(
-            `Successfully decoded test response with ${editCount} edits`,
+            `Recording included ${noteCount} played notes for created_at ${recording.createdAt?.seconds}`,
           );
-          const cloned = JSON.parse(JSON.stringify(decoded));
-          setEditList(cloned);
-          setTestStatus({
-            message: `Success! Received ${editCount} edits`,
-            isError: false,
-          });
         }
+        setTimeout(
+          () =>
+            document.dispatchEvent(
+              new CustomEvent("score:redrawAnnotations", { bubbles: true }),
+            ),
+          50,
+        );
+        setTestStatus({
+          message: `Success! Received ${editCount} edits${
+            noteCount ? ` and ${noteCount} notes` : ""
+          }`,
+          isError: false,
+        });
       } catch (error) {
         log.error("Error decoding test response:", error);
         setTestStatus({

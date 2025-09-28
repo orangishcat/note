@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/timestamp.proto";
+
 message Note {
     int32 pitch = 1;
     float start_time = 2;
@@ -65,4 +67,10 @@ message ScoringResult {
     repeated int32 size = 2;
     float unstable_rate = 3;
     repeated TempoSection tempo_sections = 4;
+}
+
+message Recording {
+    NoteList played_notes = 1;
+    ScoringResult computed_edits = 2;
+    google.protobuf.Timestamp created_at = 3;
 }

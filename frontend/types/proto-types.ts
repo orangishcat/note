@@ -1,4 +1,4 @@
-import { Message } from "protobufjs";
+import { type Long, Message } from "protobufjs";
 export interface Note extends Message {
   pitch: number;
   startTime: number;
@@ -53,4 +53,13 @@ export interface ScoringResult extends Message {
   size: number[];
   unstableRate: number;
   tempoSections: TempoSection[];
+}
+export interface Timestamp extends Message {
+  seconds: number | Long;
+  nanos: number;
+}
+export interface Recording extends Message {
+  playedNotes: NoteList;
+  computedEdits: ScoringResult;
+  createdAt: Timestamp;
 }

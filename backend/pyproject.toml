@@ -25,6 +25,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "bokeh>=3.8.0",
+    "jupyter>=1.1.1",
     "numba>=0.62.0",
     "opencv-python>=4.11.0.86",
 ]

@@ -1,24 +1,24 @@
 from __future__ import annotations
 
+from timer import timeit
 from ._native import load_native
-from .notes_pb2 import Note, TempoSection
-
+from .notes_pb2 import TempoSection
 
 scoring_native = load_native()
 
 
+@timeit()
 def analyze_tempo(
-    actual: list[Note], played: list[Note], aligned: list[tuple[int, int]]
+    actual_times: list[float],
+    played_times: list[float],
+    aligned: list[tuple[int, int]],
+    best_params: scoring_native.TempoSegmentationParams = scoring_native.TempoSegmentationParams(),
 ) -> tuple[list[TempoSection], float]:
     if not aligned:
         return [], 0.0
 
-    actual_times = [note.start_time for note in actual]
-    played_times = [note.start_time for note in played]
     sections_data, unstable = scoring_native.analyze_tempo(
-        actual_times,
-        played_times,
-        aligned,
+        actual_times, played_times, aligned, best_params
     )
 
     sections: list[TempoSection] = []

@@ -1,3 +1,4 @@
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -10,7 +11,6 @@ DESCRIPTOR: _descriptor.FileDescriptor
 INSERT: EditOperation
 SUBSTITUTE: EditOperation
 TREBLE: Clef
-UNKNOWN: Clef
 
 class Edit(_message.Message):
     __slots__ = ["operation", "pos", "s_char", "t_char", "t_pos"]
@@ -71,6 +71,16 @@ class NoteList(_message.Message):
     size: _containers.RepeatedScalarFieldContainer[int]
     voices: _containers.RepeatedCompositeFieldContainer[Voice]
     def __init__(self, notes: _Optional[_Iterable[_Union[Note, _Mapping]]] = ..., size: _Optional[_Iterable[int]] = ..., voices: _Optional[_Iterable[_Union[Voice, _Mapping]]] = ..., lines: _Optional[_Iterable[_Union[Line, _Mapping]]] = ...) -> None: ...
+
+class Recording(_message.Message):
+    __slots__ = ["computed_edits", "created_at", "played_notes"]
+    COMPUTED_EDITS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    PLAYED_NOTES_FIELD_NUMBER: _ClassVar[int]
+    computed_edits: ScoringResult
+    created_at: _timestamp_pb2.Timestamp
+    played_notes: NoteList
+    def __init__(self, played_notes: _Optional[_Union[NoteList, _Mapping]] = ..., computed_edits: _Optional[_Union[ScoringResult, _Mapping]] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class ScoringResult(_message.Message):
     __slots__ = ["edits", "size", "tempo_sections", "unstable_rate"]

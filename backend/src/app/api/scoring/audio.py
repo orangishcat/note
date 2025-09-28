@@ -2,9 +2,9 @@ import json
 import mimetypes
 import os
 import re
-import struct
 import sys
 import tempfile
+from datetime import datetime, timezone
 from functools import lru_cache
 from traceback import print_exc
 
@@ -15,10 +15,19 @@ from appwrite.role import Role
 from appwrite.services.databases import Databases
 from appwrite.services.storage import Storage
 from beam import Image, endpoint
-from flask import Response, request, g
+from flask import Response, g, request
+
+# noinspection PyUnresolvedReferences
+from google.protobuf.timestamp_pb2 import Timestamp
 from loguru import logger
 
-from scoring import Note, NoteList, extract_midi_notes, analyze_tempo
+from scoring import (
+    Note,
+    NoteList,
+    Recording,
+    analyze_tempo,
+    extract_midi_notes,
+)
 from scoring.edit_distance import find_ops
 from . import audio
 from .. import get_user_client, misc_bucket, database
@@ -124,7 +133,7 @@ def receive():
             played_notes = load_notes(cfg["played"])
             actual_notes = load_notes(cfg["actual"])
 
-            if (result_file := cfg.get("edits")) and os.path.exists(result_file):
+            if (result_file := cfg.get("recording")) and os.path.exists(result_file):
                 logger.info(f"Using cached result")
                 with open(result_file, "rb") as f:
                     byte_content = f.read()
@@ -134,7 +143,7 @@ def receive():
                         "Cache-Control": "no-cache, no-store, must-revalidate",
                         "Pragma": "no-cache",
                         "Expires": "0",
-                        "X-Response-Format": "combined",
+                        "X-Response-Format": "recording",
                     }
                 )
                 return res
@@ -169,8 +178,8 @@ def receive():
         ops.size.extend(actual_notes.size)
 
         sections, unstable = analyze_tempo(
-            actual_notes.notes,
-            played_notes.notes,
+            [float(n.start_time) for n in actual_notes.notes],
+            [float(n.start_time) for n in played_notes.notes],
             aligned_idx,
         )
         ops.unstable_rate = unstable
@@ -183,10 +192,21 @@ def receive():
         else:
             response_nl = played_notes
 
+        for idx, n in enumerate(response_nl.notes):
+            n.id = idx
+
+        recording = Recording()
+        recording.played_notes.CopyFrom(response_nl)
+        recording.computed_edits.CopyFrom(ops)
+        created_at = Timestamp()
+        created_at.FromDatetime(datetime.now(timezone.utc))
+        recording.created_at.CopyFrom(created_at)
+
+        if not is_test:
             storage = Storage(get_user_client())
             db = Databases(get_user_client())
             user_role = Role.user(g.account["$id"])
-            notes_id = db.create_document(
+            recording_id = db.create_document(
                 database_id=database,
                 collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
                 document_id="unique()",
@@ -199,10 +219,10 @@ def receive():
             )["$id"]
             file_res = storage.create_file(
                 bucket_id=misc_bucket,
-                file_id=notes_id,
+                file_id=recording_id,
                 file=InputFile.from_bytes(
-                    response_nl.SerializeToString(),
-                    f"{notes_id}.pb",
+                    recording.SerializeToString(),
+                    f"{recording_id}.pb",
                     "application/octet-stream",
                 ),
                 permissions=[
@@ -215,17 +235,12 @@ def receive():
             db.update_document(
                 database_id=database,
                 collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
-                document_id=notes_id,
+                document_id=recording_id,
                 data={"file_id": file_res["$id"]},
             )
 
-        for idx, n in enumerate(response_nl.notes):
-            n.id = idx
-
-        edit_bytes = ops.SerializeToString()
-        notes_bytes = response_nl.SerializeToString()
-        payload = struct.pack(">I", len(edit_bytes)) + edit_bytes + notes_bytes
-        logger.info(f"Serialized payload size: {len(payload)} bytes")
+        payload = recording.SerializeToString()
+        logger.info(f"Serialized recording payload size: {len(payload)} bytes")
 
         if os.environ.get("DEBUG") == "True":
 
@@ -249,7 +264,7 @@ def receive():
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Pragma": "no-cache",
                 "Expires": "0",
-                "X-Response-Format": "combined",
+                "X-Response-Format": "recording",
             }
         )
         return res

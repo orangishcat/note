@@ -34,7 +34,7 @@ import axios from "axios";
 import ImageScoreRenderer from "@/components/image-score-renderer";
 import { Type } from "protobufjs";
 import log from "@/lib/logger";
-import { Edit, NoteList, ScoringResult } from "@/types/proto-types";
+import { Edit, NoteList, Recording, ScoringResult } from "@/types/proto-types";
 import { useToast } from "@/components/ui/toast";
 import { databases, storage } from "@/lib/appwrite";
 import { initProtobufTypes, protobufTypeCache } from "@/lib/proto";
@@ -145,10 +145,14 @@ export default function ScorePage() {
   const [noteListType, setNoteListType] = useState<Type | null>(
     protobufTypeCache.NoteListType,
   );
+  const [recordingType, setRecordingType] = useState<Type | null>(
+    protobufTypeCache.RecordingType,
+  );
   const refetchTypes = async () => {
     const result = await initProtobufTypes();
     setScoringResultType(result.ScoringResultType);
     setNoteListType(result.NoteListType);
+    setRecordingType(result.RecordingType);
     return result;
   };
   const handleRecordingError = useCallback(
@@ -169,8 +173,7 @@ export default function ScorePage() {
   }, []);
   useAudioRecorder({
     isRecording,
-    ScoringResultType: scoringResultType,
-    NoteListType: noteListType,
+    RecordingType: recordingType,
     scoreId: id,
     notesId: score.notes_id || "",
     refetchTypes,
@@ -739,11 +742,14 @@ export default function ScorePage() {
             onClose={() => setShowRecordingsModal(false)}
             scoreId={id}
             onLoad={(buf) => {
-              if (!scoringResultType) return;
-              const decoded = scoringResultType.decode(
+              if (!recordingType) return;
+              const decoded = recordingType.decode(
                 new Uint8Array(buf),
+              ) as Recording;
+              const edits = JSON.parse(
+                JSON.stringify(decoded.computedEdits),
               ) as ScoringResult;
-              setEditList(decoded);
+              setEditList(edits);
             }}
           />
         )}
