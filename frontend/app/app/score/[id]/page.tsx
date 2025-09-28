@@ -230,6 +230,7 @@ export default function ScorePage() {
           } notes`,
         );
         setScoreNotes(notes);
+        log.debug("Score notes:", notes);
       } catch (error) {
         if (axios.isAxiosError(error)) {
           log.error(
@@ -253,7 +254,7 @@ export default function ScorePage() {
         ) ?? [],
     } as ScoringResult;
   }, [editList, confidenceThreshold]);
-  const unstableRate = editList?.unstableRate ?? 0;
+  const variance = editList?.unstableRate ?? 0;
   const accuracy = useMemo(() => {
     if (!filteredEditList || !scoreNotes) return 100;
     const numEdits = filteredEditList.edits?.length || 0;
@@ -581,7 +582,7 @@ export default function ScorePage() {
                 </Button>
               </BasicTooltip>
               <div className="text-xl text-gray-500 dark:text-gray-400">
-                {accuracy}% / {unstableRate.toFixed(0)} UR
+                {accuracy}% / {variance.toFixed(0)} VAR
               </div>
             </div>
           </div>

@@ -34,9 +34,9 @@ enum Clef {
 message Edit {
     EditOperation operation = 1;
     int32 pos = 2;
-    Note s_char = 3;  // Source character (for DELETE and SUBSTITUTE)
-    Note t_char = 4;  // Target character (for INSERT and SUBSTITUTE)
-    int32 t_pos = 5;  // Target position (for SUBSTITUTE)
+    Note s_char = 3;
+    Note t_char = 4;
+    int32 t_pos = 5;
 }
 
 message Voice {

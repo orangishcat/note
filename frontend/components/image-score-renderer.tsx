@@ -49,8 +49,9 @@ export default function ImageScoreRenderer({
     if (!v || !doc) return;
     const total = doc.numPages;
     const pageNum = Math.min(Math.max(1, (page ?? 0) + 1), total);
+    if (v.currentPageNumber === pageNum) return;
     const ls = linkServiceRef.current;
-    log.trace("Navigating to page", pageNum);
+    log.debug("Navigating to page", pageNum);
     if (ls?.goToPage) ls.goToPage(pageNum);
     else v.currentPageNumber = pageNum;
   }
@@ -193,7 +194,12 @@ export default function ImageScoreRenderer({
       window.removeEventListener("score:zoomOut", onZoomOut);
     };
   }, []);
-  useEffect(() => setPDFPage(currentPage), [currentPage]);
+  useEffect(() => {
+    const viewer = linkServiceRef.current?.pdfViewer;
+    const desiredPage = (currentPage ?? 0) + 1;
+    if (viewer?.currentPageNumber === desiredPage) return;
+    setPDFPage(currentPage);
+  }, [currentPage]);
   useEffect(() => {
     let disposed = false;
     let remove: (() => void) | null = null;

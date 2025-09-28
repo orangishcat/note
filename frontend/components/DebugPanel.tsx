@@ -172,10 +172,6 @@ const DebugPanel = ({
           );
         const buffer = response.data;
         const dataView = new Uint8Array(buffer);
-        const firstBytes = Array.from(dataView.slice(0, 20))
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join(" ");
-        log.debug(`First bytes of buffer: ${firstBytes}`);
         const responseFormat = response.headers?.["x-response-format"];
         if (responseFormat === "combined") {
           log.debug("Detected combined response format");
@@ -195,8 +191,12 @@ const DebugPanel = ({
                 `Successfully decoded test response with ${noteCount} played notes`,
               );
             }
-            document.dispatchEvent(
-              new CustomEvent("score:redrawAnnotations", { bubbles: true }),
+            setTimeout(
+              () =>
+                document.dispatchEvent(
+                  new CustomEvent("score:redrawAnnotations", { bubbles: true }),
+                ),
+              50,
             );
             setTestStatus({
               message:

@@ -29,13 +29,7 @@ export function useEditDisplay(
   canvasWrappers: HTMLDivElement[] | null = null,
   minConfidence: number = 1,
 ) {
-  const containerRef = useRef<Element | null>(null);
   const annotationsRef = useRef<HTMLElement[]>([]);
-  useEffect(() => {
-    containerRef.current = document.querySelector(
-      `#score-${scoreFileId} .score-container`,
-    );
-  }, [scoreFileId]);
   function createAnnotDiv(
     edit: Edit,
     note: Note,
@@ -165,10 +159,15 @@ export function useEditDisplay(
     if (!enabled) return;
     log.trace("Rendering annotations for all pages");
     log.debug("Edit list:", editList);
-    log.debug("Actual notes:", scoreNotes);
-    const container = containerRef.current;
+    const container = document.querySelector(
+      `#score-${scoreFileId} .score-container`,
+    );
     if (!editList || !container) {
-      log.warn("No edit list or container for annotations");
+      log.warn(
+        "No edit list or container for annotations",
+        editList,
+        container,
+      );
       return;
     }
     if (!scoreNotes) {
