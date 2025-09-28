@@ -74,7 +74,6 @@ async def run_oemer_predictions(image_files):
 
     results = [task.result() for task in tasks]
 
-    # Process results
     for result in results:
         if isinstance(result, dict) and "notes" in result:
             notes_oemer.extend(result["notes"])
@@ -107,7 +106,7 @@ async def run_transkun_predictions(image_files, audio_files=None):
 
     async with asyncio.TaskGroup() as tg:
         tasks = []
-        # Process image files
+
         for entry in image_files:
             with open(entry[0], "rb") as f:
                 image_bytes = f.read()
@@ -116,7 +115,6 @@ async def run_transkun_predictions(image_files, audio_files=None):
                 tg.create_task(_run_beam_task(deployment, {"image": encoded_image}))
             )
 
-        # Process audio files
         for entry in audio_files:
             with open(entry[0], "rb") as f:
                 audio_bytes = f.read()
@@ -147,26 +145,21 @@ async def process_models(score_files, audio_files, score_filename, storage, user
         image_extensions = ["png", "jpg", "jpeg"]
         image_files = []
 
-        # Filter image files
         for entry in score_files:
             ext = entry[3].rsplit(".", 1)[1].lower() if "." in entry[3] else ""
             if ext in image_extensions:
                 image_files.append(entry)
 
-        # If there are no image or audio files, exit early
         if not image_files and not audio_files:
             return
 
-        # Start both tasks concurrently
         oemer_task = asyncio.create_task(run_oemer_predictions(image_files))
         transkun_task = asyncio.create_task(
             run_transkun_predictions(image_files, audio_files)
         )
 
-        # Wait for transkun to complete first (if it hasn't already finished)
         notes_transkun = await transkun_task
 
-        # Save transkun results as JSON and upload to storage
         base_name = os.path.splitext(score_filename)[0]
         transkun_json = json.dumps(notes_transkun)
         transkun_filename = f"{base_name}.pb"
@@ -184,7 +177,6 @@ async def process_models(score_files, audio_files, score_filename, storage, user
             ],
         )
 
-        # Now wait for the OEMER task to complete concurrently
         await oemer_task
 
     except Exception as ex:

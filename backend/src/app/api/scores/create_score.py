@@ -15,11 +15,10 @@ from rendering import score_preview
 from . import score_bp
 from .process_scores import *
 
-# Create a temporary folder where files will be stored
+
 TEMP_UPLOAD_FOLDER = tempfile.mkdtemp()
 
 
-# Helper function to determine allowed extensions.
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions
 
@@ -30,7 +29,6 @@ def cancel_upload():
     found = False
     session_files = data.get(request.cookies["appwrite-session"], [])
     for entry in session_files:
-        # entry[3] is the original filename
         if entry[3] == file_name:
             try:
                 os.remove(entry[0])
@@ -48,22 +46,16 @@ def download_score(score_id):
     try:
         storage = Storage(get_user_client())
 
-        # Fetch the file from Appwrite storage
         file_bytes = storage.get_file_view(scores_bucket, score_id)
 
-        # Get file info to determine the format
         file_info = storage.get_file(scores_bucket, score_id)
         filename = file_info.get("name", "score.xml")
 
-        # Check if it's a compressed MXL file or ZIP
         if filename.lower().endswith((".mxl", ".zip")):
-            # Extract XML content from the compressed file
             try:
                 with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as zip_file:
-                    # Look for the main XML file (usually the first .xml file)
                     xml_files = [f for f in zip_file.namelist() if f.endswith(".xml")]
                     if xml_files:
-                        # Use the first XML file found
                         xml_content = zip_file.read(xml_files[0])
                         return Response(
                             xml_content,
@@ -80,7 +72,6 @@ def download_score(score_id):
             except zipfile.BadZipFile:
                 return {"error": "Invalid compressed file format"}, 400
         else:
-            # Return the file as-is (should be XML)
             return Response(
                 file_bytes,
                 mimetype="application/xml",
@@ -107,11 +98,10 @@ def upload():
         return {"error": "File type not allowed"}, 400
 
     original_filename = secure_filename(file.filename)
-    # Create a unique filename to avoid collisions in the TEMP_UPLOAD_FOLDER
+
     unique_filename = f"{uuid.uuid4().hex}_{original_filename}"
     temp_filepath = os.path.join(TEMP_UPLOAD_FOLDER, unique_filename)
 
-    # Save file to disk
     file.save(temp_filepath)
 
     logger.info("Data cache length:", sum(len(arr) for arr in data.values()))
@@ -128,7 +118,6 @@ def process_document(
     if not file_bytes:
         raise Exception("No file provided")
 
-    # Generate preview image
     preview_bytes = file_bytes
     preview_filename = filename
     if len(score_files) > 1:
@@ -148,7 +137,6 @@ def process_document(
         ],
     )
 
-    # Update document with preview ID
     db.update_document(
         database_id=os.environ["DATABASE_ID"],
         collection_id=os.environ["COLLECTION_ID"],
@@ -190,7 +178,6 @@ def confirm_upload():
         user,
     )
 
-    # Start background processing
     Thread(
         name=f"Process {score_filename}",
         target=process_document,

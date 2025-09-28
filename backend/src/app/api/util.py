@@ -5,8 +5,7 @@ from appwrite.client import Client
 from appwrite.services.account import Account
 from flask import request
 
-# Global cache where each session key maps to a list of tuples.
-# Each tuple is: (temp_filepath, upload_time, type, original_filename, content_type)
+
 data = defaultdict(list)
 score_file_types = ["mxl", "musicxml", "xml", "mxmls", "pdf", "png", "jpg", "jpeg"]
 audio_file_types = ["mp4", "mp3", "mov", "wav", "ogg", "avi", "m4a"]

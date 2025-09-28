@@ -50,7 +50,7 @@ def build_protobuf(
     edit_list = ScoringResult()
     for record in native_ops:
         kind = int(record.kind)
-        if kind == 0:  # substitute
+        if kind == 0:
             if record.t_index is None:
                 raise ValueError("Substitution missing target index")
             s_idx = _clamp_index(len(s), int(record.s_index))
@@ -64,7 +64,7 @@ def build_protobuf(
                     t_pos=int(record.t_pos),
                 )
             )
-        elif kind == 1:  # delete
+        elif kind == 1:
             s_idx = _clamp_index(len(s), int(record.s_index))
             edit_list.edits.append(
                 Edit(
@@ -74,7 +74,7 @@ def build_protobuf(
                     t_pos=int(record.t_pos),
                 )
             )
-        elif kind == 2:  # insert
+        elif kind == 2:
             if record.t_index is None:
                 raise ValueError("Insertion missing target index")
             s_idx = _clamp_index(len(s), int(record.s_index))
@@ -88,7 +88,7 @@ def build_protobuf(
                     t_pos=int(record.t_pos),
                 )
             )
-        else:  # pragma: no cover - defensive
+        else:
             raise ValueError(f"Unknown edit op kind {kind}")
     return edit_list
 
@@ -163,7 +163,7 @@ def print_wrong_notes(edit_list: ScoringResult, limit: int = 99999) -> None:
             )
 
 
-if __name__ == "__main__":  # pragma: no cover - manual sanity usage
+if __name__ == "__main__":
     played = "scores/spider dance played.mid"
     actual = "scores/actual_spider_dance.pb"
 

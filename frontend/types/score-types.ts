@@ -1,9 +1,7 @@
 import type { Models } from "appwrite";
 import { RefObject } from "react";
 import { ScoringResult } from "@/types/proto-types";
-
 export interface MusicScore extends Models.Document {
-  /** Appwrite document identifier */
   $id: string;
   $collectionId: string;
   $databaseId: string;
@@ -22,14 +20,12 @@ export interface MusicScore extends Models.Document {
   starred?: boolean;
   folder?: string;
 }
-
 export interface MusicXMLRendererProps {
   scoreId: string;
   retry: () => void;
   currentPage?: number;
   recenter: RefObject<HTMLButtonElement>;
 }
-
 export interface ImageScoreRendererProps {
   scoreId: string;
   retry: () => void;

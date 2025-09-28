@@ -23,7 +23,7 @@ from scoring.edit_distance import find_ops
 from . import audio
 from .. import get_user_client, misc_bucket, database
 
-# Test file mapping
+
 test_cfg = {
     "spider_dance_played": {
         "played": "spider dance played.midi",
@@ -39,7 +39,6 @@ test_cfg = {
 @lru_cache(maxsize=16)
 def load_notes(notes_id) -> NoteList:
     if os.environ.get("DEBUG") == "True":
-        # Check if stored locally for convenience
         if os.path.exists(audio_path := f"audio/{notes_id}"):
             return extract_midi_notes(audio_path)
 
@@ -70,6 +69,7 @@ def load_notes(notes_id) -> NoteList:
 )
 def beam_transkun(audio_bytes):
     """Run Transkun on audio bytes and return NoteList."""
+
     # noinspection PyUnresolvedReferences
     from transkun.predict_return_notes import predict
 
@@ -113,7 +113,6 @@ def receive():
     try:
         logger.info(f"Processing audio for score ID: {score_id}")
 
-        # Determine test vs. production
         test_type = request.headers.get("X-Test-Type")
         is_test = test_type and test_type != "production"
 
@@ -143,12 +142,10 @@ def receive():
             if not notes_id:
                 return {"error": "No notes ID provided"}, 400
 
-            # Auto-detect audio format using libmagic
             mime_type = magic.from_buffer(audio_bytes, mime=True)
             ext = mimetypes.guess_extension(mime_type) or ".bin"
             logger.info(f"Detected MIME type: {mime_type}, using extension: {ext}")
 
-            # Dump incoming bytes to a file
             if os.environ.get("DEBUG") == "True":
                 tmp_path = f"debug_info/last_audio{ext}"
                 with open(tmp_path, "wb") as f:
@@ -158,24 +155,19 @@ def receive():
                 with os.fdopen(fd, "wb") as tmp:
                     tmp.write(audio_bytes)
 
-            # Load ground truth NoteList (could be mapped per score_id)
             actual_notes = load_notes(notes_id)
 
-            # Run the model
             output = run_transkun(audio_bytes)
 
             if os.environ.get("DEBUG") != "True":
                 os.unlink(tmp_path)
 
-            # Handle JSON vs. native dict
             rep_out = json.loads(output) if isinstance(output, str) else output
             played_notes = parse_rep_output(rep_out, actual_notes.size)
 
-        # Compute edit operations
         ops, aligned_idx = find_ops(actual_notes.notes, played_notes.notes)
         ops.size.extend(actual_notes.size)
 
-        # Tempo analysis
         sections, unstable = analyze_tempo(
             actual_notes.notes,
             played_notes.notes,
@@ -184,14 +176,13 @@ def receive():
         ops.unstable_rate = unstable
         ops.tempo_sections.extend(sections)
 
-        # Build response NoteList
         if is_test:
             response_nl = NoteList()
             response_nl.notes.extend(played_notes.notes)
             response_nl.size.extend(actual_notes.size)
         else:
             response_nl = played_notes
-            # Save recording notes and create database entry
+
             storage = Storage(get_user_client())
             db = Databases(get_user_client())
             user_role = Role.user(g.account["$id"])
@@ -220,7 +211,7 @@ def receive():
                     Permission.delete(user_role),
                 ],
             )
-            # update document with file id
+
             db.update_document(
                 database_id=database,
                 collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
@@ -231,13 +222,11 @@ def receive():
         for idx, n in enumerate(response_nl.notes):
             n.id = idx
 
-        # Serialize ScoringResult and NoteList with length prefix
         edit_bytes = ops.SerializeToString()
         notes_bytes = response_nl.SerializeToString()
         payload = struct.pack(">I", len(edit_bytes)) + edit_bytes + notes_bytes
         logger.info(f"Serialized payload size: {len(payload)} bytes")
 
-        # Optional debug dump
         if os.environ.get("DEBUG") == "True":
 
             def _join(m):
@@ -254,7 +243,6 @@ def receive():
                 with open(result_file, "wb") as f:
                     f.write(payload)
 
-        # Return protobuf binary
         res = Response(payload, mimetype="application/protobuf")
         res.headers.update(
             {

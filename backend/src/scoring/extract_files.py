@@ -27,7 +27,7 @@ def extract_mxl_notes(mxl_bytes):
                 (name for name in zip_file.namelist() if name.lower().endswith(".xml")),
                 None,
             )
-            if not xml_name:  # pragma: no cover - defensive guard
+            if not xml_name:
                 raise ValueError("No MusicXML content found in provided MXL archive")
             xml_bytes = zip_file.read(xml_name)
 

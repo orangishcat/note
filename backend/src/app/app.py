@@ -23,7 +23,7 @@ app.config["JWT_COOKIE_SECURE"] = not debug
 app.config["JWT_COOKIE_CSRF_PROTECT"] = True
 app.register_blueprint(api_bp)
 
-# Configure rate limiter
+
 limiter = Limiter(
     get_remote_address,
     app=app,
@@ -33,7 +33,6 @@ limiter = Limiter(
 )
 
 
-# Apply specific limits to individual routes
 @app.after_request
 def apply_specific_limits(response):
     return response

@@ -2,19 +2,15 @@ import { test, expect } from "@playwright/test";
 test.skip(({ browserName }) => browserName === "webkit", "Skip WebKit");
 import fs from "fs";
 import path from "path";
-
 const resources = path.resolve(__dirname, "../../backend/resources");
 const readResource = (...segments: string[]) =>
   fs.readFileSync(path.join(resources, ...segments));
-
 test("PDF controls: reset zoom button works and annotations render", async ({
   page,
 }) => {
-  // Enable debug mode (for __setEditList hook)
   await page.addInitScript(() => {
     localStorage.setItem("debug", "true");
   });
-  // Mock score document pointing to our known PDF
   await page.route(
     "**/databases/**/collections/**/documents/**",
     async (route) => {
@@ -42,8 +38,6 @@ test("PDF controls: reset zoom button works and annotations render", async ({
       });
     },
   );
-
-  // Mock Storage download with a real multi-page PDF from fixtures
   await page.route(
     "**/storage/**/files/67e2455bf1eaa75ff360/download**",
     async (route) => {
@@ -55,15 +49,9 @@ test("PDF controls: reset zoom button works and annotations render", async ({
       });
     },
   );
-
-  // Navigate
   await page.goto("/app/score/pdf-test-controls");
-
-  // Wait for PDF viewer
   await page.waitForSelector(".pdfViewer", { state: "attached" });
   await page.waitForTimeout(300);
-
-  // Capture baseline width of first page for zoom checks
   const pageSelector = ".pdfViewer .page";
   await page.waitForSelector(pageSelector, { state: "visible" });
   const baseWidth = await page.$eval(
@@ -85,8 +73,6 @@ test("PDF controls: reset zoom button works and annotations render", async ({
   );
   expect(typeof baseScale).toBe("number");
   expect(baseScale).toBeGreaterThan(0);
-
-  // Programmatically change scale to a known different mode (page-width)
   await page.evaluate(() => {
     const v = (window as any).__pdfViewers?.["67e2455bf1eaa75ff360"];
     if (v) v.currentScaleValue = "page-width";
@@ -96,8 +82,6 @@ test("PDF controls: reset zoom button works and annotations render", async ({
     (el) => el.getBoundingClientRect().width,
   );
   expect(widthModeWidth).toBeGreaterThan(0);
-
-  // Click Reset (page-fit) and verify width returns near baseline (allow small variance)
   const resetBtn = page.getByTestId("btn-zoom-reset");
   await resetBtn.click();
   await expect
@@ -108,21 +92,17 @@ test("PDF controls: reset zoom button works and annotations render", async ({
           (el) => el.getBoundingClientRect().width,
         ),
     )
-    .toBeGreaterThan(0); // ensure measurable
+    .toBeGreaterThan(0);
   const resetWidth = await page.$eval(
     pageSelector,
     (el) => el.getBoundingClientRect().width,
   );
-  // After reset to page-fit, width should return near baseline
   expect(Math.abs(resetWidth - baseWidth)).toBeLessThan(baseWidth * 0.1);
-  // Confirm redraw triggers still work and annotations can render
-
-  // Inject minimal edit list and force redraw; expect annotations to appear
   await page.evaluate(() => {
     const editList = {
       edits: [
         {
-          operation: 0, // INSERT
+          operation: 0,
           pos: 0,
           sChar: {
             pitch: 60,
@@ -158,7 +138,6 @@ test("PDF controls: reset zoom button works and annotations render", async ({
       new CustomEvent("score:redrawAnnotations", { bubbles: true }),
     );
   });
-
   const notesLocator = page.locator(
     `#score-67e2455bf1eaa75ff360 .score-container .note-rectangle`,
   );
@@ -175,6 +154,4 @@ test("PDF controls: reset zoom button works and annotations render", async ({
       { timeout: 10000 },
     )
     .toBeGreaterThan(0);
-
-  // Annotations were verified above
 });

@@ -6,7 +6,6 @@ import {
   ScoringResult,
 } from "@/types/proto-types";
 import { ZoomContext } from "@/app/providers";
-
 function colorFor(op: EditOperation): string {
   switch (op) {
     case EditOperation.INSERT:
@@ -19,7 +18,6 @@ function colorFor(op: EditOperation): string {
       return "rgba(0,0,0,0.5)";
   }
 }
-
 export function useEditDisplayMusicXML(
   editList: ScoringResult | null,
   actualNotes: NoteList | null,
@@ -31,13 +29,11 @@ export function useEditDisplayMusicXML(
   const containerRef = useRef<Element | null>(null);
   const zoomCtx = useContext(ZoomContext);
   const annotationsRef = useRef<HTMLElement[]>([]);
-
   useEffect(() => {
     containerRef.current = document.querySelector(
       `#score-${scoreFileId} .score-container`,
     );
   }, [scoreFileId]);
-
   useEffect(() => {
     if (!enabled || !zoomCtx || annotationsRef.current.length === 0) return;
     const zoom = zoomCtx.getZoomLevel(scoreId) ?? 1;
@@ -48,7 +44,6 @@ export function useEditDisplayMusicXML(
       }
     });
   }, [zoomCtx, zoomCtx?.zoomLevels[scoreId], scoreId]);
-
   const createAnnotDivPixels = (
     color: string,
     left: number,
@@ -69,12 +64,11 @@ export function useEditDisplayMusicXML(
     });
     return div;
   };
-
   function collectRenderedNotes(osmd: any) {
     const hits: any[] = [];
     if (!osmd || !osmd.GraphicSheet) return hits;
     const zoom = osmd.Zoom || 1;
-    const osmdUnitToPx = 10 * zoom; // approx conversion per OSMD docs
+    const osmdUnitToPx = 10 * zoom;
     const measureList =
       osmd.graphic?.measureList || osmd.GraphicSheet?.measureList;
     if (!Array.isArray(measureList)) return hits;
@@ -119,28 +113,19 @@ export function useEditDisplayMusicXML(
     }
     return hits;
   }
-
   const renderEdits = useCallback(() => {
     if (!enabled) return;
     const container = containerRef.current as HTMLElement | null;
     if (!editList || !container) return;
-
-    // Pull OSMD instance registered by the renderer
     const osmd = (window as any).__osmdInstances?.[scoreFileId];
     if (!osmd) return;
     const containerRect = container.getBoundingClientRect();
-
-    // Clear existing annotations
     container.querySelectorAll(".note-rectangle").forEach((e) => e.remove());
     annotationsRef.current = [];
-
     const edits = editList.edits ?? [];
     setEditCount(edits.length);
-
-    // Collect rendered notes from OSMD internals (no DOM querying)
     const hits = collectRenderedNotes(osmd);
     edits.forEach((edit: Edit) => {
-      // Try mapping by sequence index; fallback by closest MIDI
       let idx = Math.max(0, Math.min(edit.pos ?? 0, hits.length - 1));
       if (!hits[idx]) {
         let best = -1;
@@ -164,18 +149,15 @@ export function useEditDisplayMusicXML(
       container.appendChild(div);
       annotationsRef.current.push(div);
     });
-
     return () => {
       container.querySelectorAll(".note-rectangle").forEach((e) => e.remove());
       annotationsRef.current = [];
     };
   }, [editList, scoreFileId, setEditCount, enabled]);
-
   useEffect(() => {
     if (!enabled) return;
     renderEdits();
   }, [renderEdits, enabled]);
-
   useEffect(() => {
     if (!enabled || typeof document === "undefined") return;
     document.addEventListener("score:redrawAnnotations", renderEdits);

@@ -135,7 +135,6 @@ def run_models(score_files, cookie, storage, score_filename, user, audio_files=N
         audio_files = []
 
     try:
-        # Run the async functions using asyncio.run
         asyncio.run(
             process_models(score_files, audio_files, score_filename, storage, user)
         )
@@ -143,7 +142,6 @@ def run_models(score_files, cookie, storage, score_filename, user, audio_files=N
         logger.info("Error running models:", ex)
         print_exc()
     finally:
-        # Clean up: remove temporary files and clear the cache.
         for entry in data.get(cookie, []):
             try:
                 os.remove(entry[0])

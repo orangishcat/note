@@ -1,8 +1,6 @@
-/** @type {import('next').NextConfig} */
 const nextConfig = {
     async rewrites() {
         if (process.env.NODE_ENV === 'development') {
-            // Local Flask backend for dev
             return [
                 {
                     source: '/api/:path*',
@@ -13,8 +11,8 @@ const nextConfig = {
                     destination: 'http://127.0.0.1:5000/static/:path*',
                 },
             ];
-        } else {
-            // In production, point to the Appwrite Function hosting Flask
+        }
+        else {
             return [
                 {
                     source: '/api/:path*',
@@ -27,7 +25,6 @@ const nextConfig = {
             ];
         }
     },
-
     images: (() => {
         const fallback = 'https://cloud.appwrite.io/v1';
         const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || fallback;
@@ -39,8 +36,8 @@ const nextConfig = {
             host = u.hostname;
             protocol = u.protocol.replace(':', '');
             port = u.port || undefined;
-        } catch {
-            // Ignore parse errors and use fallback values
+        }
+        catch {
         }
         return {
             remotePatterns: [
@@ -54,5 +51,4 @@ const nextConfig = {
         };
     })(),
 };
-
 export default nextConfig;

@@ -9,7 +9,6 @@ import {
   TempoSection,
 } from "@/types/proto-types";
 import log from "loglevel";
-
 function colorFor(op: EditOperation, second: boolean = false): string {
   switch (op) {
     case EditOperation.INSERT:
@@ -22,7 +21,6 @@ function colorFor(op: EditOperation, second: boolean = false): string {
       return "rgba(0,0,0,0.5)";
   }
 }
-
 export function useEditDisplay(
   editList: ScoringResult | null,
   scoreNotes: NoteList | null,
@@ -33,13 +31,11 @@ export function useEditDisplay(
 ) {
   const containerRef = useRef<Element | null>(null);
   const annotationsRef = useRef<HTMLElement[]>([]);
-
   useEffect(() => {
     containerRef.current = document.querySelector(
       `#score-${scoreFileId} .score-container`,
     );
   }, [scoreFileId]);
-
   function createAnnotDiv(
     edit: Edit,
     note: Note,
@@ -51,17 +47,12 @@ export function useEditDisplay(
     const div = document.createElement("div");
     div.className = "note-rectangle cursor-pointer rounded-full absolute";
     div.addEventListener("click", () => log.debug("Edit clicked:", edit));
-
     const [x1, y1, x2, y2] = note.bbox;
-
-    // Scale coordinates relative to canvas size with per-axis scaling
     const scaledX1 = x1 * scaleX;
     const scaledY1 = y1 * scaleY;
     const scaledX2 = x2 * scaleX;
     const scaledY2 = y2 * scaleY;
-
     color = color ?? colorFor(edit.operation);
-
     Object.assign(div.style, {
       left: `${scaledX1}px`,
       top: `${scaledY1}px`,
@@ -72,7 +63,6 @@ export function useEditDisplay(
       transformOrigin: "top left",
       pointerEvents: "auto",
     });
-
     div.addEventListener("click", (e) => {
       e.stopPropagation();
       const ev = new CustomEvent("edit:showComparison", {
@@ -89,19 +79,15 @@ export function useEditDisplay(
     });
     return div;
   }
-
   const createTempoBrackets = useCallback(
     (section: TempoSection, scaleX: number, scaleY: number): HTMLElement[] => {
       if (!editList || !scoreNotes) return [];
       const startNote = scoreNotes.notes[section.startIndex];
       const endNote = scoreNotes.notes[section.endIndex];
-
       if (!startNote || !endNote) {
         log.warn("No start or end note for tempo section", section);
         return [];
       }
-
-      // Find the line nearest to the starting note
       const noteCenterY = (startNote.bbox[1] + startNote.bbox[3]) / 2;
       let nearest: Line | null = null;
       let minDist = Number.POSITIVE_INFINITY;
@@ -113,20 +99,16 @@ export function useEditDisplay(
           minDist = dist;
         }
       }
-
       if (!nearest) {
         log.warn("No nearest line for tempo section", section);
         return [];
       }
-
       const lineTop = nearest.bbox[1] * scaleY;
       const lineBottom = nearest.bbox[3] * scaleY;
       const bracketTop = lineTop - 15;
       const bracketHeight = lineBottom - lineTop + 30;
-
       const startX = startNote.bbox[0] * scaleX - 10;
       const endX = endNote.bbox[2] * scaleX + 30;
-
       function createBracket(x: number, isStart: boolean) {
         const bracket = document.createElement("div");
         bracket.className = "tempo-bracket absolute";
@@ -137,9 +119,7 @@ export function useEditDisplay(
           height: `${bracketHeight}px`,
           transformOrigin: "top left",
         });
-
         const thickness = 1;
-
         const vert = document.createElement("div");
         Object.assign(vert.style, {
           position: "absolute",
@@ -149,7 +129,6 @@ export function useEditDisplay(
           backgroundColor: "black",
           [isStart ? "left" : "right"]: "0",
         });
-
         const topH = document.createElement("div");
         Object.assign(topH.style, {
           position: "absolute",
@@ -159,7 +138,6 @@ export function useEditDisplay(
           top: "0",
           [isStart ? "left" : "right"]: "0",
         });
-
         const bottomH = document.createElement("div");
         Object.assign(bottomH.style, {
           position: "absolute",
@@ -169,32 +147,25 @@ export function useEditDisplay(
           bottom: "0",
           [isStart ? "left" : "right"]: "0",
         });
-
         bracket.appendChild(vert);
         bracket.appendChild(topH);
         bracket.appendChild(bottomH);
-
         return bracket;
       }
-
       return [createBracket(startX, true), createBracket(endX, false)];
     },
     [scoreNotes, editList],
   );
-
   function getPDFScale(el: HTMLElement) {
     return parseFloat(
       getComputedStyle(el).getPropertyValue("--scale-factor").trim(),
     );
   }
-
   const renderEdits = useCallback(() => {
     if (!enabled) return;
     log.trace("Rendering annotations for all pages");
-
     log.debug("Edit list:", editList);
     log.debug("Actual notes:", scoreNotes);
-
     const container = containerRef.current;
     if (!editList || !container) {
       log.warn("No edit list or container for annotations");
@@ -209,7 +180,6 @@ export function useEditDisplay(
       log.warn("No page sizes in edit list:", pageSizes);
       return;
     }
-
     const hostWrappers =
       canvasWrappers && canvasWrappers.length > 0
         ? canvasWrappers
@@ -218,18 +188,14 @@ export function useEditDisplay(
           ).filter(
             (node): node is HTMLDivElement => node instanceof HTMLDivElement,
           );
-
     log.debug("Canvas wrappers:", hostWrappers);
-
     (container as HTMLElement)
       .querySelectorAll(
         ".edit-overlay .note-rectangle, .edit-overlay .tempo-bracket",
       )
       .forEach((e) => e.remove());
     annotationsRef.current = [];
-
     hostWrappers.forEach((host, pageIndex) => {
-      // if page size length == 2, set all page sizes to first page
       const pageMetaIndex = pageSizes.length > 2 ? pageIndex : 0;
       const pageWidth = pageSizes[pageMetaIndex * 2];
       const pageHeight = pageSizes[pageMetaIndex * 2 + 1];
@@ -237,7 +203,6 @@ export function useEditDisplay(
         log.warn("No page size for page", pageIndex);
         return;
       }
-
       const canvas = host.querySelector("canvas") as HTMLCanvasElement | null;
       const hostWidth = canvas?.clientWidth ?? host.clientWidth;
       const hostHeight = canvas?.clientHeight ?? host.clientHeight;
@@ -245,11 +210,8 @@ export function useEditDisplay(
         log.warn("No host width/height for page", pageIndex, canvas);
         return;
       }
-
       const scaleX = hostWidth / pageWidth / getPDFScale(host);
       const scaleY = hostHeight / pageHeight / getPDFScale(host);
-
-      // Ensure an overlay layer within the host
       let overlay = host.querySelector(".edit-overlay") as HTMLElement | null;
       if (!overlay) {
         overlay = document.createElement("div");
@@ -261,23 +223,19 @@ export function useEditDisplay(
         });
         host.appendChild(overlay);
       }
-
       overlay
         .querySelectorAll(".note-rectangle, .tempo-bracket ")
         .forEach((e) => e.remove());
-
       const pageEdits = (editList.edits ?? []).filter(
         (edit) =>
           edit.sChar.page === pageIndex &&
           edit.sChar.confidence >= minConfidence &&
           (edit.tChar?.confidence ?? 5) >= minConfidence,
       );
-
       if (pageEdits.length === 0) {
         log.debug("No edits for page", pageIndex);
         return;
       }
-
       pageEdits.forEach((edit: Edit) => {
         const sDiv = createAnnotDiv(
           edit,
@@ -311,8 +269,6 @@ export function useEditDisplay(
           annotationsRef.current.push(tDiv);
         }
       });
-
-      // Render tempo brackets that belong to this page
       if (scoreNotes) {
         editList.tempoSections.forEach((section) => {
           const startNote = scoreNotes.notes[section.startIndex];
@@ -327,7 +283,6 @@ export function useEditDisplay(
         });
       }
     });
-
     return () => {
       (container as HTMLElement)
         .querySelectorAll(
@@ -337,13 +292,13 @@ export function useEditDisplay(
       annotationsRef.current = [];
     };
   }, [scoreNotes, editList, createTempoBrackets, enabled, canvasWrappers]);
-
-  // Listen for redraw events
   useEffect(() => {
     if (!enabled || typeof document === "undefined") return;
     const handler = (event: Event) => {
       const detail = (event as CustomEvent)?.detail as
-        | { scoreId?: string | null }
+        | {
+            scoreId?: string | null;
+          }
         | undefined;
       if (detail?.scoreId && detail.scoreId !== scoreFileId) {
         log.trace(

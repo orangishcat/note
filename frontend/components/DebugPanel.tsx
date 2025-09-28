@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScoringResult } from "@/types/proto-types";
 import log from "@/lib/logger";
@@ -8,7 +7,6 @@ import api from "@/lib/network";
 import { initProtobufTypes } from "@/lib/proto";
 import { DebugPanelProps } from "@/types/debugpanel-types";
 import { clamp } from "@radix-ui/number";
-
 const TestTypeSelector = ({
   isOpen,
   onClose,
@@ -55,7 +53,6 @@ const TestTypeSelector = ({
     </div>
   );
 };
-
 const DebugPanel = ({
   scoreId,
   editList,
@@ -83,14 +80,12 @@ const DebugPanel = ({
   const [currentTestType, setCurrentTestType] = useState("spider_dance_played");
   const [localConf, setLocalConf] = useState(confidenceFilter);
   const dragStartPos = useRef({ x: 0, y: 0 });
-
   useEffect(() => {
     if (testStatus) {
       const timer = setTimeout(() => setTestStatus(null), 5000);
       return () => clearTimeout(timer);
     }
   }, [testStatus]);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -100,18 +95,15 @@ const DebugPanel = ({
       log.error("Error loading debug panel position:", e);
     }
   }, []);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (position.x || position.y) {
       localStorage.setItem("debugPanelPosition", JSON.stringify(position));
     }
   }, [position]);
-
   useEffect(() => {
     setLocalConf(confidenceFilter);
   }, [confidenceFilter]);
-
   const redrawAnnotations = useCallback(() => {
     if (!editList) {
       log.trace("No annotations to redraw");
@@ -125,7 +117,6 @@ const DebugPanel = ({
       document.dispatchEvent(event);
     }, 50);
   }, [editList, scoreId, currentPage]);
-
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -152,7 +143,6 @@ const DebugPanel = ({
       document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDragging]);
-
   const sendTestRequest = async (e?: React.MouseEvent) => {
     if (isSendingTest) return;
     if (e && e.shiftKey) {
@@ -161,7 +151,6 @@ const DebugPanel = ({
     }
     setIsSendingTest(true);
     setTestStatus(null);
-
     try {
       try {
         log.debug(`Sending test audio request with type: ${currentTestType}`);
@@ -183,41 +172,32 @@ const DebugPanel = ({
           );
         const buffer = response.data;
         const dataView = new Uint8Array(buffer);
-
-        // Log first few bytes for debugging
         const firstBytes = Array.from(dataView.slice(0, 20))
           .map((b) => b.toString(16).padStart(2, "0"))
           .join(" ");
         log.debug(`First bytes of buffer: ${firstBytes}`);
-
-        // Check for combined format
         const responseFormat = response.headers?.["x-response-format"];
         if (responseFormat === "combined") {
           log.debug("Detected combined response format");
-
-          // Use the splitCombinedResponse utility to decode both parts
           const { editList, playedNotes: receivedPlayedNotes } =
             splitCombinedResponse(buffer, ScoringResultType, NoteListType);
-
           if (editList) {
             const editCount =
               (editList as unknown as ScoringResult).edits?.length || 0;
             log.debug(
               `Successfully decoded test response with ${editCount} edits`,
             );
-            // Clone to prevent mutation of the original message
             const cloned = JSON.parse(JSON.stringify(editList));
             setEditList(cloned);
-
-            // Also update played notes if available
             const noteCount = receivedPlayedNotes?.notes?.length || 0;
             if (noteCount) {
               log.debug(
                 `Successfully decoded test response with ${noteCount} played notes`,
               );
             }
-
-            // Set success status message
+            document.dispatchEvent(
+              new CustomEvent("score:redrawAnnotations", { bubbles: true }),
+            );
             setTestStatus({
               message:
                 `Success! Received ${editCount} edits` +
@@ -228,7 +208,6 @@ const DebugPanel = ({
             throw new Error("Failed to decode EditList from combined response");
           }
         } else {
-          // Legacy format - just decode EditList
           log.debug("Using legacy format (ScoringResult only)");
           const decoded = ScoringResultType.decode(dataView);
           const editCount =
@@ -236,12 +215,8 @@ const DebugPanel = ({
           log.debug(
             `Successfully decoded test response with ${editCount} edits`,
           );
-
-          // Update the edit list with a cloned object
           const cloned = JSON.parse(JSON.stringify(decoded));
           setEditList(cloned);
-
-          // Set success status message
           setTestStatus({
             message: `Success! Received ${editCount} edits`,
             isError: false,
@@ -268,7 +243,6 @@ const DebugPanel = ({
       setIsSendingTest(false);
     }
   };
-
   const renderTestStatus = () => {
     if (!testStatus) return null;
     return (
@@ -283,12 +257,10 @@ const DebugPanel = ({
       </div>
     );
   };
-
   const disableDebugMode = () => {
     localStorage.removeItem("debug");
     window.dispatchEvent(new Event("storage"));
   };
-
   return (
     <div
       className="fixed z-50 bg-black/70 text-white p-3 rounded-md shadow-lg"
@@ -395,5 +367,4 @@ const DebugPanel = ({
     </div>
   );
 };
-
 export default DebugPanel;

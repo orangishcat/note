@@ -2,11 +2,9 @@ import { test, expect } from "@playwright/test";
 test.skip(({ browserName }) => browserName === "webkit", "Skip WebKit");
 import fs from "fs";
 import path from "path";
-
 const resources = path.resolve(__dirname, "../../backend/resources");
 const readResource = (...segments: string[]) =>
   fs.readFileSync(path.join(resources, ...segments));
-
 const MIN_MUSICXML = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="3.1">
@@ -25,9 +23,7 @@ const MIN_MUSICXML = `<?xml version="1.0" encoding="UTF-8"?>
     </measure>
   </part>
 </score-partwise>`;
-
 test("renders edits on musicxml renderer", async ({ page }) => {
-  // Mock score document
   await page.route(
     "**/databases/**/collections/**/documents/**",
     async (route) => {
@@ -55,8 +51,6 @@ test("renders edits on musicxml renderer", async ({ page }) => {
       });
     },
   );
-
-  // MusicXML content via view, with download fallback
   await page.route("**/storage/**/files/mxml-file/view**", async (route) => {
     await route.fulfill({
       status: 200,
@@ -74,8 +68,6 @@ test("renders edits on musicxml renderer", async ({ page }) => {
       });
     },
   );
-
-  // Notes protobuf
   await page.route(
     "**/storage/**/files/spiderdance_notes/download**",
     async (route) => {
@@ -87,8 +79,6 @@ test("renders edits on musicxml renderer", async ({ page }) => {
       });
     },
   );
-
-  // notes.proto
   await page.route("**/static/notes.proto**", async (route) => {
     const txt = readResource("static", "notes.proto");
     await route.fulfill({
@@ -97,8 +87,6 @@ test("renders edits on musicxml renderer", async ({ page }) => {
       headers: { "Content-Type": "text/plain" },
     });
   });
-
-  // Auth/account endpoints (used for JWT in api client)
   await page.route("**/account/jwt", async (route) => {
     await route.fulfill({
       status: 200,
@@ -113,19 +101,12 @@ test("renders edits on musicxml renderer", async ({ page }) => {
       body: JSON.stringify({}),
     });
   });
-
   await page.addInitScript(() => localStorage.setItem("debug", "true"));
   await page.goto("/app/score/mxml-test");
-
-  // Wait for OSMD SVG output and overlay container
   await page.waitForSelector(`#score-mxml-file .score-container`, {
     state: "attached",
   });
-
-  // Ensure debug panel is present
   await expect(page.getByText("Debug Panel")).toBeVisible();
-
-  // Wait for OSMD instance to be registered and then inject edit list
   await expect
     .poll(
       async () =>
@@ -134,8 +115,6 @@ test("renders edits on musicxml renderer", async ({ page }) => {
         ),
     )
     .toBeTruthy();
-
-  // Inject a minimal edit list via testing hook and redraw
   await page.evaluate(() => {
     const editList = {
       edits: [
@@ -176,7 +155,6 @@ test("renders edits on musicxml renderer", async ({ page }) => {
       new CustomEvent("score:redrawAnnotations", { bubbles: true }),
     );
   });
-
   const notesLocator = page.locator(
     `#score-mxml-file .score-container .note-rectangle`,
   );

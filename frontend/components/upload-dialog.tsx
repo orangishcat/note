@@ -31,11 +31,7 @@ import axios, { AxiosProgressEvent, type CancelTokenSource } from "axios";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/network";
 import log from "loglevel";
-
-// Define file type selection options
 type FileTypeOption = "mxl" | "image" | "not-selected";
-
-// Update the UploadingFile interface to include file type information
 interface UploadingFile {
   file: File;
   progress: number;
@@ -44,14 +40,10 @@ interface UploadingFile {
   status: "pending" | "uploading" | "completed" | "failed" | "cancelled";
   fileType?: "mxl" | "pdf" | "image" | "audio" | "other";
 }
-
-// Add metadata interface
 interface ScoreMetadata {
   title: string;
   subtitle: string;
 }
-
-// Update the component to include metadata state and MXL tracking
 export function UploadDialog({ onUpload }: { onUpload: () => void }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedFileType, setSelectedFileType] =
@@ -72,12 +64,8 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
   });
   const scoreFileInputRef = useRef<HTMLInputElement>(null);
   const audioFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Update total steps to include file type selection step
   const totalSteps = 5;
   const progressPercentage = ((currentStep - 1) / (totalSteps - 1)) * 95 + 5;
-
-  // Helper to determine file type
   const getFileType = (
     file: File,
   ): "mxl" | "pdf" | "image" | "audio" | "other" => {
@@ -99,8 +87,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       return "audio";
     return "other";
   };
-
-  // Get allowed file types based on selection
   const getAllowedScoreFileTypes = () => {
     if (selectedFileType === "mxl") {
       return [".mxl", ".musicxml", ".xml"];
@@ -109,13 +95,8 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
     }
     return SCORE_FILE_TYPES;
   };
-
-  // Update the uploadFile function to check for MXL files
   const uploadFile = async (file: File, fileId: string, isAudio = false) => {
-    // Get file type
     const fileType = getFileType(file);
-
-    // Check if file with same name is already uploaded or uploading
     if (uploadedFileNames.has(file.name)) {
       if (isAudio) {
         setAudioFiles((prev) =>
@@ -132,8 +113,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       }
       return;
     }
-
-    // Block MXL upload if one already exists
     if (!isAudio && fileType === "mxl" && hasMxlFile) {
       setScoreFiles((prev) =>
         prev.map((f) =>
@@ -144,23 +123,14 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       );
       return;
     }
-
-    // Add to uploaded files set
     setUploadedFileNames((prev) => new Set(prev).add(file.name));
-
-    // Update MXL tracking
     if (!isAudio && fileType === "mxl") {
       setHasMxlFile(true);
     }
-
     const formData = new FormData();
     formData.append("file", file);
     formData.append("type", isAudio ? "audio" : "score");
-
-    // Create cancel token
     const cancelToken = axios.CancelToken.source();
-
-    // Update file with cancel token and file type
     if (isAudio) {
       setAudioFiles((prev) =>
         prev.map((f) =>
@@ -178,9 +148,7 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
         ),
       );
     }
-
     try {
-      // noinspection JSUnusedGlobalSymbols
       await api.post("/score/upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -219,8 +187,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
           }
         },
       });
-
-      // Mark as completed
       if (isAudio) {
         setAudioFiles((prev) =>
           prev.map((f) =>
@@ -248,8 +214,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       }
     } catch (error) {
       log.error("Upload failed:", error);
-
-      // Check if it was cancelled
       if (axios.isCancel(error)) {
         if (isAudio) {
           setAudioFiles((prev) =>
@@ -265,7 +229,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
           );
         }
       } else {
-        // Other error
         if (isAudio) {
           setAudioFiles((prev) =>
             prev.map((f) =>
@@ -292,17 +255,12 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
           );
         }
       }
-
-      // Remove from uploaded files set
       setUploadedFileNames((prev) => {
         const newSet = new Set(prev);
         newSet.delete(file.name);
         return newSet;
       });
-
-      // Update MXL tracking if needed
       if (!isAudio && fileType === "mxl") {
-        // Check if there are any other MXL files
         const hasMxl = scoreFiles.some(
           (f) =>
             f.id !== fileId &&
@@ -313,20 +271,14 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       }
     }
   };
-
-  // Update the cancelUpload function to handle MXL tracking
   const cancelUpload = async (fileId: string, isAudio = false) => {
     let fileToCancel: UploadingFile | undefined;
-
     if (isAudio) {
       fileToCancel = audioFiles.find((f) => f.id === fileId);
       if (fileToCancel) {
-        // Cancel the axios request if it's in progress
         if (fileToCancel.cancelToken && fileToCancel.status === "uploading") {
           fileToCancel.cancelToken.cancel("Upload cancelled by user");
         }
-
-        // Update status
         setAudioFiles((prev) =>
           prev.map((f) =>
             f.id === fileId ? { ...f, status: "cancelled" } : f,
@@ -336,31 +288,22 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
     } else {
       fileToCancel = scoreFiles.find((f) => f.id === fileId);
       if (fileToCancel) {
-        // Cancel the axios request if it's in progress
         if (fileToCancel.cancelToken && fileToCancel.status === "uploading") {
           fileToCancel.cancelToken.cancel("Upload cancelled by user");
         }
-
-        // Update status
         setScoreFiles((prev) =>
           prev.map((f) =>
             f.id === fileId ? { ...f, status: "cancelled" } : f,
           ),
         );
-
-        // Update MXL tracking if needed
         if (fileToCancel.fileType === "mxl") setHasMxlFile(false);
       }
     }
-
-    // Make API call to cancel on server
     if (fileToCancel) {
       try {
         await api.post("/score/cancel-upload", {
           file_name: fileToCancel.file.name,
         });
-
-        // Remove from uploaded files set
         setUploadedFileNames((prev) => {
           const newSet = new Set(prev);
           newSet.delete(fileToCancel!.file.name);
@@ -371,18 +314,15 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       }
     }
   };
-
   const isValidScoreFileType = (file: File) => {
     const allowedTypes = getAllowedScoreFileTypes();
     return allowedTypes.some((type) => file.name.toLowerCase().endsWith(type));
   };
-
   const isValidAudioFileType = (file: File) => {
     return AUDIO_FILE_TYPES.some((type) =>
       file.name.toLowerCase().endsWith(type),
     );
   };
-
   const getFileIcon = (fileName: string) => {
     if (fileName.toLowerCase().endsWith(".pdf")) {
       return <FileText className="h-4 w-4 text-red-500" />;
@@ -396,21 +336,18 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       return <FileIcon className="h-4 w-4 text-accent-500" />;
     }
   };
-
   const handleScoreFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files).filter(isValidScoreFileType);
       addScoreFiles(newFiles);
     }
   };
-
   const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files).filter(isValidAudioFileType);
       addAudioFiles(newFiles);
     }
   };
-
   const handleDragOver = (e: React.DragEvent, isAudio = false) => {
     e.preventDefault();
     if (isAudio) {
@@ -419,7 +356,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       setIsDraggingScore(true);
     }
   };
-
   const handleDragLeave = (e: React.DragEvent, isAudio = false) => {
     e.preventDefault();
     if (isAudio) {
@@ -428,53 +364,37 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       setIsDraggingScore(false);
     }
   };
-
   const handleScoreFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingScore(false);
-
     const droppedFiles = Array.from(e.dataTransfer.files).filter(
       isValidScoreFileType,
     );
     if (droppedFiles.length === 0) {
-      // Could add a toast notification here for invalid file types
       return;
     }
     addScoreFiles(droppedFiles);
   };
-
   const handleAudioFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingAudio(false);
-
     const droppedFiles = Array.from(e.dataTransfer.files).filter(
       isValidAudioFileType,
     );
     if (droppedFiles.length === 0) {
-      // Could add a toast notification here for invalid file types
       return;
     }
     addAudioFiles(droppedFiles);
   };
-
-  // Update addScoreFiles to include file type detection
   const addScoreFiles = (newFiles: File[]) => {
-    // Check if adding an MXL file when one already exists
     const hasMxlInNewFiles = newFiles.some(
       (file) => getFileType(file) === "mxl",
     );
-
     if (hasMxlInNewFiles && hasMxlFile) {
-      // Filter out MXL files if one already exists
       newFiles = newFiles.filter((file) => getFileType(file) !== "mxl");
-
-      // Show an alert or toast notification
       alert("Only one MXL file can be uploaded at a time.");
-
-      // If no files left after filtering, return
       if (newFiles.length === 0) return;
     }
-
     const uploadingFiles = newFiles.map((file) => {
       const fileType = getFileType(file);
       return {
@@ -485,25 +405,17 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
         fileType,
       };
     });
-
-    // Set the first file's name as the default title
     if (uploadingFiles.length > 0 && metadata.title === "") {
       const fileName = uploadingFiles[0].file.name;
-      // Remove extension from filename
       const titleWithoutExtension =
         fileName.substring(0, fileName.lastIndexOf(".")) || fileName;
       setMetadata((prev) => ({ ...prev, title: titleWithoutExtension }));
     }
-
     setScoreFiles((prev) => [...prev, ...uploadingFiles]);
-
-    // Start uploading immediately
     uploadingFiles.forEach((file) => {
       uploadFile(file.file, file.id, false);
     });
   };
-
-  // Modified: start upload immediately after adding files
   const addAudioFiles = (newFiles: File[]) => {
     const uploadingFiles = newFiles.map((file) => ({
       file,
@@ -511,24 +423,17 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       id: `upload-${Date.now()}-${file.name}`,
       status: "pending" as const,
     }));
-
     setAudioFiles((prev) => [...prev, ...uploadingFiles]);
-
-    // Start uploading immediately
     uploadingFiles.forEach((file) => {
       uploadFile(file.file, file.id, true);
     });
   };
-
   const removeScoreFile = (fileId: string) => {
     const file = scoreFiles.find((f) => f.id === fileId);
     if (file) {
-      // If file is uploading, cancel it first
       if (file.status === "uploading") {
         cancelUpload(fileId);
       }
-
-      // Remove from uploaded files set if it was completed
       if (file.status === "completed") {
         setUploadedFileNames((prev) => {
           const newSet = new Set(prev);
@@ -537,22 +442,16 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
         });
         api.post("/score/cancel-upload", { file_name: file.file.name });
       }
-
-      // Remove from list
       setScoreFiles((prev) => prev.filter((f) => f.id !== fileId));
       setHasMxlFile(false);
     }
   };
-
   const removeAudioFile = (fileId: string) => {
     const file = audioFiles.find((f) => f.id === fileId);
     if (file) {
-      // If file is uploading, cancel it first
       if (file.status === "uploading") {
         cancelUpload(fileId, true);
       }
-
-      // Remove from uploaded files set if it was completed
       if (file.status === "completed") {
         setUploadedFileNames((prev) => {
           const newSet = new Set(prev);
@@ -560,24 +459,17 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
           return newSet;
         });
       }
-
-      // Remove from list
       setAudioFiles((prev) => prev.filter((f) => f.id !== fileId));
     }
   };
-
   const openScoreFileSelector = () => {
     scoreFileInputRef.current?.click();
   };
-
   const openAudioFileSelector = () => {
     audioFileInputRef.current?.click();
   };
-
-  // Update the reset function to clear metadata and MXL tracking
   useEffect(() => {
     if (!isComplete) return;
-
     const timer = setTimeout(() => {
       setIsDialogOpen(false);
       setIsComplete(false);
@@ -591,37 +483,27 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       setMetadata({ title: "", subtitle: "" });
       setSubmitError("");
     }, 1000);
-
     return () => clearTimeout(timer);
   }, [isComplete, onUpload]);
-
-  // Add state for tracking submission status and errors
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-
-  // Update the handleNextStep function to handle the file type selection step
   const handleNextStep = async () => {
     if (currentStep === 1 && selectedFileType === "not-selected") {
       alert("Please select a file type");
       return;
     }
-
     if (
       currentStep === 2 &&
       scoreFiles.filter((f) => f.status === "completed").length === 0
     ) {
-      return; // Don't proceed if no score files are selected
+      return;
     }
-
     if (currentStep === 4) {
       if (metadata.title.trim() === "") {
         alert("Please enter a title for your score");
         return;
       }
-
-      // Create a list of filenames from the scoreFiles in the visual order
       const fileNames = scoreFiles.map((file) => file.file.name);
-
       try {
         setIsSubmitting(true);
         await api.post("/score/confirm-upload", {
@@ -630,7 +512,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
           fileType: selectedFileType,
           ref_order: fileNames,
         });
-
         setIsComplete(true);
         setCurrentStep(currentStep + 1);
         setIsSubmitting(false);
@@ -641,18 +522,15 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       }
       return;
     }
-
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     }
   };
-
   const handlePreviousStep = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
   };
-
   const getStatusText = (status: string, progress: number) => {
     switch (status) {
       case "completed":
@@ -667,14 +545,11 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
         return <span className="text-xs text-muted-foreground">Pending</span>;
     }
   };
-
   const getFileSize = (bytes: number) => {
     if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toPrecision(3) + "MB";
     if (bytes > 1024) return (bytes / 1024).toPrecision(3) + "KB";
     return bytes.toPrecision(3) + " bytes";
   };
-
-  // Add a new function to render the file type selection step
   const renderFileTypeSelectionStep = () => {
     return (
       <div className="space-y-6 py-4">
@@ -724,8 +599,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       </div>
     );
   };
-
-  // Add a new function to render the metadata step
   const renderMetadataStep = () => {
     return (
       <div className="space-y-4 py-2">
@@ -783,14 +656,11 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       </div>
     );
   };
-
-  // Update renderScoreUploadArea to include the message about combining files
   const renderScoreUploadArea = () => {
     const allowedTypes = getAllowedScoreFileTypes();
     const allowedTypesText = allowedTypes
       .map((t) => t.substring(1).toUpperCase())
       .join(", ");
-
     return (
       <div
         className={cn(
@@ -839,10 +709,8 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       </div>
     );
   };
-
   const renderScoreFilesList = () => {
     if (scoreFiles.length === 0) return renderScoreUploadArea();
-
     return (
       <div
         className={cn(
@@ -867,15 +735,12 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
             }
             <button
               onClick={() => {
-                // Cancel all uploading files
                 scoreFiles.forEach((file) => {
                   if (file.status === "uploading") {
                     cancelUpload(file.id);
                   }
                 });
-                // Clear the list
                 setScoreFiles([]);
-                // Clear uploaded file names
                 setUploadedFileNames(new Set());
               }}
               className="text-xs text-red-500 hover:text-red-700"
@@ -950,7 +815,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       </div>
     );
   };
-
   const renderAudioUploadArea = () => {
     return (
       <div
@@ -994,10 +858,8 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       </div>
     );
   };
-
   const renderAudioFilesList = () => {
     if (audioFiles.length === 0) return renderAudioUploadArea();
-
     return (
       <div
         className={cn(
@@ -1020,13 +882,11 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
             </button>
             <button
               onClick={() => {
-                // Cancel all uploading files
                 audioFiles.forEach((file) => {
                   if (file.status === "uploading") {
                     cancelUpload(file.id, true);
                   }
                 });
-                // Clear the list
                 setAudioFiles([]);
               }}
               className="text-xs text-red-500 hover:text-red-700"
@@ -1099,8 +959,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
       </div>
     );
   };
-
-  // Update renderStepContent to include the file type selection step
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
@@ -1125,8 +983,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
         return null;
     }
   };
-
-  // Update renderFooterButtons to handle the file type selection step
   const renderFooterButtons = () => {
     switch (currentStep) {
       case 1:
@@ -1204,8 +1060,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
         return null;
     }
   };
-
-  // Get the current step description
   const getStepDescription = () => {
     switch (currentStep) {
       case 1:
@@ -1222,8 +1076,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
         return "";
     }
   };
-
-  // Update the DialogDescription to include the file type selection step
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
@@ -1240,7 +1092,6 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
           </DialogDescription>
         </DialogHeader>
 
-        {/* Progress bar with light purple color and white gradient animation */}
         <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
           <div
             className="bg-accent-300 dark:bg-accent-400 h-full relative overflow-hidden rounded-full"
@@ -1261,10 +1112,8 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
           </div>
         </div>
 
-        {/* Step content */}
         <div className="min-h-[200px]">{renderStepContent()}</div>
 
-        {/* Footer buttons */}
         {currentStep < 5 && (
           <DialogFooter className="flex justify-between sm:justify-end gap-2">
             {renderFooterButtons()}

@@ -2,19 +2,15 @@ import { test, expect } from "@playwright/test";
 test.skip(({ browserName }) => browserName === "webkit", "Skip WebKit");
 import fs from "fs";
 import path from "path";
-
 const resources = path.resolve(__dirname, "../../backend/resources");
 const readResource = (...segments: string[]) =>
   fs.readFileSync(path.join(resources, ...segments));
-
 test("renders edits on image (PDF) score renderer", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(String(err)));
   page.on("console", (msg) => {
     if (msg.type() === "error") errors.push(msg.text());
   });
-
-  // Appwrite document fetch (score doc)
   await page.route(
     "**/databases/**/collections/**/documents/**",
     async (route) => {
@@ -42,8 +38,6 @@ test("renders edits on image (PDF) score renderer", async ({ page }) => {
       });
     },
   );
-
-  // Notes protobuf
   await page.route(
     "**/storage/**/files/spiderdance_notes/download**",
     async (route) => {
@@ -55,8 +49,6 @@ test("renders edits on image (PDF) score renderer", async ({ page }) => {
       });
     },
   );
-
-  // Score PDF
   await page.route(
     "**/storage/**/files/67e2455bf1eaa75ff360/download**",
     async (route) => {
@@ -68,8 +60,6 @@ test("renders edits on image (PDF) score renderer", async ({ page }) => {
       });
     },
   );
-
-  // notes.proto
   await page.route("**/static/notes.proto**", async (route) => {
     const txt = readResource("static", "notes.proto");
     await route.fulfill({
@@ -78,8 +68,6 @@ test("renders edits on image (PDF) score renderer", async ({ page }) => {
       headers: { "Content-Type": "text/plain" },
     });
   });
-
-  // Auth/account endpoints (used for JWT in api client)
   await page.route("**/account/jwt", async (route) => {
     await route.fulfill({
       status: 200,
@@ -94,21 +82,14 @@ test("renders edits on image (PDF) score renderer", async ({ page }) => {
       body: JSON.stringify({}),
     });
   });
-
-  // Enable debug mode (test hook)
   await page.addInitScript(() => {
     localStorage.setItem("debug", "true");
   });
-
   await page.goto("/app/score/pdf-test");
-
-  // Wait for PDF viewer container to attach
   const fileId = "67e2455bf1eaa75ff360";
   await page.waitForSelector(`#score-${fileId} .score-container`, {
     state: "attached",
   });
-
-  // Inject a minimal edit list via testing hook and redraw
   await page.evaluate(() => {
     const editList = {
       edits: [
@@ -149,8 +130,6 @@ test("renders edits on image (PDF) score renderer", async ({ page }) => {
       new CustomEvent("score:redrawAnnotations", { bubbles: true }),
     );
   });
-
-  // Wait until at least one annotation appears
   const notesLocator = page.locator(
     `#score-${fileId} .score-container .note-rectangle`,
   );

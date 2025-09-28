@@ -1,24 +1,19 @@
 import React, { useState } from "react";
 import { ChevronDown, ChevronRight, Folder as FolderIcon } from "lucide-react";
-
 export interface Folder {
   $id: string;
   name: string;
   files?: string[];
-  /** Additional properties from Appwrite Document */
   $createdAt?: string;
   $updatedAt?: string;
 }
-
 interface FolderItemProps {
   name: string;
   files?: string[];
   id?: string;
 }
-
 export function FolderDisplay({ name, files = [] }: FolderItemProps) {
   const [isOpen, setIsOpen] = useState(false);
-
   return (
     <div>
       <button

@@ -13,10 +13,8 @@ import {
 import { Lock, Mail, User } from "lucide-react";
 import HCaptcha from "@hcaptcha/react-hcaptcha";
 import { AccountContext } from "@/app/providers";
-
 import { account } from "@/lib/appwrite";
 import log from "loglevel";
-
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,7 +22,6 @@ interface AuthModalProps {
   type: "login" | "signup";
   onForgotPassword?: () => void;
 }
-
 export function AuthModal({
   isOpen,
   onClose,
@@ -42,9 +39,7 @@ export function AuthModal({
   const [isValidEmail, setIsValidEmail] = useState(false);
   const [isValidPassword, setIsValidPassword] = useState(false);
   const [showCaptcha, setShowCaptcha] = useState(false);
-
   const context = useContext(AccountContext);
-
   const [isValidForm, setIsValidForm] = useState(false);
   useEffect(
     () =>
@@ -55,7 +50,6 @@ export function AuthModal({
       ),
     [isValidEmail, isValidPassword, isValidUsername, type],
   );
-
   const validateUsername = (username: string) => {
     const re = /^[a-zA-Z0-9._-]+$/;
     const valid =
@@ -70,7 +64,6 @@ export function AuthModal({
     );
     return valid;
   };
-
   const validateEmail = (email: string) => {
     const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     const valid = re.test(email);
@@ -79,14 +72,12 @@ export function AuthModal({
     if (type === "signup") setError(valid ? "" : "Invalid email address");
     return valid;
   };
-
   const checkMatch = (verifyPass: string) => {
     setVerifyPass(verifyPass);
     if (password !== verifyPass && type === "signup" && verifyPass.length > 0)
       setError("Passwords do not match");
     else setError("");
   };
-
   const validPassword = (password: string) => {
     const valid =
       type === "login" || (password.length >= 8 && password.length <= 256);
@@ -95,7 +86,6 @@ export function AuthModal({
     setError(valid ? "" : "Password must be between 8 and 256 characters long");
     return valid;
   };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (type === "signup" && password !== verifyPass) {
@@ -104,7 +94,6 @@ export function AuthModal({
     }
     setShowCaptcha(true);
   };
-
   const handleCaptcha = async () => {
     if (context?.accountView) return;
     try {
@@ -132,7 +121,6 @@ export function AuthModal({
       }
     }
   };
-
   return (
     <Modal open={isOpen} onOpenChange={onClose}>
       <ModalContent>
@@ -274,7 +262,6 @@ export function AuthModal({
                     variant="link"
                     size="link"
                     onClick={() => {
-                      // This will be handled by the parent component
                       if (onForgotPassword) onForgotPassword();
                     }}
                   >
@@ -289,12 +276,10 @@ export function AuthModal({
     </Modal>
   );
 }
-
 interface ResetPasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
 export function ResetPasswordModal({
   isOpen,
   onClose,
@@ -304,7 +289,6 @@ export function ResetPasswordModal({
   const [status, setStatus] = useState("");
   const [isValidEmail, setIsValidEmail] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const validateEmail = (email: string) => {
     const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     const valid = re.test(email);
@@ -313,18 +297,15 @@ export function ResetPasswordModal({
     setError(valid ? "" : "Invalid email address");
     return valid;
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValidEmail) {
       setError("Please enter a valid email address");
       return;
     }
-
     setIsSubmitting(true);
     setError("");
     setStatus("Sending reset email...");
-
     try {
       await account.createRecovery(
         email,
@@ -332,7 +313,6 @@ export function ResetPasswordModal({
       );
       setStatus("Reset email sent! Check your inbox for instructions.");
       setError("");
-      // Clear form after successful submission
       setTimeout(() => {
         setEmail("");
         setStatus("");
@@ -352,8 +332,6 @@ export function ResetPasswordModal({
       setIsSubmitting(false);
     }
   };
-
-  // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
       setEmail("");
@@ -363,7 +341,6 @@ export function ResetPasswordModal({
       setIsSubmitting(false);
     }
   }, [isOpen]);
-
   return (
     <Modal open={isOpen} onOpenChange={onClose}>
       <ModalContent>

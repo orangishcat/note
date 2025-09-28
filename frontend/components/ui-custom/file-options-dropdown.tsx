@@ -17,20 +17,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MusicScore } from "@/types/score-types";
-
 interface FileOptionsProps {
   score: MusicScore;
   onDelete: (id: string) => void;
 }
-
 const FileOptionsDropdown: React.FC<FileOptionsProps> = ({
   score,
   onDelete,
 }) => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Function to handle delete API call
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
@@ -51,18 +47,15 @@ const FileOptionsDropdown: React.FC<FileOptionsProps> = ({
           score.preview_id,
         );
       }
-      setIsConfirmOpen(false); // Close confirmation modal
-      onDelete(score.$id); // Trigger callback
+      setIsConfirmOpen(false);
+      onDelete(score.$id);
     } catch {
-      // Ignore errors for now
     } finally {
       setIsDeleting(false);
     }
   };
-
   return (
     <>
-      {/* Dropdown Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="link">
@@ -80,7 +73,6 @@ const FileOptionsDropdown: React.FC<FileOptionsProps> = ({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Confirmation Dialog */}
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <DialogContent className="w-96">
           <DialogHeader>
@@ -118,5 +110,4 @@ const FileOptionsDropdown: React.FC<FileOptionsProps> = ({
     </>
   );
 };
-
 export default FileOptionsDropdown;

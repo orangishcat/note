@@ -1,5 +1,4 @@
 "use client";
-
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FolderPlus, RefreshCw, Star } from "lucide-react";
@@ -24,10 +23,8 @@ import { MusicScore } from "@/types/score-types";
 import FileOptionsDropdown from "@/components/ui-custom/file-options-dropdown";
 import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import { useSearchParams } from "next/navigation";
-
 import { databases, storage } from "@/lib/appwrite";
 import { ID, Permission, Role } from "appwrite";
-
 export default function FileManager() {
   const [activeTab, setActiveTab] = useState<"recent" | "starred">("recent");
   const [scores, setScores] = useState<MusicScore[]>([]);
@@ -43,7 +40,6 @@ export default function FileManager() {
   const authModalContext = useContext(AuthModalContext);
   const account = context?.accountView;
   const searchParams = useSearchParams();
-
   const loadError = (reason: string) => {
     setLoadSuccess(false);
     setFMErr("Error: " + reason);
@@ -78,38 +74,30 @@ export default function FileManager() {
       ),
     [activeTab, scores],
   );
-
   useEffect(() => {
     if (context?.justLogin) void refetchScores();
   }, [context?.justLogin, refetchScores]);
-
-  // Check for login parameter in URL and open login modal if present
   useEffect(() => {
     const loginParam = searchParams.get("login");
     if (loginParam === "true" && authModalContext) {
       authModalContext.openAuthModal("login");
     }
   }, [searchParams, authModalContext]);
-
   useEffect(() => {
     if (scoreList) setScores(scoreList);
     if (scoreError) loadError(scoreError.message);
     else setLoadSuccess(true);
     if (scoreList) setLoadSuccess(true);
     setIsLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoreList]);
-
   const qc = useQueryClient();
   const invalidateScores = () => {
     void qc.invalidateQueries({ queryKey: ["scores"] });
   };
-
   const [lastStarTime, setLastStarTime] = useState(0);
   const toggleStar = (score: MusicScore) => {
     setLastStarTime(Date.now());
     if (Date.now() - lastStarTime < 700) return;
-
     setScores(
       scores.map((s) =>
         s.$id === score.$id ? { ...s, starred: !s.starred } : s,
@@ -131,7 +119,6 @@ export default function FileManager() {
         setErrorMessage("Failed to update star status");
       });
   };
-
   const newFolder = async (folderName: string) => {
     try {
       return await databases.createDocument(
@@ -149,25 +136,17 @@ export default function FileManager() {
       throw err;
     }
   };
-
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData("text/plain", id);
   };
-
   const handleCreateFolder = () => {
     if (folderName.trim() === "") return setErrorMessage("Folder name empty");
-
-    newFolder(folderName)
-      .then(() => {
-        setFolderName("");
-        setIsDialogOpen(false);
-        setErrorMessage(undefined);
-      })
-      .catch(() => {
-        // Error already handled in newFolder
-      });
+    newFolder(folderName).then(() => {
+      setFolderName("");
+      setIsDialogOpen(false);
+      setErrorMessage(undefined);
+    });
   };
-
   const onDelete = (id: string) => {
     setScores(scores.filter((score) => score.$id !== id));
     invalidateScores();
@@ -297,7 +276,6 @@ export default function FileManager() {
     </div>
   );
 }
-
 function ScoreCard({
   score,
   onStarToggle,
@@ -310,7 +288,6 @@ function ScoreCard({
   onDelete: (id: string) => void;
 }) {
   const { $id, name, subtitle, $createdAt, starred, preview_id } = score;
-
   return (
     <div
       className="group relative overflow-hidden rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-700
@@ -320,7 +297,6 @@ function ScoreCard({
     >
       <Link href={`/app/score/${$id}`} key={$id}>
         <div className="aspect-[4/3] overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={
               preview_id

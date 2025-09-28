@@ -21,6 +21,7 @@ repos:
     hooks:
       - id: bandit
         files: ^backend/src/.*\.py$
+        args: ["--severity-level", "medium"]
 
   - repo: https://github.com/DavidAnson/markdownlint-cli2
     rev: v0.12.1

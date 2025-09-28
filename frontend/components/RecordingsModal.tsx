@@ -28,7 +28,6 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
           process.env.NEXT_PUBLIC_DATABASE!,
           process.env.NEXT_PUBLIC_RECORDINGS_COLLECTION!,
         );
-        // Cast through unknown to satisfy tsc when Appwrite DefaultDocument differs
         setRecs(res.documents as unknown as RecordingDoc[]);
       } catch (e) {
         log.error("Failed fetching recordings", e);

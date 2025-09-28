@@ -13,14 +13,12 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { account } from "@/lib/appwrite";
 import Logo from "@/components/Logo";
-
 interface NavItemProps {
   href: string;
   icon: React.ReactNode;
   children: React.ReactNode;
   active?: boolean;
 }
-
 export function NavItem({ href, icon, children, active }: NavItemProps) {
   return (
     <Link
@@ -36,7 +34,6 @@ export function NavItem({ href, icon, children, active }: NavItemProps) {
     </Link>
   );
 }
-
 export function Navbar({
   onMenuClick,
   children,
@@ -50,27 +47,20 @@ export function Navbar({
   const [mounted, setMounted] = useState(false);
   const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] =
     useState(false);
-
-  // Use the AuthModalContext instead of local state
   const authModalContext = React.useContext(AuthModalContext);
   if (!authModalContext) throw new Error("Auth modal context not found");
   const { openAuthModal, authType } = authModalContext;
-
   useEffect(() => setMounted(true), []);
-
   const handleAuthClick = () => {
     openAuthModal("login");
   };
-
   const handleAuthSwitch = () => {
     openAuthModal(authType === "login" ? "signup" : "login");
   };
-
   const handleForgotPassword = () => {
     authModalContext.closeAuthModal();
     setIsResetPasswordModalOpen(true);
   };
-
   const setAccount = React.useContext(AccountContext)?.setAccount;
   if (!setAccount) throw new Error("Account not found");
   const { data, error } = useQuery({
@@ -95,11 +85,9 @@ export function Navbar({
     if (data) setAccount(data);
     if (error) toast.error("Failed to fetch user scores");
   }, [data, error, setAccount]);
-
   const context = React.useContext(AccountContext);
   if (!context) throw new Error("Account context not found.");
   const { accountView } = context;
-
   return (
     <>
       <header className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-850 h-16">
@@ -137,7 +125,7 @@ export function Navbar({
           <Button variant="ghost" size="icon">
             <Bell className="h-4 w-4" />
           </Button>
-          {/* If user is logged in, display their name and email; otherwise show the auth button */}
+
           {accountView ? (
             <AccountDropdown />
           ) : (

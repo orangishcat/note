@@ -14,7 +14,7 @@ def load_native() -> ModuleType:
     """Import the compiled scoring_native module, falling back to local build artifacts."""
     try:
         return importlib.import_module(_NATIVE_MODULE)
-    except ImportError as first_error:  # pragma: no cover - runtime fallback
+    except ImportError as first_error:
         root = Path(__file__).resolve().parents[2]
         suffixes = list(importlib.machinery.EXTENSION_SUFFIXES)
         suffixes.extend([".so", ".dylib"])
@@ -38,9 +38,7 @@ def load_native() -> ModuleType:
                         module = importlib.util.module_from_spec(spec)
                         try:
                             loader.exec_module(module)
-                        except (
-                            Exception
-                        ) as exc:  # pragma: no cover - propagate useful context
+                        except Exception as exc:
                             raise RuntimeError(
                                 f"Failed to load native scoring module from {candidate!s}"
                             ) from exc

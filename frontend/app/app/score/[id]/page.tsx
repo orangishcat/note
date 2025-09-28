@@ -1,5 +1,4 @@
 "use client";
-
 import { useParams, useRouter } from "next/navigation";
 import React, {
   useCallback,
@@ -36,7 +35,6 @@ import ImageScoreRenderer from "@/components/image-score-renderer";
 import { Type } from "protobufjs";
 import log from "@/lib/logger";
 import { Edit, NoteList, ScoringResult } from "@/types/proto-types";
-
 import { useToast } from "@/components/ui/toast";
 import { databases, storage } from "@/lib/appwrite";
 import { initProtobufTypes, protobufTypeCache } from "@/lib/proto";
@@ -47,18 +45,16 @@ import { type RecordingError, useAudioRecorder } from "@/lib/audio-recorder";
 import { MusicScore } from "@/types/score-types";
 import { useEditDisplay } from "@/lib/edit-display";
 import { useEditDisplayMusicXML } from "@/lib/edit-display-mxml";
-
-// Add a global type declaration to prevent TypeScript errors
 declare global {
-  // noinspection JSUnusedGlobalSymbols
   interface Window {
     lastRefetchTime?: number;
   }
 }
-
 export default function ScorePage() {
   const router = useRouter();
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{
+    id: string;
+  }>();
   const [score, setScore] = useState<MusicScore>({
     audio_file_id: "",
     file_id: "",
@@ -87,17 +83,16 @@ export default function ScorePage() {
   const [displayMode, setDisplayMode] = useState<"paged" | "scroll">("paged");
   const [verticalLoading, setVerticalLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [isDebugMode, setIsDebugMode] = useState(false); // Default false for server rendering
+  const [isDebugMode, setIsDebugMode] = useState(false);
   const [editsOnPage, setEditsOnPage] = useState(0);
-  const [isClient, setIsClient] = useState(false); // Track if we're on client side
+  const [isClient, setIsClient] = useState(false);
   const [confidenceThreshold, setConfidenceThreshold] = useState(3);
   const [canvasWrappers, setCanvasWrappers] = useState<HTMLDivElement[]>([]);
-  const { addToast } = useToast(); // Use the toast context
+  const { addToast } = useToast();
   const [recordingCompatible, setRecordingCompatible] = useState<
     boolean | null
   >(null);
   const hasShownCompatibilityToast = useRef(false);
-
   const updateCanvasWrappers = useCallback((wrappers: HTMLDivElement[]) => {
     setCanvasWrappers((prev) => {
       if (
@@ -109,22 +104,15 @@ export default function ScorePage() {
       return wrappers;
     });
   }, []);
-
-  // Use effect to detect client side rendering and initialize debug mode
   useEffect(() => {
     setIsClient(true);
-    // Initialize debug mode from localStorage only on client
     setIsDebugMode(!!localStorage.getItem("debug"));
-
-    // Initialize display mode from localStorage
     setDisplayMode(
       localStorage.getItem("score.displayAllPages") === "true"
         ? "scroll"
         : "paged",
     );
     setVerticalLoading(localStorage.getItem("score.verticalLoad") === "true");
-
-    // Add storage event listener for debug mode toggle
     const handleStorageChange = () => {
       const debugEnabled = !!localStorage.getItem("debug");
       setIsDebugMode(debugEnabled);
@@ -135,15 +123,11 @@ export default function ScorePage() {
       );
       setVerticalLoading(localStorage.getItem("score.verticalLoad") === "true");
     };
-
     window.addEventListener("storage", handleStorageChange);
-
     return () => {
       window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
-
-  // Expose a testing hook in debug mode to inject edits directly
   useEffect(() => {
     if (!isClient) return;
     try {
@@ -155,23 +139,18 @@ export default function ScorePage() {
       }
     } catch {}
   }, [isClient, isDebugMode]);
-
-  // State to track protobuf type initialization
   const [scoringResultType, setScoringResultType] = useState<Type | null>(
     protobufTypeCache.ScoringResultType,
   );
   const [noteListType, setNoteListType] = useState<Type | null>(
     protobufTypeCache.NoteListType,
   );
-
-  // Function to refetch protobuf types
   const refetchTypes = async () => {
     const result = await initProtobufTypes();
     setScoringResultType(result.ScoringResultType);
     setNoteListType(result.NoteListType);
     return result;
   };
-
   const handleRecordingError = useCallback(
     (err: RecordingError) => {
       log.error("Recording error:", err);
@@ -184,13 +163,10 @@ export default function ScorePage() {
     },
     [addToast],
   );
-
-  // Initialize protobuf types on component mount if not already initialized
   useEffect(() => {
     if (!protobufTypeCache.initialized && !protobufTypeCache.initializing)
       void refetchTypes();
   }, []);
-
   useAudioRecorder({
     isRecording,
     ScoringResultType: scoringResultType,
@@ -201,17 +177,12 @@ export default function ScorePage() {
     onEditListChange: setEditList,
     onError: handleRecordingError,
   });
-
-  // Fetch the score scores
   useEffect(() => {
-    // Skip fetch if we already have scores or are using React Query
     if (score.$id || fetchedDataRef.current) {
       return;
     }
-
     log.debug(`Fetching score data for ID: ${id}`);
     fetchedDataRef.current = true;
-
     async function fetchScore() {
       try {
         const response = await databases.getDocument({
@@ -228,20 +199,15 @@ export default function ScorePage() {
         log.error("Error fetching score:", error);
       }
     }
-
     if (id) void fetchScore();
   }, [id, router, score.$id]);
-
-  // Fetch score notes when score is loaded
   useEffect(() => {
-    // Skip if we don't have the score scores yet or already have notes
     if (!score?.$id || !score.notes_id || scoreNotes || !noteListType) {
       log.debug(
         "Skipping score notes fetch due to missing score scores or notes",
       );
       return;
     }
-
     const fetchScoreNotes = async () => {
       try {
         log.debug(
@@ -256,11 +222,8 @@ export default function ScorePage() {
         log.debug(
           `Received score notes buffer of size: ${buffer.byteLength} bytes`,
         );
-
-        // Decode the notes
         const dataView = new Uint8Array(buffer);
         const notes = noteListType.decode(dataView) as NoteList;
-
         log.debug(
           `Successfully decoded score notes with ${
             notes.notes?.length || 0
@@ -277,14 +240,11 @@ export default function ScorePage() {
         }
       }
     };
-
     void fetchScoreNotes();
   }, [score?.$id, score?.notes_id, scoreNotes, noteListType]);
-
   const filteredEditList = useMemo(() => {
     if (!editList) return null;
     const obj: ScoringResult = editList as ScoringResult;
-
     return {
       ...obj,
       edits:
@@ -293,7 +253,6 @@ export default function ScorePage() {
         ) ?? [],
     } as ScoringResult;
   }, [editList, confidenceThreshold]);
-
   const unstableRate = editList?.unstableRate ?? 0;
   const accuracy = useMemo(() => {
     if (!filteredEditList || !scoreNotes) return 100;
@@ -301,7 +260,6 @@ export default function ScorePage() {
     const total = scoreNotes.notes?.length || 1;
     return ((1 - numEdits / total) * 100).toFixed(1);
   }, [filteredEditList, scoreNotes]);
-
   useEffect(() => {
     if (!filteredEditList) return;
     const cnt =
@@ -309,7 +267,6 @@ export default function ScorePage() {
         .length || 0;
     setEditsOnPage(cnt);
   }, [filteredEditList, currentPage]);
-
   function NavContent() {
     return (
       <div className="flex items-center text-xl gap-4">
@@ -330,8 +287,6 @@ export default function ScorePage() {
       </div>
     );
   }
-
-  // Call both hooks but enable only one to satisfy hooks rules
   const isMxml = score.mime_type.includes("musicxml");
   useEditDisplayMusicXML(
     filteredEditList,
@@ -349,22 +304,19 @@ export default function ScorePage() {
     canvasWrappers,
     confidenceThreshold,
   );
-
-  // Check for recording compatibility on component mount
   useEffect(() => {
-    // Only run once when the component is mounted on the client
     if (typeof window !== "undefined" && recordingCompatible === null) {
-      // Check for iOS and Safari
       const isIOS =
         /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-        !(window as unknown as { MSStream?: unknown }).MSStream;
+        !(
+          window as unknown as {
+            MSStream?: unknown;
+          }
+        ).MSStream;
       const isIOSChrome = isIOS && navigator.userAgent.includes("CriOS");
       const isIOSFirefox = isIOS && navigator.userAgent.includes("FxiOS");
-
-      // iOS devices should use Safari
       if (isIOS && (isIOSChrome || isIOSFirefox)) {
         setRecordingCompatible(false);
-        // Only show toast once to prevent infinite loop
         if (!hasShownCompatibilityToast.current) {
           hasShownCompatibilityToast.current = true;
           setTimeout(() => {
@@ -379,7 +331,6 @@ export default function ScorePage() {
         }
       } else if (!navigator.mediaDevices) {
         setRecordingCompatible(false);
-        // Only show a toast if we're on iOS, as this is a known limitation
         if (isIOS && !hasShownCompatibilityToast.current) {
           hasShownCompatibilityToast.current = true;
           setTimeout(() => {
@@ -396,31 +347,23 @@ export default function ScorePage() {
         setRecordingCompatible(true);
       }
     }
-    // Removing addToast from dependencies to prevent infinite loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClient]);
-
-  // Handle recording errors with more detail
-  // Initialize the hook without pulling out start/stop
-
   const toggleRecording = () => {
     log.debug(isRecording ? "Stopping recording" : "Starting recording");
     setIsRecording((prev) => !prev);
   };
-
-  // Function to show recording help toast
   const showRecordingHelp = () => {
-    // Don't show toast if we've already shown one to prevent render loops
     if (hasShownCompatibilityToast.current) {
       return;
     }
-
     hasShownCompatibilityToast.current = true;
     const isIOS =
       /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-      !(window as unknown as { MSStream?: unknown }).MSStream;
-
-    // Use setTimeout to break potential render loops
+      !(
+        window as unknown as {
+          MSStream?: unknown;
+        }
+      ).MSStream;
     setTimeout(() => {
       if (isIOS) {
         addToast({
@@ -441,27 +384,21 @@ export default function ScorePage() {
       }
     }, 100);
   };
-
   const [lastStarTime, setLastStarTime] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showRecordingsModal, setShowRecordingsModal] = useState(false);
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const [totalPages, setTotalPages] = useState<number | null>(null);
-
   const dockRef = useRef<HTMLDivElement>(null);
   const recenterButton = useRef<HTMLButtonElement>(null);
-  const fetchedDataRef = useRef<boolean>(false); // Prevent duplicate API calls during React's double-render
-
-  // Log when protobuf types are initialized
+  const fetchedDataRef = useRef<boolean>(false);
   useEffect(() => {
     if (!scoringResultType) {
       log.warn("ScoringResultType is not yet initialized");
       return;
     }
-
     log.debug("ScoringResultType is initialized and ready to use");
   }, [scoringResultType]);
-
   const onStarToggle = (score: MusicScore) => {
     setLastStarTime(Date.now());
     if (Date.now() - lastStarTime < 700) return;
@@ -475,22 +412,17 @@ export default function ScorePage() {
       })
       .catch(log.error);
   };
-
   const { data: loadedScore, refetch } = useQuery({
     queryKey: ["score_" + id],
     queryFn: async () => {
-      // Prevent duplicate API calls during StrictMode's double-render or if we already have scores
       if (fetchedDataRef.current || score.$id) {
         log.debug(
           "Preventing duplicate score scores fetch - using existing scores",
         );
         return score.$id ? score : null;
       }
-
-      // Mark that we've started a fetch
       fetchedDataRef.current = true;
       log.debug(`React Query fetching score data for ID: ${id}`);
-
       try {
         const response = await databases.getDocument({
           databaseId: process.env.NEXT_PUBLIC_DATABASE!,
@@ -506,16 +438,14 @@ export default function ScorePage() {
         return null;
       }
     },
-    staleTime: 7 * 24 * 60 * 60 * 1000, // Consider scores fresh for 1 week
+    staleTime: 7 * 24 * 60 * 60 * 1000,
     gcTime: 7 * 24 * 60 * 60 * 1000,
   });
-
   useEffect(() => {
     if (!loadedScore) return;
     log.debug(`Setting score from React Query data: ${loadedScore.$id}`);
     setScore(loadedScore);
   }, [loadedScore]);
-
   useEffect(() => {
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
@@ -525,7 +455,6 @@ export default function ScorePage() {
       }
     }
   }, []);
-
   const toggleFullscreen = () => {
     if (!isFullscreen) {
       void document.documentElement.requestFullscreen?.();
@@ -534,72 +463,52 @@ export default function ScorePage() {
     }
     setIsFullscreen(!isFullscreen);
   };
-
-  // Get total pages information from score renderers
   useEffect(() => {
     const handlePageInfo = (event: Event) => {
       const customEvent = event as CustomEvent;
       const { totalPages, scoreId } = customEvent.detail;
-
       if (scoreId === id || scoreId === score.file_id) {
         setTotalPages(totalPages);
-        // Update score object with totalPages
         setScore((prevScore) => ({
           ...prevScore,
           total_pages: totalPages,
         }));
       }
     };
-
-    // Listen for page info events
     document.addEventListener("score:pageInfo", handlePageInfo);
-
     return () => {
       document.removeEventListener("score:pageInfo", handlePageInfo);
     };
   }, [id, score.file_id]);
-
-  // Navigation functions for page turning
   const goToPrevPage = () => {
     if (currentPage > 0) {
       setCurrentPage(currentPage - 1);
     } else if (currentPage === 0) {
-      // If on first page, toggle fullscreen mode
       toggleFullscreen();
     }
   };
-
   const goToNextPage = () => {
-    // Only limit next page if we know total pages
     if (totalPages && currentPage >= totalPages - 1) {
       return;
     }
     setCurrentPage(currentPage + 1);
   };
-
   useEffect(() => {
-    // disable chrome two finger swipe gesture
     document.documentElement.style.overscrollBehaviorX = "none";
     document.body.style.overscrollBehaviorX = "none";
   }, []);
-
   const ControlDock = () => {
     const currentDisplayPage = currentPage + 1;
     const totalPages = score && score.total_pages ? score.total_pages : "?";
-
     const [isSmallScreen, setIsSmallScreen] = useState(false);
-
     useEffect(() => {
       const checkScreenSize = () => {
         setIsSmallScreen(window.innerWidth < 500);
       };
-
       checkScreenSize();
       window.addEventListener("resize", checkScreenSize);
-
       return () => window.removeEventListener("resize", checkScreenSize);
     }, []);
-
     return (
       <div
         ref={dockRef}
@@ -840,11 +749,9 @@ export default function ScorePage() {
       </div>
     );
   };
-
   return (
     <Layout navbarContent={<NavContent />}>
       <div className="relative h-[calc(100vh-4rem)]">
-        {/* Main score renderer - fills entire screen */}
         <div className="h-[calc(100%-4rem)] w-full relative overflow-y-auto">
           {score && score.$id && score.file_id ? (
             score.mime_type.includes("musicxml") ? (
@@ -855,7 +762,6 @@ export default function ScorePage() {
                   log.debug(
                     "Retry requested for MusicXMLRenderer, limiting frequency",
                   );
-                  // Debounce the refetch to prevent request spam
                   if (
                     window.lastRefetchTime &&
                     Date.now() - window.lastRefetchTime < 5000
@@ -875,7 +781,6 @@ export default function ScorePage() {
                   log.debug(
                     "Retry requested for ImageScoreRenderer, limiting frequency",
                   );
-                  // Debounce the refetch to prevent request spam
                   if (
                     window.lastRefetchTime &&
                     Date.now() - window.lastRefetchTime < 5000
@@ -901,10 +806,8 @@ export default function ScorePage() {
           )}
         </div>
 
-        {/* Control dock */}
         <ControlDock />
 
-        {/* Debug panel - only render on client side */}
         {isClient && isDebugMode && (
           <DebugPanel
             scoreId={score.file_id}
