@@ -1,6 +1,8 @@
 from flask import Blueprint
 
-audio = Blueprint("audio", __name__, url_prefix="/audio")
+scoring_bp = Blueprint("score_scoring", __name__, url_prefix="/score")
 
-from .audio import *
-from .recording import *
+from . import audio  # noqa: F401  # register scoring routes
+from . import recording  # noqa: F401  # register recording routes
+
+__all__ = ["scoring_bp"]

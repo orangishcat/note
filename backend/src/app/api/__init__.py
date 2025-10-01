@@ -3,7 +3,7 @@ from flask import Blueprint, abort, g
 from loguru import logger
 
 from .util import *
-from .scoring import audio
+from .scoring import scoring_bp
 from .scores import score_bp
 
 admin_client = get_client().set_key(os.environ["APPWRITE_API_KEY"])
@@ -47,5 +47,5 @@ def logged_in():
     return wrapper
 
 
-needs_login.register_blueprint(audio)
+needs_login.register_blueprint(scoring_bp)
 needs_login.register_blueprint(score_bp)

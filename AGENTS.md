@@ -41,7 +41,7 @@ Strict engineering guidelines for automated and human contributors.
 - Node: Use the version supported by Next 15 (Node 18+). Use the local binary
   when scripting:
   `./node_modules/.bin/next`.
-- Package scripts to know:
+- Package scripts to know (remember to `cd frontend` before running):
   - `pnpm run dev` — local dev server (HTTPS experimental is enabled).
   - `pnpm run lint` — ESLint + TypeScript type checks (via `eslint-plugin-tsc`).
     All issues must be fixed.

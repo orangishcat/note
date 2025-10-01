@@ -4,10 +4,10 @@ from google.protobuf.message import DecodeError
 from loguru import logger
 from scoring import Recording
 from .. import get_user_client, misc_bucket
-from . import audio
+from . import scoring_bp
 
 
-@audio.route("/process-recording/<rec_id>", methods=["POST"])
+@scoring_bp.route("/process-recording/<rec_id>", methods=["POST"])
 def process_recording(rec_id):
     score_id = request.args.get("score")
     if not score_id:

@@ -16,9 +16,10 @@ const TestTypeSelector = ({
   onSelectTestType: (t: string) => void;
 }) => {
   if (!isOpen) return null;
-  const testTypes = [
+  const testCfg = [
     { id: "spider_dance_actual", name: "Spider Dance Actual" },
     { id: "spider_dance_played", name: "Spider Dance Played" },
+    { id: "spider_dance_trimmed", name: "Spider Dance Trimmed" },
   ];
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -27,7 +28,7 @@ const TestTypeSelector = ({
           Select Test Type
         </h3>
         <div className="space-y-2">
-          {testTypes.map((type) => (
+          {testCfg.map((type) => (
             <button
               key={type.id}
               onClick={() => {
@@ -154,14 +155,19 @@ const DebugPanel = ({
       try {
         log.debug(`Sending test audio request with type: ${currentTestType}`);
         const emptyAudioBlob = new Blob([new Uint8Array([1])]);
-        const response = await api.post("/audio/receive", emptyAudioBlob, {
-          headers: {
-            "Content-Type": "audio/webm",
-            "X-Score-ID": scoreId,
-            "X-Test-Type": currentTestType,
+        const response = await api.post(
+          "/score/receive-audio",
+          emptyAudioBlob,
+          {
+            headers: {
+              "Content-Type": "audio/webm",
+              "X-Score-ID": scoreId,
+              "X-Test-Type": currentTestType,
+              "X-Focused-Page": String(currentPage),
+            },
+            responseType: "arraybuffer",
           },
-          responseType: "arraybuffer",
-        });
+        );
         if (response.status !== 200)
           throw new Error(`Server returned status ${response.status}`);
         const { RecordingType } = await initProtobufTypes();

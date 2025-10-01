@@ -250,11 +250,12 @@ export function useEditDisplay(
           if (!edit.tChar.bbox) {
             edit.tChar.bbox = [0, 0, 0, 0];
             const sY = edit.sChar.bbox[3] - edit.sChar.bbox[1];
-            const diff = (edit.tChar.pitch - edit.sChar.pitch) / 2;
+            const diff =
+              ((sY * (edit.sChar.pitch - edit.tChar.pitch)) / 4) * 0.9;
             edit.tChar.bbox[0] = edit.sChar.bbox[0];
-            edit.tChar.bbox[1] = edit.sChar.bbox[1] + sY * diff;
+            edit.tChar.bbox[1] = edit.sChar.bbox[1] + diff;
             edit.tChar.bbox[2] = edit.sChar.bbox[2];
-            edit.tChar.bbox[3] = edit.sChar.bbox[3] + sY * diff;
+            edit.tChar.bbox[3] = edit.sChar.bbox[3] + diff;
           }
           const tDiv = createAnnotDiv(
             edit,

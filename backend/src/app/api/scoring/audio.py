@@ -7,6 +7,7 @@ import tempfile
 from datetime import datetime, timezone
 from functools import lru_cache
 from traceback import print_exc
+from typing import Optional
 
 import magic
 from appwrite.input_file import InputFile
@@ -16,6 +17,7 @@ from appwrite.services.databases import Databases
 from appwrite.services.storage import Storage
 from beam import Image, endpoint
 from flask import Response, g, request
+from google.protobuf.message import DecodeError
 
 # noinspection PyUnresolvedReferences
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -29,9 +31,8 @@ from scoring import (
     extract_midi_notes,
 )
 from scoring.edit_distance import find_ops
-from . import audio
+from . import scoring_bp
 from .. import get_user_client, misc_bucket, database
-
 
 test_cfg = {
     "spider_dance_played": {
@@ -42,7 +43,13 @@ test_cfg = {
         "played": "spider dance transkun.notelist",
         "actual": "spider dance.scoredata",
     },
+    "spider_dance_trimmed": {
+        "played": "spider dance trimmed.midi",
+        "actual": "spider dance.scoredata",
+    },
 }
+
+NOTE_EXTENSION = 15
 
 
 @lru_cache(maxsize=16)
@@ -108,8 +115,134 @@ def parse_rep_output(replica, page_sizes) -> NoteList:
     return nl
 
 
-@audio.route("/receive", methods=["POST"])
-def receive():
+def finalize_recording_response(
+    score_id: str,
+    actual_notes: NoteList,
+    played_notes: NoteList,
+    focused_page: int,
+    *,
+    is_test: bool,
+    result_file: Optional[str] = None,
+) -> Response:
+    focused_indices = [
+        idx for idx, note in enumerate(actual_notes.notes) if note.page == focused_page
+    ]
+    logger.debug(f"matching notes length: {len(focused_indices)}")
+
+    window = (
+        (
+            max(0, focused_indices[0] - NOTE_EXTENSION),
+            focused_indices[-1] + NOTE_EXTENSION,
+        )
+        if focused_indices
+        else None
+    )
+
+    ops, aligned_idx = find_ops(
+        actual_notes.notes,
+        played_notes.notes,
+        window,
+    )
+    ops.size.extend(actual_notes.size)
+
+    sections, unstable = analyze_tempo(
+        [float(n.start_time) for n in actual_notes.notes],
+        [float(n.start_time) for n in played_notes.notes],
+        aligned_idx,
+    )
+    ops.unstable_rate = unstable
+    ops.tempo_sections.extend(sections)
+
+    response_notes = NoteList()
+    if is_test:
+        response_notes.notes.extend(played_notes.notes)
+        response_notes.size.extend(actual_notes.size)
+    else:
+        response_notes.CopyFrom(played_notes)
+        if not response_notes.size and actual_notes.size:
+            response_notes.size.extend(actual_notes.size)
+
+    for idx, note in enumerate(response_notes.notes):
+        note.id = idx
+
+    recording = Recording()
+    recording.played_notes.CopyFrom(response_notes)
+    recording.computed_edits.CopyFrom(ops)
+    created_at = Timestamp()
+    created_at.FromDatetime(datetime.now(timezone.utc))
+    recording.created_at.CopyFrom(created_at)
+
+    if not is_test:
+        client = get_user_client()
+        storage = Storage(client)
+        db = Databases(client)
+        user_role = Role.user(g.account["$id"])
+        recording_id = db.create_document(
+            database_id=database,
+            collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
+            document_id="unique()",
+            data={"user_id": g.account["$id"], "score_id": score_id},
+            permissions=[
+                Permission.read(user_role),
+                Permission.update(user_role),
+                Permission.delete(user_role),
+            ],
+        )["$id"]
+        file_res = storage.create_file(
+            bucket_id=misc_bucket,
+            file_id=recording_id,
+            file=InputFile.from_bytes(
+                recording.SerializeToString(),
+                f"{recording_id}.pb",
+                "application/octet-stream",
+            ),
+            permissions=[
+                Permission.read(user_role),
+                Permission.update(user_role),
+                Permission.delete(user_role),
+            ],
+        )
+
+        db.update_document(
+            database_id=database,
+            collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
+            document_id=recording_id,
+            data={"file_id": file_res["$id"]},
+        )
+
+    payload = recording.SerializeToString()
+    logger.info(f"Serialized recording payload size: {len(payload)} bytes")
+
+    if os.environ.get("DEBUG") == "True":
+
+        def _join(match):
+            return " ".join(match.group().split())
+
+        with open("debug_info/last_edits.json", "w") as f:
+            dumps = json.dumps(aligned_idx, ensure_ascii=False, indent=4)
+            f.write(re.sub(r"(?<=\[)[^\[\]]+(?=])", _join, dumps))
+
+        with open("debug_info/last_pb.pb", "wb") as f:
+            f.write(payload)
+
+        if result_file:
+            with open(result_file, "wb") as f:
+                f.write(payload)
+
+    response = Response(payload, mimetype="application/protobuf")
+    response.headers.update(
+        {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            "X-Response-Format": "recording",
+        }
+    )
+    return response
+
+
+@scoring_bp.route("/receive-audio", methods=["POST"])
+def receive_audio():
     audio_bytes = request.data
     if not audio_bytes:
         return {"error": "No audio scores received"}, 400
@@ -123,9 +256,9 @@ def receive():
         logger.info(f"Processing audio for score ID: {score_id}")
 
         test_type = request.headers.get("X-Test-Type")
-        is_test = test_type and test_type != "production"
+        is_test = bool(test_type and test_type != "production")
 
-        result_file = None
+        result_file: Optional[str] = None
 
         if is_test:
             cfg = test_cfg.get(str(test_type), test_cfg["spider_dance_played"])
@@ -174,103 +307,49 @@ def receive():
             rep_out = json.loads(output) if isinstance(output, str) else output
             played_notes = parse_rep_output(rep_out, actual_notes.size)
 
-        ops, aligned_idx = find_ops(actual_notes.notes, played_notes.notes)
-        ops.size.extend(actual_notes.size)
-
-        sections, unstable = analyze_tempo(
-            [float(n.start_time) for n in actual_notes.notes],
-            [float(n.start_time) for n in played_notes.notes],
-            aligned_idx,
+        focused_page = int(request.headers.get("X-Focused-Page", 0))
+        return finalize_recording_response(
+            score_id,
+            actual_notes,
+            played_notes,
+            focused_page,
+            is_test=is_test,
+            result_file=result_file,
         )
-        ops.unstable_rate = unstable
-        ops.tempo_sections.extend(sections)
-
-        if is_test:
-            response_nl = NoteList()
-            response_nl.notes.extend(played_notes.notes)
-            response_nl.size.extend(actual_notes.size)
-        else:
-            response_nl = played_notes
-
-        for idx, n in enumerate(response_nl.notes):
-            n.id = idx
-
-        recording = Recording()
-        recording.played_notes.CopyFrom(response_nl)
-        recording.computed_edits.CopyFrom(ops)
-        created_at = Timestamp()
-        created_at.FromDatetime(datetime.now(timezone.utc))
-        recording.created_at.CopyFrom(created_at)
-
-        if not is_test:
-            storage = Storage(get_user_client())
-            db = Databases(get_user_client())
-            user_role = Role.user(g.account["$id"])
-            recording_id = db.create_document(
-                database_id=database,
-                collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
-                document_id="unique()",
-                data={"user_id": g.account["$id"], "score_id": score_id},
-                permissions=[
-                    Permission.read(user_role),
-                    Permission.update(user_role),
-                    Permission.delete(user_role),
-                ],
-            )["$id"]
-            file_res = storage.create_file(
-                bucket_id=misc_bucket,
-                file_id=recording_id,
-                file=InputFile.from_bytes(
-                    recording.SerializeToString(),
-                    f"{recording_id}.pb",
-                    "application/octet-stream",
-                ),
-                permissions=[
-                    Permission.read(user_role),
-                    Permission.update(user_role),
-                    Permission.delete(user_role),
-                ],
-            )
-
-            db.update_document(
-                database_id=database,
-                collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
-                document_id=recording_id,
-                data={"file_id": file_res["$id"]},
-            )
-
-        payload = recording.SerializeToString()
-        logger.info(f"Serialized recording payload size: {len(payload)} bytes")
-
-        if os.environ.get("DEBUG") == "True":
-
-            def _join(m):
-                return " ".join(m.group().split())
-
-            with open("debug_info/last_edits.json", "w") as f:
-                j = json.dumps(aligned_idx, ensure_ascii=False, indent=4)
-                f.write(re.sub(r"(?<=\[)[^\[\]]+(?=])", _join, j))
-
-            with open("debug_info/last_pb.pb", "wb") as f:
-                f.write(payload)
-
-            if result_file:
-                with open(result_file, "wb") as f:
-                    f.write(payload)
-
-        res = Response(payload, mimetype="application/protobuf")
-        res.headers.update(
-            {
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                "Pragma": "no-cache",
-                "Expires": "0",
-                "X-Response-Format": "recording",
-            }
-        )
-        return res
 
     except Exception as e:
         print_exc()
         err = f"Error processing audio: {e}"
         logger.error(f"ERROR: {err}", file=sys.stderr)
         return {"error": err}, 400
+
+
+@scoring_bp.route("/receive-notes", methods=["POST"])
+def receive_notes():
+    raw_bytes = request.data
+    if not raw_bytes:
+        return {"error": "No note list payload received"}, 400
+
+    score_id = request.headers.get("X-Score-ID")
+    notes_id = request.headers.get("X-Notes-ID")
+    if not score_id:
+        return {"error": "No score ID provided"}, 400
+    if not notes_id:
+        return {"error": "No notes ID provided"}, 400
+
+    note_list = NoteList()
+    try:
+        note_list.ParseFromString(raw_bytes)
+    except DecodeError as exc:
+        logger.error("Failed to parse provided note list: {}", exc)
+        return {"error": "Invalid note list payload"}, 400
+
+    actual_notes = load_notes(notes_id)
+    focused_page = int(request.headers.get("X-Focused-Page", 0))
+    return finalize_recording_response(
+        score_id,
+        actual_notes,
+        note_list,
+        focused_page,
+        is_test=False,
+    )

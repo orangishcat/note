@@ -31,6 +31,7 @@ import axios, { AxiosProgressEvent, type CancelTokenSource } from "axios";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/network";
 import log from "loglevel";
+import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
 type FileTypeOption = "mxl" | "image" | "not-selected";
 interface UploadingFile {
   file: File;
@@ -554,23 +555,25 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
     return (
       <div className="space-y-6 py-4">
         <div className="grid grid-cols-2 gap-4">
-          <button
-            type="button"
-            onClick={() => setSelectedFileType("mxl")}
-            className={cn(
-              "flex flex-col items-center justify-center p-6 rounded-lg border-2 border-dashed transition-colors",
-              selectedFileType === "mxl"
-                ? "border-accent-400 bg-accent-50 dark:bg-accent-900/20"
-                : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500",
-            )}
-          >
-            <FileIcon className="h-12 w-12 mb-3 text-accent-500" />
-            <span className="font-medium">MusicXML</span>
-            <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              MXL, XML files
-            </span>
-          </button>
-
+          <NotImplementedTooltip>
+            <button
+              type="button"
+              onClick={() => setSelectedFileType("mxl")}
+              disabled
+              className={cn(
+                "flex flex-col items-center w-full justify-center p-6 rounded-lg border-2 border-dashed transition-colors",
+                selectedFileType === "mxl"
+                  ? "border-accent-400 bg-accent-50 dark:bg-accent-900/20"
+                  : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500",
+              )}
+            >
+              <FileIcon className="h-12 w-12 mb-3 text-accent-500" />
+              <span className="font-medium">MusicXML</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                MXL, XML files
+              </span>
+            </button>
+          </NotImplementedTooltip>
           <button
             type="button"
             onClick={() => setSelectedFileType("image")}
@@ -1079,10 +1082,12 @@ export function UploadDialog({ onUpload }: { onUpload: () => void }) {
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Upload className="h-4 w-4" />
-          Upload
-        </Button>
+        <NotImplementedTooltip>
+          <Button variant="outline" className="gap-2" disabled>
+            <Upload className="h-4 w-4" />
+            Upload
+          </Button>
+        </NotImplementedTooltip>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px] bg-gray-50 dark:bg-gray-800">
         <DialogHeader>

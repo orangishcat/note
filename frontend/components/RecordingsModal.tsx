@@ -39,7 +39,7 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
   const viewRecording = async (id: string) => {
     try {
       const res = await api.post(
-        `/process-recording/${id}?score=${scoreId}`,
+        `/score/process-recording/${id}?score=${scoreId}`,
         undefined,
         {
           responseType: "arraybuffer",
@@ -55,7 +55,7 @@ const RecordingsModal: React.FC<RecordingsModalProps> = ({
   if (!visible) return null;
   return (
     <div
-      className={`fixed bottom-20 right-4 z-50 w-80 min-w-64 min-h-20 rounded-md bg-gray-800/90 p-2 text-white shadow-lg ${
+      className={`absolute bottom-20 left-4 w-80 min-w-64 h-96 rounded-md bg-gray-800/90 p-2 text-white shadow-lg ${
         open ? "animate-slide-in-up" : "animate-slide-out-down"
       }`}
       onAnimationEnd={() => {

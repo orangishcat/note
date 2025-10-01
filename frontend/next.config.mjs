@@ -16,11 +16,11 @@ const nextConfig = {
             return [
                 {
                     source: '/api/:path*',
-                    destination: `https://${process.env.NEXT_PUBLIC_BACKEND_ENDPOINT}/api/:path*`,
+                    destination: `${process.env.NEXT_PUBLIC_BACKEND_ENDPOINT}/api/:path*`,
                 },
                 {
                     source: '/static/:path*',
-                    destination: `https://${process.env.NEXT_PUBLIC_BACKEND_ENDPOINT}/static/:path*`,
+                    destination: `${process.env.NEXT_PUBLIC_BACKEND_ENDPOINT}/static/:path*`,
                 },
             ];
         }
@@ -50,5 +50,20 @@ const nextConfig = {
             ],
         };
     })(),
+  experimental: {
+    turbo: {
+      resolveAlias: {
+        tone: "tone/build/esm/index.js",
+      },
+    },
+  },
+  webpack: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      tone: "tone/build/esm/index.js",
+    };
+    return config;
+  },
 };
 export default nextConfig;

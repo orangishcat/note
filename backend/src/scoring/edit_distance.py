@@ -119,16 +119,21 @@ def postprocess(edit_list: ScoringResult, s_times, s_pitches) -> ScoringResult:
 
 
 @timeit()
-def edit_distance(s_pitches, t_pitches, s_raw, t_raw):
-    native_ops, aligned_indices = scoring_native.compute_edit_distance(
+def edit_distance(
+    s_pitches, t_pitches, s_raw, t_raw, free_ins: tuple[int, int] | None = None
+):
+    native_ops, aligned_indices = scoring_native.edit_dist(
         s_pitches.tolist(),
         t_pitches.tolist(),
+        free_ins,
     )
     return build_protobuf(native_ops, s_raw, t_raw), aligned_indices
 
 
 def find_ops(
-    s: RepeatedCompositeFieldContainer[Note], t: RepeatedCompositeFieldContainer[Note]
+    s: RepeatedCompositeFieldContainer[Note],
+    t: RepeatedCompositeFieldContainer[Note],
+    free_ins: tuple[int, int] | None = None,
 ) -> tuple[ScoringResult, list[tuple[int, int]]]:
     """Compute edit operations and alignment using the native Rust core."""
 
@@ -137,7 +142,7 @@ def find_ops(
         raise ValueError(f"Too big: {n + m}")
 
     s_pitches, t_pitches, s_times, _ = preprocess(s, t)
-    edit_list, aligned_indices = edit_distance(s_pitches, t_pitches, s, t)
+    edit_list, aligned_indices = edit_distance(s_pitches, t_pitches, s, t, free_ins)
     aligned_pairs = [(int(a), int(b)) for a, b in aligned_indices]
     edit_list = postprocess(edit_list, s_times, s_pitches)
 

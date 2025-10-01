@@ -25,6 +25,7 @@ import BasicTooltip from "@/components/ui-custom/basic-tooltip";
 import { useSearchParams } from "next/navigation";
 import { databases, storage } from "@/lib/appwrite";
 import { ID, Permission, Role } from "appwrite";
+import NotImplementedTooltip from "@/components/ui-custom/not-implemented-tooltip";
 export default function FileManager() {
   const [activeTab, setActiveTab] = useState<"recent" | "starred">("recent");
   const [scores, setScores] = useState<MusicScore[]>([]);
@@ -184,14 +185,17 @@ export default function FileManager() {
           </BasicTooltip>
           <UploadDialog onUpload={invalidateScores} />
           {account ? (
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => setIsDialogOpen(true)}
-            >
-              <FolderPlus className="h-4 w-4" />
-              Create folder
-            </Button>
+            <NotImplementedTooltip>
+              <Button
+                variant="outline"
+                className="gap-2"
+                disabled
+                onClick={() => setIsDialogOpen(true)}
+              >
+                <FolderPlus className="h-4 w-4" />
+                Create folder
+              </Button>
+            </NotImplementedTooltip>
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>

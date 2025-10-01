@@ -14,6 +14,7 @@ export interface AudioRecorderHookProps {
   RecordingType: Type | null;
   scoreId: string;
   notesId: string;
+  focusedPage?: string;
   refetchTypes: () => Promise<{
     RecordingType: Type | null;
     ScoringResultType: Type | null;
@@ -28,6 +29,7 @@ export function useAudioRecorder({
   RecordingType,
   scoreId,
   notesId,
+  focusedPage,
   refetchTypes,
   onEditListChange,
   onPlayedNotesChange,
@@ -90,11 +92,12 @@ export function useAudioRecorder({
       await recorder.stopRecording();
       const blob = await recorder.getBlob();
       log.debug(`Recorded blob size: ${blob.size}, type: ${blob.type}`);
-      const response = await api.post("/audio/receive", blob, {
+      const response = await api.post("/score/receive-audio", blob, {
         headers: {
           "Content-Type": blob.type,
           "X-Score-ID": scoreId,
           "X-Notes-ID": notesId,
+          "X-Focused-Page": focusedPage ?? "0",
         },
         responseType: "arraybuffer",
       });
@@ -139,6 +142,7 @@ export function useAudioRecorder({
     }
   }, [
     RecordingType,
+    focusedPage,
     notesId,
     refetchTypes,
     onEditListChange,
@@ -152,6 +156,6 @@ export function useAudioRecorder({
     return () => {
       void cleanup();
     };
-  }, [isRecording, scoreId, notesId, startRecording, stopRecording]);
+  }, [isRecording, scoreId, notesId]);
   return { hasPermission: !!streamRef.current };
 }

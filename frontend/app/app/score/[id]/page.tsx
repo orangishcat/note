@@ -14,14 +14,18 @@ import {
   ArrowLeftCircle,
   ArrowRightCircle,
   BarChart2,
+  Cable,
   Clock,
   Download,
   Fullscreen,
   Maximize2,
   Mic,
   Minimize2,
+  Piano,
   SquareIcon,
   Star,
+  Volume2,
+  VolumeX,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -45,6 +49,23 @@ import { type RecordingError, useAudioRecorder } from "@/lib/audio-recorder";
 import { MusicScore } from "@/types/score-types";
 import { useEditDisplay } from "@/lib/edit-display";
 import { useEditDisplayMusicXML } from "@/lib/edit-display-mxml";
+import InputTypeModal from "@/components/InputTypeModal";
+import KeyboardPanel from "@/components/note-input/KeyboardPanel";
+import type { ScoreInputType } from "@/types/input-types";
+import { usePiano } from "@/lib/piano";
+import { useMidiInput } from "@/lib/midi";
+
+type ActiveManualNote = {
+  start: number;
+  velocity: number;
+};
+
+type CapturedNote = {
+  midi: number;
+  start: number;
+  duration: number;
+  velocity: number;
+};
 declare global {
   interface Window {
     lastRefetchTime?: number;
@@ -84,6 +105,14 @@ export default function ScorePage() {
   const [verticalLoading, setVerticalLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isDebugMode, setIsDebugMode] = useState(false);
+  const [inputType, setInputType] = useState<ScoreInputType | null>(null);
+  const [isInputModalOpen, setIsInputModalOpen] = useState(false);
+  const [midiSoundEnabled, setMidiSoundEnabled] = useState(true);
+  const recordingStartRef = useRef<number | null>(null);
+  const manualActiveNotesRef = useRef<Map<number, ActiveManualNote>>(new Map());
+  const manualNotesRef = useRef<CapturedNote[]>([]);
+  const manualSubmittingRef = useRef(false);
+  const lastMidiError = useRef<string | null>(null);
   const [editsOnPage, setEditsOnPage] = useState(0);
   const [isClient, setIsClient] = useState(false);
   const [confidenceThreshold, setConfidenceThreshold] = useState(3);
@@ -113,6 +142,22 @@ export default function ScorePage() {
         : "paged",
     );
     setVerticalLoading(localStorage.getItem("score.verticalLoad") === "true");
+    const storedInput = localStorage.getItem(
+      "score.inputType",
+    ) as ScoreInputType | null;
+    if (
+      storedInput === "audio" ||
+      storedInput === "keyboard" ||
+      storedInput === "midi"
+    ) {
+      setInputType(storedInput);
+    } else {
+      setIsInputModalOpen(true);
+    }
+    const storedMidiSound = localStorage.getItem("score.midiSound");
+    if (storedMidiSound !== null) {
+      setMidiSoundEnabled(storedMidiSound === "true");
+    }
     const handleStorageChange = () => {
       const debugEnabled = !!localStorage.getItem("debug");
       setIsDebugMode(debugEnabled);
@@ -122,6 +167,24 @@ export default function ScorePage() {
           : "paged",
       );
       setVerticalLoading(localStorage.getItem("score.verticalLoad") === "true");
+      const updatedInput = localStorage.getItem(
+        "score.inputType",
+      ) as ScoreInputType | null;
+      if (
+        updatedInput === "audio" ||
+        updatedInput === "keyboard" ||
+        updatedInput === "midi"
+      ) {
+        setInputType(updatedInput);
+        setIsInputModalOpen(false);
+      } else {
+        setInputType(null);
+        setIsInputModalOpen(true);
+      }
+      const nextMidiSound = localStorage.getItem("score.midiSound");
+      if (nextMidiSound !== null) {
+        setMidiSoundEnabled(nextMidiSound === "true");
+      }
     };
     window.addEventListener("storage", handleStorageChange);
     return () => {
@@ -172,10 +235,11 @@ export default function ScorePage() {
       void refetchTypes();
   }, []);
   useAudioRecorder({
-    isRecording,
+    isRecording: isRecording && inputType === "audio",
     RecordingType: recordingType,
     scoreId: id,
     notesId: score.notes_id || "",
+    focusedPage: currentPage.toString(),
     refetchTypes,
     onEditListChange: setEditList,
     onError: handleRecordingError,
@@ -309,7 +373,11 @@ export default function ScorePage() {
     confidenceThreshold,
   );
   useEffect(() => {
-    if (typeof window !== "undefined" && recordingCompatible === null) {
+    if (
+      typeof window !== "undefined" &&
+      recordingCompatible === null &&
+      (!inputType || inputType === "audio")
+    ) {
       const isIOS =
         /iPad|iPhone|iPod/.test(navigator.userAgent) &&
         !(
@@ -351,11 +419,305 @@ export default function ScorePage() {
         setRecordingCompatible(true);
       }
     }
-  }, [isClient]);
+  }, [isClient, inputType, recordingCompatible]);
   const toggleRecording = () => {
-    log.debug(isRecording ? "Stopping recording" : "Starting recording");
-    setIsRecording((prev) => !prev);
+    if (!inputType) {
+      setIsInputModalOpen(true);
+      return;
+    }
+    if (inputType === "audio") {
+      if (!score.notes_id) {
+        addToast({
+          title: "Score Not Ready",
+          description: "Reference notes are unavailable for this score.",
+          type: "error",
+        });
+        return;
+      }
+      if (recordingCompatible === false) {
+        showRecordingHelp();
+        return;
+      }
+      log.debug(isRecording ? "Stopping recording" : "Starting recording");
+      setIsRecording((prev) => !prev);
+      return;
+    }
+    if (manualSubmittingRef.current) {
+      return;
+    }
+    if (!isRecording) {
+      log.debug("Starting manual capture session");
+      startManualRecording();
+    } else {
+      log.debug("Stopping manual capture session");
+      void finishManualRecording();
+    }
   };
+  const handleInputTypeSelect = useCallback((type: ScoreInputType) => {
+    setInputType(type);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("score.inputType", type);
+    }
+    setIsInputModalOpen(false);
+  }, []);
+  const handleInputModalClose = useCallback(() => {
+    if (!inputType) {
+      setIsInputModalOpen(true);
+      return;
+    }
+    setIsInputModalOpen(false);
+  }, [inputType]);
+  const toggleMidiSound = useCallback(() => {
+    const next = !midiSoundEnabled;
+    setMidiSoundEnabled(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("score.midiSound", String(next));
+    }
+  }, [midiSoundEnabled]);
+  const {
+    triggerAttack,
+    triggerRelease,
+    ready: pianoReady,
+  } = usePiano(
+    inputType === "keyboard" || (inputType === "midi" && midiSoundEnabled),
+  );
+  const handleManualNoteOn = useCallback(
+    (midi: number, velocity = 0.8) => {
+      const shouldPlay =
+        inputType === "keyboard" || (inputType === "midi" && midiSoundEnabled);
+      if (shouldPlay) {
+        void triggerAttack(midi, velocity);
+      }
+      if (
+        !isRecording ||
+        inputType === "audio" ||
+        recordingStartRef.current === null
+      ) {
+        return;
+      }
+      const start = recordingStartRef.current;
+      const startOffset = (performance.now() - start) / 1000;
+      manualActiveNotesRef.current.set(midi, {
+        start: startOffset,
+        velocity,
+      });
+    },
+    [inputType, isRecording, midiSoundEnabled, triggerAttack],
+  );
+  const handleManualNoteOff = useCallback(
+    (midi: number) => {
+      const shouldPlay =
+        inputType === "keyboard" || (inputType === "midi" && midiSoundEnabled);
+      if (shouldPlay) {
+        triggerRelease(midi);
+      }
+      const active = manualActiveNotesRef.current.get(midi);
+      if (!active || recordingStartRef.current === null) {
+        return;
+      }
+      const now = performance.now();
+      const duration = Math.max(
+        0.05,
+        (now - recordingStartRef.current) / 1000 - active.start,
+      );
+      manualNotesRef.current.push({
+        midi,
+        start: active.start,
+        duration,
+        velocity: active.velocity,
+      });
+      manualActiveNotesRef.current.delete(midi);
+    },
+    [inputType, midiSoundEnabled, triggerRelease],
+  );
+  const midiStatus = useMidiInput(
+    inputType === "midi",
+    handleManualNoteOn,
+    handleManualNoteOff,
+  );
+  const finalizeActiveNotes = useCallback(() => {
+    if (recordingStartRef.current === null) return;
+    const sessionStart = recordingStartRef.current;
+    const shouldPlay =
+      inputType === "keyboard" || (inputType === "midi" && midiSoundEnabled);
+    const now = performance.now();
+    manualActiveNotesRef.current.forEach((note, midi) => {
+      const duration = Math.max(0.05, (now - sessionStart) / 1000 - note.start);
+      manualNotesRef.current.push({
+        midi,
+        start: note.start,
+        duration,
+        velocity: note.velocity,
+      });
+      if (shouldPlay) {
+        triggerRelease(midi);
+      }
+    });
+    manualActiveNotesRef.current.clear();
+  }, [inputType, midiSoundEnabled, triggerRelease]);
+  const startManualRecording = useCallback(() => {
+    if (manualSubmittingRef.current) {
+      return;
+    }
+    if (!score.notes_id) {
+      addToast({
+        title: "Score Not Ready",
+        description: "Reference notes are unavailable for this score.",
+        type: "error",
+      });
+      return;
+    }
+    if (inputType === "midi" && midiStatus.error) {
+      addToast({
+        title: "MIDI Unavailable",
+        description: midiStatus.error,
+        type: "error",
+      });
+      return;
+    }
+    if (inputType === "midi" && !midiStatus.ready) {
+      addToast({
+        title: "Waiting for MIDI",
+        description:
+          "Connect and authorize a MIDI controller to capture notes.",
+        type: "info",
+      });
+    }
+    manualActiveNotesRef.current.clear();
+    manualNotesRef.current = [];
+    recordingStartRef.current = performance.now();
+    manualSubmittingRef.current = false;
+    setIsRecording(true);
+  }, [addToast, inputType, midiStatus.error, midiStatus.ready, score.notes_id]);
+  const finishManualRecording = useCallback(async () => {
+    if (manualSubmittingRef.current) return;
+    manualSubmittingRef.current = true;
+    setIsRecording(false);
+    finalizeActiveNotes();
+    const captured = [...manualNotesRef.current];
+    manualActiveNotesRef.current.clear();
+    if (!score.notes_id) {
+      addToast({
+        title: "Score Not Ready",
+        description: "Reference notes are unavailable for this score.",
+        type: "error",
+      });
+      manualNotesRef.current = [];
+      recordingStartRef.current = null;
+      manualSubmittingRef.current = false;
+      return;
+    }
+    if (captured.length === 0) {
+      addToast({
+        title: "No Notes Captured",
+        description: "Record at least one note before stopping.",
+        type: "info",
+      });
+      manualNotesRef.current = [];
+      recordingStartRef.current = null;
+      manualSubmittingRef.current = false;
+      return;
+    }
+    try {
+      let noteType = noteListType;
+      let recordingTypeLocal = recordingType;
+      if (!noteType || !recordingTypeLocal) {
+        const types = await refetchTypes();
+        noteType = types.NoteListType;
+        recordingTypeLocal = types.RecordingType;
+      }
+      if (!noteType || !recordingTypeLocal) {
+        throw new Error("Protobuf types unavailable");
+      }
+      const sorted = [...captured].sort((a, b) => a.start - b.start);
+      const pageSizes = scoreNotes?.size ? [...scoreNotes.size] : [];
+      const noteListPayload = noteType.create({
+        notes: sorted.map((note, index) => ({
+          pitch: note.midi,
+          startTime: note.start,
+          duration: note.duration,
+          velocity: note.velocity,
+          page: currentPage,
+          track: 0,
+          bbox: [],
+          confidence: 1,
+          id: index,
+        })),
+        size: pageSizes,
+        voices: [],
+        lines: [],
+      }) as NoteList;
+      const encoded = noteType.encode(noteListPayload).finish();
+      const response = await api.post("/score/receive-notes", encoded, {
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Score-ID": id,
+          "X-Notes-ID": score.notes_id || "",
+          "X-Focused-Page": currentPage.toString(),
+        },
+        responseType: "arraybuffer",
+      });
+      const buffer = response.data as ArrayBuffer;
+      const recordingMessage = recordingTypeLocal.decode(
+        new Uint8Array(buffer),
+      ) as Recording;
+      const editCopy = JSON.parse(
+        JSON.stringify(recordingMessage.computedEdits),
+      ) as ScoringResult;
+      setEditList(editCopy);
+      addToast({
+        title: "Recording Processed",
+        description: "Manual input compared against the score.",
+        type: "success",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error("Manual capture failed", error);
+      addToast({
+        title: "Capture Failed",
+        description: message,
+        type: "error",
+      });
+    } finally {
+      manualNotesRef.current = [];
+      recordingStartRef.current = null;
+      manualSubmittingRef.current = false;
+    }
+  }, [
+    addToast,
+    currentPage,
+    finalizeActiveNotes,
+    id,
+    noteListType,
+    recordingType,
+    refetchTypes,
+    score.notes_id,
+    scoreNotes,
+  ]);
+  useEffect(() => {
+    if (inputType !== "midi") {
+      lastMidiError.current = null;
+      return;
+    }
+    if (midiStatus.error && midiStatus.error !== lastMidiError.current) {
+      lastMidiError.current = midiStatus.error;
+      addToast({
+        title: "MIDI Error",
+        description: midiStatus.error,
+        type: "error",
+      });
+    }
+    if (!midiStatus.error) {
+      lastMidiError.current = null;
+    }
+  }, [addToast, inputType, midiStatus.error]);
+  useEffect(() => {
+    setIsRecording(false);
+    manualActiveNotesRef.current.clear();
+    manualNotesRef.current = [];
+    recordingStartRef.current = null;
+    manualSubmittingRef.current = false;
+  }, [inputType]);
   const showRecordingHelp = () => {
     if (hasShownCompatibilityToast.current) {
       return;
@@ -505,6 +867,40 @@ export default function ScorePage() {
     const currentDisplayPage = currentPage + 1;
     const totalPages = score && score.total_pages ? score.total_pages : "?";
     const [isSmallScreen, setIsSmallScreen] = useState(false);
+    const InputTypeIcon =
+      inputType === "keyboard" ? Piano : inputType === "midi" ? Cable : Mic;
+    const inputLabel = inputType ?? "select";
+    const isAudioMode = inputType === "audio";
+    const showMidiControls = inputType === "midi";
+    const MidiSoundIcon = midiSoundEnabled ? Volume2 : VolumeX;
+    const midiSoundTooltip = midiSoundEnabled
+      ? "Mute MIDI playback"
+      : "Enable MIDI playback";
+    const manualBusy = manualSubmittingRef.current;
+    const recordTooltip = (() => {
+      if (manualBusy) return "Processing capture…";
+      if (!inputType) return "Select input type first";
+      if (isAudioMode) {
+        if (recordingCompatible === false) {
+          return "Recording not supported in this browser";
+        }
+        return isRecording ? "Stop recording" : "Start recording";
+      }
+      if (inputType === "keyboard") {
+        return isRecording ? "Stop keyboard capture" : "Start keyboard capture";
+      }
+      return isRecording ? "Stop MIDI capture" : "Start MIDI capture";
+    })();
+    const recordButtonClass = isRecording
+      ? "bg-red-600"
+      : isAudioMode
+        ? recordingCompatible === false
+          ? "bg-amber-600"
+          : "bg-primary"
+        : "bg-primary";
+    const isAudioBlocked = isAudioMode && recordingCompatible === false;
+    const disableRecordButton = isAudioBlocked || manualBusy;
+    const IdleRecordIcon = isAudioBlocked ? AlertTriangle : InputTypeIcon;
     useEffect(() => {
       const checkScreenSize = () => {
         setIsSmallScreen(window.innerWidth < 500);
@@ -522,42 +918,44 @@ export default function ScorePage() {
       >
         <div className="grid grid-cols-[1fr_auto_1fr] bg-gray-100 dark:bg-gray-850 px-4 py-2">
           <div className="flex items-center gap-4 justify-self-start">
-            <BasicTooltip
-              text={
-                recordingCompatible === false
-                  ? "Recording not supported in this browser"
-                  : isRecording
-                    ? "Stop recording"
-                    : "Start recording"
-              }
-            >
+            {showMidiControls && (
+              <BasicTooltip text={midiSoundTooltip}>
+                <Button
+                  onClick={toggleMidiSound}
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full bg-white/80 dark:bg-gray-800/80 text-gray-900 dark:text-white border-gray-300 dark:border-gray-700"
+                  disabled={!midiStatus.ready}
+                >
+                  <MidiSoundIcon
+                    className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`}
+                  />
+                </Button>
+              </BasicTooltip>
+            )}
+            {showMidiControls && midiStatus.deviceName && (
+              <span className="text-xs text-gray-500 dark:text-gray-400 max-w-[140px] truncate">
+                {midiStatus.deviceName}
+              </span>
+            )}
+            <BasicTooltip text={recordTooltip}>
               <Button
                 onClick={
-                  recordingCompatible === false
-                    ? showRecordingHelp
-                    : toggleRecording
+                  disableRecordButton ? showRecordingHelp : toggleRecording
                 }
-                className={`${
-                  isRecording
-                    ? "bg-red-600"
-                    : recordingCompatible === false
-                      ? "bg-amber-600"
-                      : "bg-primary"
-                } text-white ${
+                className={`${recordButtonClass} text-white ${
                   isSmallScreen ? "w-10 h-10" : "w-14 h-14"
                 } rounded-full flex items-center justify-center`}
-                disabled={recordingCompatible === false}
+                disabled={disableRecordButton}
               >
                 {isRecording ? (
                   <SquareIcon
                     className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
                   />
-                ) : recordingCompatible === false ? (
-                  <AlertTriangle
+                ) : (
+                  <IdleRecordIcon
                     className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`}
                   />
-                ) : (
-                  <Mic className={`${isSmallScreen ? "h-4 w-4" : "h-6 w-6"}`} />
                 )}
               </Button>
             </BasicTooltip>
@@ -680,6 +1078,19 @@ export default function ScorePage() {
           </div>
 
           <div className="flex items-center gap-6 justify-self-end">
+            <BasicTooltip text="Change input type">
+              <Button
+                onClick={() => setIsInputModalOpen(true)}
+                variant="outline"
+                size="default"
+                className="flex items-center gap-2 rounded-full bg-white/80 dark:bg-gray-800/80 text-gray-900 dark:text-white border-gray-300 dark:border-gray-700"
+              >
+                <InputTypeIcon className="h-4 w-4" />
+                <span className="text-sm font-medium capitalize">
+                  {inputLabel}
+                </span>
+              </Button>
+            </BasicTooltip>
             <BasicTooltip
               text={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
@@ -814,6 +1225,22 @@ export default function ScorePage() {
         </div>
 
         <ControlDock />
+
+        {inputType === "keyboard" && (
+          <KeyboardPanel
+            onNoteOn={handleManualNoteOn}
+            onNoteOff={handleManualNoteOff}
+            ready={pianoReady}
+            disabled={!pianoReady}
+          />
+        )}
+
+        <InputTypeModal
+          open={isInputModalOpen}
+          onClose={handleInputModalClose}
+          onSelect={handleInputTypeSelect}
+          current={inputType}
+        />
 
         {isClient && isDebugMode && (
           <DebugPanel
