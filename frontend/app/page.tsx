@@ -15,8 +15,7 @@ export default function Home() {
       <div className="container mx-auto flex flex-col items-center justify-center py-20 gap-8 text-center">
         <h1 className="text-4xl font-bold">Welcome to Note</h1>
         <p className="max-w-prose text-lg text-gray-700 dark:text-gray-300">
-          Upload your scores, record your practice, and get AI-powered feedback
-          to improve your piano skills.
+          What if piano was a rhythm game?
         </p>
         {account.accountView ? (
           <Link href="/app">

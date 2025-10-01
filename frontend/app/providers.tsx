@@ -1,6 +1,6 @@
 "use client";
 import { ThemeProvider } from "next-themes";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { persistQueryClient } from "@tanstack/query-persist-client-core";
@@ -12,6 +12,8 @@ import {
   AuthModalContextType,
   ZoomContextType,
 } from "@/types/provider-types";
+import { ensureAccountSession } from "@/lib/account-session";
+import log from "loglevel";
 export const AccountContext = React.createContext<AccountContextType | null>(
   null,
 );
@@ -51,6 +53,32 @@ export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.title = "Note";
   }, []);
+
+  const refreshInFlight = useRef<Promise<AccountView | null> | null>(null);
+  const refreshAccount = useCallback(async () => {
+    if (refreshInFlight.current) {
+      return refreshInFlight.current;
+    }
+    const promise = ensureAccountSession()
+      .then((view) => {
+        setAccount(view);
+        return view;
+      })
+      .catch((err) => {
+        log.error("Unable to refresh account", err);
+        setAccount(null);
+        return null;
+      })
+      .finally(() => {
+        refreshInFlight.current = null;
+      });
+    refreshInFlight.current = promise;
+    return promise;
+  }, []);
+
+  useEffect(() => {
+    void refreshAccount();
+  }, [refreshAccount]);
   const [client] = useState(() => {
     const qc = new QueryClient({
       defaultOptions: {
@@ -75,7 +103,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
   });
   return (
     <AccountContext.Provider
-      value={{ accountView, setAccount, justLogin, setJustLogin }}
+      value={{
+        accountView,
+        setAccount,
+        justLogin,
+        setJustLogin,
+        refreshAccount,
+      }}
     >
       <ZoomContext.Provider value={{ zoomLevels, setZoomLevel, getZoomLevel }}>
         <AuthModalContext.Provider

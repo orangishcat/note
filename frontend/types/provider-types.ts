@@ -8,6 +8,7 @@ export interface AccountContextType {
   setAccount: (newValue: AccountView | null) => void;
   justLogin: boolean;
   setJustLogin: (b: boolean) => void;
+  refreshAccount: () => Promise<AccountView | null>;
 }
 export interface AuthModalContextType {
   isOpen: boolean;

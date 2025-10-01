@@ -23,7 +23,7 @@ const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
 const LOWER_SEQUENCE = "q2w3er5t6y7u";
-const UPPER_SEQUENCE = "zsxdcvgbhnm,.";
+const UPPER_SEQUENCE = "zsxdcvgbhnjm,";
 const MIN_OCTAVE = 1;
 const MAX_OCTAVE = 6;
 

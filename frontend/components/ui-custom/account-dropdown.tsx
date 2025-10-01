@@ -16,9 +16,11 @@ import log from "loglevel";
 
 export default function AccountDropdown() {
   const qc = useQueryClient();
-  const account = React.useContext(AccountContext)?.accountView;
+  const accountContext = React.useContext(AccountContext);
+  if (!accountContext) return null;
+  const { accountView, refreshAccount, setAccount } = accountContext;
 
-  return account ? (
+  return accountView ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
@@ -26,7 +28,7 @@ export default function AccountDropdown() {
           variant="ghost"
           size="link"
         >
-          <span className="text-md font-medium">{account.username}</span>
+          <span className="text-md font-medium">{accountView.username}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64">
@@ -34,8 +36,10 @@ export default function AccountDropdown() {
           <div className="flex items-center gap-3">
             <User className="text-2xl" />
             <div className="flex flex-col">
-              <span className="text-lg font-medium">{account.username}</span>
-              <span className="text-sm text-gray-500">{account.email}</span>
+              <span className="text-lg font-medium">
+                {accountView.username}
+              </span>
+              <span className="text-sm text-gray-500">{accountView.email}</span>
             </div>
           </div>
         </DropdownMenuItem>
@@ -51,6 +55,8 @@ export default function AccountDropdown() {
             logOut().then(() => {
               log.debug("Logged out");
               void qc.invalidateQueries();
+              setAccount(null);
+              void refreshAccount();
             })
           }
           className="cursor-pointer hover:bg-gray-300/30"
@@ -59,7 +65,5 @@ export default function AccountDropdown() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  ) : (
-    ""
-  );
+  ) : null;
 }

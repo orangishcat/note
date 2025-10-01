@@ -8,10 +8,6 @@ import { AuthModal, ResetPasswordModal } from "@/components/auth-modals";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { AccountContext, AuthModalContext } from "@/app/providers";
-import type { AccountView } from "@/types/provider-types";
-import { useQuery } from "@tanstack/react-query";
-import { toast } from "react-toastify";
-import { account } from "@/lib/appwrite";
 import Logo from "@/components/Logo";
 interface NavItemProps {
   href: string;
@@ -61,33 +57,15 @@ export function Navbar({
     authModalContext.closeAuthModal();
     setIsResetPasswordModalOpen(true);
   };
-  const setAccount = React.useContext(AccountContext)?.setAccount;
-  if (!setAccount) throw new Error("Account not found");
-  const { data, error } = useQuery({
-    queryKey: ["user-data"],
-    queryFn: async () => {
-      try {
-        const user = await account.get();
-        return {
-          user_id: user.$id,
-          username: user.name,
-          email: user.email,
-        } as AccountView;
-      } catch {
-        setAccount(null);
-        throw new Error("unauthorized");
-      }
-    },
-    staleTime: 60 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-  });
-  useEffect(() => {
-    if (data) setAccount(data);
-    if (error) toast.error("Failed to fetch user scores");
-  }, [data, error, setAccount]);
   const context = React.useContext(AccountContext);
   if (!context) throw new Error("Account context not found.");
-  const { accountView } = context;
+  const { accountView, refreshAccount } = context;
+
+  useEffect(() => {
+    if (!accountView) {
+      void refreshAccount();
+    }
+  }, [accountView, refreshAccount]);
   return (
     <>
       <header className="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-850 h-16">

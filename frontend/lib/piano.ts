@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { clampVelocity, MAX_NOTE_VELOCITY } from "@/lib/midi";
 import log from "@/lib/logger";
 
 type PianoModule = typeof import("@tonejs/piano");
@@ -74,12 +75,13 @@ export function usePiano(enabled: boolean): PianoController {
   }, []);
 
   const triggerAttack = useCallback(
-    async (midi: number, velocity = 0.8) => {
+    async (midi: number, velocity = MAX_NOTE_VELOCITY) => {
       if (!enabled) return;
       const piano = pianoRef.current;
       if (!piano) return;
       await ensureContext();
-      piano.keyDown({ midi, velocity });
+      const safeVelocity = clampVelocity(velocity);
+      piano.keyDown({ midi, velocity: safeVelocity });
     },
     [enabled, ensureContext],
   );

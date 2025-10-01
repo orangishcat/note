@@ -342,7 +342,7 @@ const DebugPanel = ({
         onSelectTestType={(t) => {
           setCurrentTestType(t);
           setShowTestTypeSelector(false);
-          void sendTestRequest();
+          setTimeout(() => sendTestRequest(), 50);
         }}
       />
     </div>

@@ -53,7 +53,7 @@ import InputTypeModal from "@/components/InputTypeModal";
 import KeyboardPanel from "@/components/note-input/KeyboardPanel";
 import type { ScoreInputType } from "@/types/input-types";
 import { usePiano } from "@/lib/piano";
-import { useMidiInput } from "@/lib/midi";
+import { clampVelocity, useMidiInput } from "@/lib/midi";
 
 type ActiveManualNote = {
   start: number;
@@ -482,11 +482,12 @@ export default function ScorePage() {
     inputType === "keyboard" || (inputType === "midi" && midiSoundEnabled),
   );
   const handleManualNoteOn = useCallback(
-    (midi: number, velocity = 0.8) => {
+    (midi: number, velocity = 0.9) => {
+      const limitedVelocity = clampVelocity(velocity);
       const shouldPlay =
         inputType === "keyboard" || (inputType === "midi" && midiSoundEnabled);
       if (shouldPlay) {
-        void triggerAttack(midi, velocity);
+        void triggerAttack(midi, limitedVelocity);
       }
       if (
         !isRecording ||
@@ -499,7 +500,7 @@ export default function ScorePage() {
       const startOffset = (performance.now() - start) / 1000;
       manualActiveNotesRef.current.set(midi, {
         start: startOffset,
-        velocity,
+        velocity: limitedVelocity,
       });
     },
     [inputType, isRecording, midiSoundEnabled, triggerAttack],
@@ -918,26 +919,6 @@ export default function ScorePage() {
       >
         <div className="grid grid-cols-[1fr_auto_1fr] bg-gray-100 dark:bg-gray-850 px-4 py-2">
           <div className="flex items-center gap-4 justify-self-start">
-            {showMidiControls && (
-              <BasicTooltip text={midiSoundTooltip}>
-                <Button
-                  onClick={toggleMidiSound}
-                  variant="outline"
-                  size="icon"
-                  className="rounded-full bg-white/80 dark:bg-gray-800/80 text-gray-900 dark:text-white border-gray-300 dark:border-gray-700"
-                  disabled={!midiStatus.ready}
-                >
-                  <MidiSoundIcon
-                    className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`}
-                  />
-                </Button>
-              </BasicTooltip>
-            )}
-            {showMidiControls && midiStatus.deviceName && (
-              <span className="text-xs text-gray-500 dark:text-gray-400 max-w-[140px] truncate">
-                {midiStatus.deviceName}
-              </span>
-            )}
             <BasicTooltip text={recordTooltip}>
               <Button
                 onClick={
@@ -1091,6 +1072,28 @@ export default function ScorePage() {
                 </span>
               </Button>
             </BasicTooltip>
+            {showMidiControls && (
+              <div className="flex items-center gap-2">
+                <BasicTooltip text={midiSoundTooltip}>
+                  <Button
+                    onClick={toggleMidiSound}
+                    variant="outline"
+                    size="icon"
+                    className="rounded-full bg-white/80 dark:bg-gray-800/80 text-gray-900 dark:text-white border-gray-300 dark:border-gray-700"
+                    disabled={!midiStatus.ready}
+                  >
+                    <MidiSoundIcon
+                      className={`${isSmallScreen ? "h-4 w-4" : "h-5 w-5"}`}
+                    />
+                  </Button>
+                </BasicTooltip>
+                {midiStatus.deviceName && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 max-w-[140px] truncate">
+                    {midiStatus.deviceName}
+                  </span>
+                )}
+              </div>
+            )}
             <BasicTooltip
               text={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >

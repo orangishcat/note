@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FolderPlus, RefreshCw, Star } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import React, { useContext, useEffect, useState } from "react";
 import {
@@ -301,7 +302,7 @@ function ScoreCard({
     >
       <Link href={`/app/score/${$id}`} key={$id}>
         <div className="aspect-[4/3] overflow-hidden">
-          <img
+          <Image
             src={
               preview_id
                 ? storage.getFileDownload(
@@ -311,18 +312,13 @@ function ScoreCard({
                 : "/static/preview.png"
             }
             alt={`Score preview for ${name}`}
-            style={{
-              width: "80%",
-              height: "auto",
-              display: "block",
-              margin: "0 auto",
-            }}
             width={300}
             height={225}
             draggable={false}
-            className={
-              "w-full h-full object-contain " + (preview_id && "bg-white")
-            }
+            className={`mx-auto block h-auto w-4/5 object-contain ${
+              preview_id ? "bg-white" : ""
+            }`}
+            unoptimized
           />
         </div>
       </Link>

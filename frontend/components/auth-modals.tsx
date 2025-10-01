@@ -106,6 +106,7 @@ export function AuthModal({
         username: user.name,
         email: user.email,
       });
+      void context.refreshAccount();
       context.setJustLogin(true);
       setTimeout(() => {
         if (context) context.setJustLogin(false);
