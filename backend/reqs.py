@@ -10,5 +10,7 @@ data = tomllib.loads(Path("pyproject.toml").read_text())
 project = data.get("project", {})
 deps = list(project.get("dependencies", []))
 
+lines = ["--find-links ./wheels", "scoring-native==0.1.0", *deps]
+
 with open("requirements.txt", "w") as f:
-    print("\n".join(deps), file=f)
+    print("\n".join(lines), file=f)

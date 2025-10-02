@@ -1,0 +1,125 @@
+{
+  "params": {
+    "min_segment_length": 6,
+    "penalty": 2.0,
+    "smoothing_window": 9,
+    "max_segments": null
+  },
+  "aggregate_scores": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "instability": 170.4219207763672
+  },
+  "per_dataset": [
+    {
+      "title": "Spider Dance Take 1",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "instability": 170.4219207763672
+    }
+  ],
+  "grid_top": [
+    {
+      "min_segment_length": 6.0,
+      "penalty": 2.0,
+      "smoothing_window": 9.0,
+      "max_segments": -1.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "instability": 170.4219207763672
+    },
+    {
+      "min_segment_length": 6.0,
+      "penalty": 2.0,
+      "smoothing_window": 9.0,
+      "max_segments": 6.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "instability": 170.4219207763672
+    },
+    {
+      "min_segment_length": 6.0,
+      "penalty": 2.0,
+      "smoothing_window": 9.0,
+      "max_segments": 8.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "instability": 170.4219207763672
+    },
+    {
+      "min_segment_length": 6.0,
+      "penalty": 2.0,
+      "smoothing_window": 9.0,
+      "max_segments": 10.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "instability": 170.4219207763672
+    },
+    {
+      "min_segment_length": 6.0,
+      "penalty": 3.5,
+      "smoothing_window": 9.0,
+      "max_segments": -1.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "instability": 170.4219207763672
+    },
+    {
+      "min_segment_length": 6.0,
+      "penalty": 3.5,
+      "smoothing_window": 9.0,
+      "max_segments": 6.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "instability": 170.4219207763672
+    },
+    {
+      "min_segment_length": 6.0,
+      "penalty": 3.5,
+      "smoothing_window": 9.0,
+      "max_segments": 8.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "instability": 170.4219207763672
+    },
+    {
+      "min_segment_length": 6.0,
+      "penalty": 3.5,
+      "smoothing_window": 9.0,
+      "max_segments": 10.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "instability": 170.4219207763672
+    },
+    {
+      "min_segment_length": 6.0,
+      "penalty": 5.0,
+      "smoothing_window": 9.0,
+      "max_segments": -1.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "instability": 170.4219207763672
+    },
+    {
+      "min_segment_length": 6.0,
+      "penalty": 5.0,
+      "smoothing_window": 9.0,
+      "max_segments": 6.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "instability": 170.4219207763672
+    }
+  ]
+}

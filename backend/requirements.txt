@@ -1,3 +1,5 @@
+--find-links ./wheels
+scoring-native==0.1.0
 appwrite>=13.0.0
 beam-client>=0.2.185
 flask>=3.1.2

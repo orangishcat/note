@@ -1,0 +1,15 @@
+[build-system]
+requires = ["maturin>=1.6,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "scoring-native"
+version = "0.1.0"
+requires-python = ">=3.8"
+classifiers = ["Programming Language :: Python"]
+
+[tool.maturin]
+bindings = "pyo3"
+compatibility = "manylinux2014"
+strip = true
+features = ["pyo3/extension-module", "pyo3/abi3-py38"]
