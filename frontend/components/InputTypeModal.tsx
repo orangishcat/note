@@ -24,20 +24,21 @@ const OPTIONS: InputTypeOption[] = [
   {
     id: "keyboard",
     title: "On-Screen Keyboard",
-    description: "Get a MIDI keyboard it's very difficult to play on",
+    description:
+      "You can play on this but it's not recommended, get a MIDI keyboard or something",
     icon: Piano,
   },
   {
     id: "midi",
     title: "MIDI Keyboard",
-    description: "Connect a MIDI device to capture notes",
+    description: "Connect a MIDI device to record your performance",
     icon: Cable,
   },
   {
     id: "audio",
     title: "Audio Recording",
     description:
-      "Use your device microphone to capture performances (if this doesn't work check back later)",
+      "Use your device microphone to record performances (if this doesn't work check back later)",
     icon: Mic,
   },
 ];
@@ -78,7 +79,7 @@ const InputTypeModal: React.FC<InputTypeModalProps> = ({
                 variant="outline"
                 className={cn(
                   "h-24 justify-start rounded-3xl border-2 text-left px-5 py-4 hover:scale-1" +
-                    "transition-colors duration-75",
+                    "transition-colors duration-75 bg-gray-50 dark:bg-gray-850",
                   isActive
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-muted text-foreground hover:border-primary",

@@ -31,7 +31,7 @@ from scoring import (
     extract_midi_notes,
 )
 from scoring.edit_distance import find_ops
-from temp import pitch_name
+from debug import pitch_name
 from . import scoring_bp
 from .. import get_user_client, misc_bucket, database
 
@@ -257,7 +257,7 @@ def receive_audio():
         logger.info(f"Processing audio for score ID: {score_id}")
 
         test_type = request.headers.get("X-Test-Type")
-        is_test = bool(test_type and test_type != "production")
+        is_test = test_type and test_type != "production"
 
         result_file: Optional[str] = None
 

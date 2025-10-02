@@ -5,7 +5,7 @@ from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
 from loguru import logger
 
 from scoring import extract_midi_notes, extract_pb_notes
-from temp import pitch_name
+from debug import pitch_name
 from timer import timeit
 from ._native import load_native
 from .notes_pb2 import Edit, EditOperation, Note, ScoringResult
