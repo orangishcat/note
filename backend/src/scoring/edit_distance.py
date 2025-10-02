@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
+from loguru import logger
 
 from scoring import extract_midi_notes, extract_pb_notes
+from temp import pitch_name
 from timer import timeit
 from ._native import load_native
 from .notes_pb2 import Edit, EditOperation, Note, ScoringResult
@@ -140,6 +142,9 @@ def find_ops(
     n, m = len(s), len(t)
     if n + m > 10000:
         raise ValueError(f"Too big: {n + m}")
+
+    logger.debug(f"S: {[pitch_name(n.pitch) for n in s]}")
+    logger.debug(f"T: {[pitch_name(n.pitch) for n in t]}")
 
     s_pitches, t_pitches, s_times, _ = preprocess(s, t)
     edit_list, aligned_indices = edit_distance(s_pitches, t_pitches, s, t, free_ins)

@@ -3,8 +3,9 @@ use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
 use pyo3::prelude::*;
 
 const MAX_MOVE_SWAP: usize = 5;
-const MOVE_SWAP_COST: i64 = 1;
+const MOVE_SWAP_COST: i64 = 2;
 const OP_COST: i64 = 5;
+const REDUCED_COST: i64 = 1;
 
 #[pyclass(module = "scoring_native")]
 #[derive(Clone)]
@@ -117,7 +118,7 @@ fn edit_dist(
         }
     });
 
-    let is_free_insertion = |idx: usize| -> bool {
+    let free_insert = |idx: usize| -> bool {
         if let Some((start, end)) = insertion_range {
             idx >= start && idx < end
         } else {
@@ -128,15 +129,19 @@ fn edit_dist(
     let mut dp = Array2::<i64>::zeros((n + 1, m + 1));
 
     for j in 1..=m {
-        let cost = if is_free_insertion(j - 1) { 0 } else { OP_COST };
+        let cost = if free_insert(j - 1) { 0 } else { OP_COST };
         dp[[0, j]] = dp[[0, j - 1]] + cost;
     }
 
     for i in 1..=n {
         dp[[i, 0]] = (i as i64) * OP_COST;
         for j in 1..=m {
-            let insert_cost = if is_free_insertion(j - 1) { 0 } else { OP_COST };
-            let delete_cost = if j == m { 0 } else { OP_COST };
+            let insert_cost = if free_insert(j - 1) {
+                REDUCED_COST
+            } else {
+                OP_COST
+            };
+            let delete_cost = if j == m { REDUCED_COST } else { OP_COST };
             let mut best = min3(
                 dp[[i - 1, j - 1]]
                     + if s_pitches[i - 1] == t_pitches[j - 1] {
@@ -191,7 +196,7 @@ fn backtrack(
     let mut aligned_indices: Vec<(usize, usize)> = Vec::new();
     let mut edits: Vec<OperationRecord> = Vec::new();
 
-    let is_free_insertion = |idx: usize| -> bool {
+    let free_ins = |idx: usize| -> bool {
         if let Some((start, end)) = insertion_range {
             idx >= start && idx < end
         } else {
@@ -217,8 +222,12 @@ fn backtrack(
             OP_COST
         };
 
-        let delete_cost = if j == m { 0 } else { OP_COST };
-        let insert_cost = if is_free_insertion(j - 1) { 0 } else { OP_COST };
+        let delete_cost = if j == m { REDUCED_COST } else { OP_COST };
+        let insert_cost = if free_ins(j - 1) {
+            REDUCED_COST
+        } else {
+            OP_COST
+        };
 
         if dp[[i, j]] == dp[[i - 1, j - 1]] + sub_cost {
             aligned_indices.push((i - 1, j - 1));

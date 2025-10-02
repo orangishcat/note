@@ -69,6 +69,10 @@ type CapturedNote = {
 declare global {
   interface Window {
     lastRefetchTime?: number;
+    __manualCaptureStart?: () => void;
+    __manualCaptureStop?: () => Promise<void> | void;
+    __manualNoteOn?: (midi: number, velocity?: number) => void;
+    __manualNoteOff?: (midi: number) => void;
   }
 }
 export default function ScorePage() {
@@ -649,7 +653,15 @@ export default function ScorePage() {
         lines: [],
       }) as NoteList;
       const encoded = noteType.encode(noteListPayload).finish();
-      const response = await api.post("/score/receive-notes", encoded, {
+      const payloadBuffer =
+        encoded.byteOffset === 0 &&
+        encoded.byteLength === encoded.buffer.byteLength
+          ? encoded.buffer
+          : encoded.buffer.slice(
+              encoded.byteOffset,
+              encoded.byteOffset + encoded.byteLength,
+            );
+      const response = await api.post("/score/receive-notes", payloadBuffer, {
         headers: {
           "Content-Type": "application/octet-stream",
           "X-Score-ID": id,
@@ -662,10 +674,9 @@ export default function ScorePage() {
       const recordingMessage = recordingTypeLocal.decode(
         new Uint8Array(buffer),
       ) as Recording;
-      const editCopy = JSON.parse(
-        JSON.stringify(recordingMessage.computedEdits),
-      ) as ScoringResult;
-      setEditList(editCopy);
+      const edits = recordingMessage.computedEdits;
+      log.debug("Edit list:", edits);
+      setEditList(edits);
       addToast({
         title: "Recording Processed",
         description: "Manual input compared against the score.",
@@ -694,6 +705,39 @@ export default function ScorePage() {
     refetchTypes,
     score.notes_id,
     scoreNotes,
+  ]);
+  useEffect(() => {
+    if (!isClient) {
+      return;
+    }
+    const debugWindow = window as Window;
+    if (!isDebugMode) {
+      delete debugWindow.__manualCaptureStart;
+      delete debugWindow.__manualCaptureStop;
+      delete debugWindow.__manualNoteOn;
+      delete debugWindow.__manualNoteOff;
+      return;
+    }
+    debugWindow.__manualCaptureStart = () => {
+      startManualRecording();
+    };
+    debugWindow.__manualCaptureStop = () => finishManualRecording();
+    debugWindow.__manualNoteOn = (midi: number, velocity = 0.9) =>
+      handleManualNoteOn(midi, velocity);
+    debugWindow.__manualNoteOff = (midi: number) => handleManualNoteOff(midi);
+    return () => {
+      delete debugWindow.__manualCaptureStart;
+      delete debugWindow.__manualCaptureStop;
+      delete debugWindow.__manualNoteOn;
+      delete debugWindow.__manualNoteOff;
+    };
+  }, [
+    finishManualRecording,
+    handleManualNoteOff,
+    handleManualNoteOn,
+    isClient,
+    isDebugMode,
+    startManualRecording,
   ]);
   useEffect(() => {
     if (inputType !== "midi") {

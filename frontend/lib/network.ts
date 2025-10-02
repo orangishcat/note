@@ -18,6 +18,20 @@ export const setNavigateFunction = (navigate: (path: string) => void) => {
 let cachedJwt: string | null = null;
 let jwtExpiry = 0;
 api.interceptors.request.use(async (config) => {
+  const payload = config.data;
+  if (
+    payload &&
+    typeof ArrayBuffer !== "undefined" &&
+    typeof ArrayBuffer.isView === "function" &&
+    ArrayBuffer.isView(payload)
+  ) {
+    const view = payload as ArrayBufferView;
+    const needsSlice =
+      view.byteOffset !== 0 || view.byteLength !== view.buffer.byteLength;
+    config.data = needsSlice
+      ? view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength)
+      : view.buffer;
+  }
   if (!config.url?.includes("http")) {
     const now = Date.now();
     if (!cachedJwt || now >= jwtExpiry) {

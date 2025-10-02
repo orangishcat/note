@@ -31,6 +31,7 @@ from scoring import (
     extract_midi_notes,
 )
 from scoring.edit_distance import find_ops
+from temp import pitch_name
 from . import scoring_bp
 from .. import get_user_client, misc_bucket, database
 
@@ -115,7 +116,7 @@ def parse_rep_output(replica, page_sizes) -> NoteList:
     return nl
 
 
-def finalize_recording_response(
+def recv_record(
     score_id: str,
     actual_notes: NoteList,
     played_notes: NoteList,
@@ -177,38 +178,38 @@ def finalize_recording_response(
         storage = Storage(client)
         db = Databases(client)
         user_role = Role.user(g.account["$id"])
-        recording_id = db.create_document(
-            database_id=database,
-            collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
-            document_id="unique()",
-            data={"user_id": g.account["$id"], "score_id": score_id},
-            permissions=[
-                Permission.read(user_role),
-                Permission.update(user_role),
-                Permission.delete(user_role),
-            ],
-        )["$id"]
-        file_res = storage.create_file(
-            bucket_id=misc_bucket,
-            file_id=recording_id,
-            file=InputFile.from_bytes(
-                recording.SerializeToString(),
-                f"{recording_id}.pb",
-                "application/octet-stream",
-            ),
-            permissions=[
-                Permission.read(user_role),
-                Permission.update(user_role),
-                Permission.delete(user_role),
-            ],
-        )
-
-        db.update_document(
-            database_id=database,
-            collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
-            document_id=recording_id,
-            data={"file_id": file_res["$id"]},
-        )
+        try:
+            file_res = storage.create_file(
+                bucket_id=misc_bucket,
+                file_id="unique()",
+                file=InputFile.from_bytes(
+                    recording.SerializeToString(),
+                    f"Recording-{score_id}-{datetime.now().isoformat()}.pb",
+                    "application/octet-stream",
+                ),
+                permissions=[
+                    Permission.read(user_role),
+                    Permission.update(user_role),
+                    Permission.delete(user_role),
+                ],
+            )
+            db.create_document(
+                database_id=database,
+                collection_id=os.environ["RECORDINGS_COLLECTION_ID"],
+                document_id="unique()",
+                data={
+                    "user_id": g.account["$id"],
+                    "score_id": score_id,
+                    "file_id": file_res["$id"],
+                },
+                permissions=[
+                    Permission.read(user_role),
+                    Permission.update(user_role),
+                    Permission.delete(user_role),
+                ],
+            )
+        except Exception as e:
+            logger.error(f"Failed to save recording: {e}")
 
     payload = recording.SerializeToString()
     logger.info(f"Serialized recording payload size: {len(payload)} bytes")
@@ -308,7 +309,7 @@ def receive_audio():
             played_notes = parse_rep_output(rep_out, actual_notes.size)
 
         focused_page = int(request.headers.get("X-Focused-Page", 0))
-        return finalize_recording_response(
+        return recv_record(
             score_id,
             actual_notes,
             played_notes,
@@ -341,12 +342,13 @@ def receive_notes():
     try:
         note_list.ParseFromString(raw_bytes)
     except DecodeError as exc:
-        logger.error("Failed to parse provided note list: {}", exc)
+        logger.error(f"Failed to parse provided note list: {exc}")
         return {"error": "Invalid note list payload"}, 400
 
+    logger.debug(f"Note list: {[pitch_name(n.pitch) for n in note_list.notes]}")
     actual_notes = load_notes(notes_id)
     focused_page = int(request.headers.get("X-Focused-Page", 0))
-    return finalize_recording_response(
+    return recv_record(
         score_id,
         actual_notes,
         note_list,
