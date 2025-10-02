@@ -6,7 +6,7 @@ from loguru import logger
 
 from . import extract_midi_notes, extract_pb_notes
 from ..debug import pitch_name
-from timer import timeit
+from ..timer import timeit
 from ._native import load_native
 from .notes_pb2 import Edit, EditOperation, Note, ScoringResult
 

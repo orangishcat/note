@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from timer import timeit
+from ..timer import timeit
 from ._native import load_native
 from .notes_pb2 import TempoSection
 
