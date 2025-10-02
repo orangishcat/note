@@ -1,7 +1,7 @@
 import sys
 from io import BytesIO
 
-from app import app
+from .app import app
 
 
 def _to_wsgi_environ(context):

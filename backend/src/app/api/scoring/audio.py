@@ -23,15 +23,8 @@ from google.protobuf.message import DecodeError
 from google.protobuf.timestamp_pb2 import Timestamp
 from loguru import logger
 
-from scoring import (
-    Note,
-    NoteList,
-    Recording,
-    analyze_tempo,
-    extract_midi_notes,
-)
-from scoring.edit_distance import find_ops
-from debug import pitch_name
+from ... import Note, NoteList, Recording, analyze_tempo, extract_midi_notes, find_ops
+from ...debug import pitch_name
 from . import scoring_bp
 from .. import get_user_client, misc_bucket, database
 
@@ -56,10 +49,10 @@ NOTE_EXTENSION = 15
 @lru_cache(maxsize=16)
 def load_notes(notes_id) -> NoteList:
     if os.environ.get("DEBUG") == "True":
-        if os.path.exists(audio_path := f"audio/{notes_id}"):
+        if os.path.exists(audio_path := f"resources/audio/{notes_id}"):
             return extract_midi_notes(audio_path)
 
-        if os.path.exists(notes_path := f"scores/{notes_id}"):
+        if os.path.exists(notes_path := f"resources/scores/{notes_id}"):
             with open(notes_path, "rb") as f:
                 notes = NoteList()
                 notes.ParseFromString(f.read())
@@ -219,11 +212,11 @@ def recv_record(
         def _join(match):
             return " ".join(match.group().split())
 
-        with open("debug_info/last_edits.json", "w") as f:
+        with open("resources/debug_info/last_edits.json", "w") as f:
             dumps = json.dumps(aligned_idx, ensure_ascii=False, indent=4)
             f.write(re.sub(r"(?<=\[)[^\[\]]+(?=])", _join, dumps))
 
-        with open("debug_info/last_pb.pb", "wb") as f:
+        with open("resources/debug_info/last_pb.pb", "wb") as f:
             f.write(payload)
 
         if result_file:
@@ -290,7 +283,7 @@ def receive_audio():
             logger.info(f"Detected MIME type: {mime_type}, using extension: {ext}")
 
             if os.environ.get("DEBUG") == "True":
-                tmp_path = f"debug_info/last_audio{ext}"
+                tmp_path = f"resources/debug_info/last_audio{ext}"
                 with open(tmp_path, "wb") as f:
                     f.write(audio_bytes)
             else:

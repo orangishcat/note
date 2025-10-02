@@ -15,7 +15,7 @@ def load_native() -> ModuleType:
     try:
         return importlib.import_module(_NATIVE_MODULE)
     except ImportError as first_error:
-        root = Path(__file__).resolve().parents[2]
+        root = Path(__file__).resolve().parents[3]
         suffixes = list(importlib.machinery.EXTENSION_SUFFIXES)
         suffixes.extend([".so", ".dylib"])
         for build_type in ("debug", "release"):

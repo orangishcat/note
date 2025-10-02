@@ -11,7 +11,7 @@ from appwrite.services.storage import Storage
 from flask import Response
 from werkzeug.utils import secure_filename
 
-from rendering import score_preview
+from ...rendering import score_preview
 from . import score_bp
 from .process_scores import *
 

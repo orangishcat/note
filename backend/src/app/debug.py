@@ -4,7 +4,7 @@ For debugging purposes only
 
 from pathlib import Path
 
-from scoring import *
+from .scoring import *
 
 names = [
     "C",

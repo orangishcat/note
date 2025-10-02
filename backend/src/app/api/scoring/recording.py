@@ -2,7 +2,7 @@ from flask import request
 from appwrite.services.storage import Storage
 from google.protobuf.message import DecodeError
 from loguru import logger
-from scoring import Recording
+from ... import Recording
 from .. import get_user_client, misc_bucket
 from . import scoring_bp
 

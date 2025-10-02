@@ -7,14 +7,14 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_socketio import SocketIO
 
-from limiter import limit
+from .limiter import limit
 
 if debug := os.getenv("DEBUG", "True") == "True":
     from dotenv import load_dotenv
 
     load_dotenv()
 
-from api import *
+from .api import *
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
@@ -47,7 +47,8 @@ jwt = JWTManager(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 limit(limiter)
 
-if __name__ == "__main__":
+
+def main():
     logger.remove()
     logger.add(
         sys.stdout,
@@ -68,3 +69,7 @@ if __name__ == "__main__":
         debug=debug,
         allow_unsafe_werkzeug=True,
     )
+
+
+if __name__ == "__main__":
+    main()
