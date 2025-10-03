@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import numpy as np
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
-from loguru import logger
 
 from . import extract_midi_notes, extract_pb_notes
-from ..debug import pitch_name
-from ..timer import timeit
 from ._native import load_native
 from .notes_pb2 import Edit, EditOperation, Note, ScoringResult
+from ..timer import timeit
 
 OCTAVE_CHECK_SECS = 0.1
 ROUND_TO = 0.1
@@ -124,34 +122,33 @@ def postprocess(edit_list: ScoringResult, s_times, s_pitches) -> ScoringResult:
 def edit_distance(
     s_pitches, t_pitches, s_raw, t_raw, free_ins: tuple[int, int] | None = None
 ):
-    native_ops, aligned_indices = scoring_native.edit_dist(
+    native_ops, aligned_indices, total_cost = scoring_native.edit_dist(
         s_pitches.tolist(),
         t_pitches.tolist(),
         free_ins,
     )
-    return build_protobuf(native_ops, s_raw, t_raw), aligned_indices
+    return build_protobuf(native_ops, s_raw, t_raw), aligned_indices, int(total_cost)
 
 
-def find_ops(
+def find_edit_ops(
     s: RepeatedCompositeFieldContainer[Note],
     t: RepeatedCompositeFieldContainer[Note],
-    free_ins: tuple[int, int] | None = None,
-) -> tuple[ScoringResult, list[tuple[int, int]]]:
+    free_ins: tuple[int, int, int] | None = None,
+) -> tuple[ScoringResult, list[tuple[int, int]], int]:
     """Compute edit operations and alignment using the native Rust core."""
 
     n, m = len(s), len(t)
     if n + m > 10000:
         raise ValueError(f"Too big: {n + m}")
 
-    logger.debug(f"S: {[pitch_name(n.pitch) for n in s]}")
-    logger.debug(f"T: {[pitch_name(n.pitch) for n in t]}")
-
     s_pitches, t_pitches, s_times, _ = preprocess(s, t)
-    edit_list, aligned_indices = edit_distance(s_pitches, t_pitches, s, t, free_ins)
+    edit_list, aligned_indices, total_cost = edit_distance(
+        s_pitches, t_pitches, s, t, free_ins
+    )
     aligned_pairs = [(int(a), int(b)) for a, b in aligned_indices]
     edit_list = postprocess(edit_list, s_times, s_pitches)
 
-    return edit_list, aligned_pairs
+    return edit_list, aligned_pairs, total_cost
 
 
 def print_wrong_notes(edit_list: ScoringResult, limit: int = 99999) -> None:
@@ -181,11 +178,12 @@ if __name__ == "__main__":
     with open(actual, "rb") as f:
         actual_notes = extract_pb_notes(f.read()).notes
 
-    ops, aligned = find_ops(actual_notes, played_notes)
+    ops, aligned, cost = find_edit_ops(actual_notes, played_notes)
 
     print("Lengths:", len(played_notes), len(actual_notes))
     print("Distance:", len(ops.edits))
     print("Aligned pairs:", len(aligned))
+    print("Cost:", cost)
     print("Notes", played_notes[:12], actual_notes[:12], sep="\n")
     print_wrong_notes(ops, 7)
     print("First few aligned indices:", aligned[:10])

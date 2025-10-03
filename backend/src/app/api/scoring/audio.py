@@ -23,8 +23,15 @@ from google.protobuf.message import DecodeError
 from google.protobuf.timestamp_pb2 import Timestamp
 from loguru import logger
 
-from ... import Note, NoteList, Recording, analyze_tempo, extract_midi_notes, find_ops
-from ...debug import pitch_name
+from ... import (
+    Note,
+    NoteList,
+    Recording,
+    analyze_tempo,
+    extract_midi_notes,
+    find_edit_ops,
+)
+from ..util import pitch_name
 from . import scoring_bp
 from .. import get_user_client, misc_bucket, database
 
@@ -109,6 +116,9 @@ def parse_rep_output(replica, page_sizes) -> NoteList:
     return nl
 
 
+SAVE_RECORDINGS = False
+
+
 def recv_record(
     score_id: str,
     actual_notes: NoteList,
@@ -132,7 +142,7 @@ def recv_record(
         else None
     )
 
-    ops, aligned_idx = find_ops(
+    ops, aligned_idx, total_cost = find_edit_ops(
         actual_notes.notes,
         played_notes.notes,
         window,
@@ -146,6 +156,8 @@ def recv_record(
     )
     ops.unstable_rate = unstable
     ops.tempo_sections.extend(sections)
+
+    logger.debug(f"Edit distance total cost: {total_cost}")
 
     response_notes = NoteList()
     if is_test:
@@ -166,7 +178,7 @@ def recv_record(
     created_at.FromDatetime(datetime.now(timezone.utc))
     recording.created_at.CopyFrom(created_at)
 
-    if not is_test:
+    if not is_test and SAVE_RECORDINGS:
         client = get_user_client()
         storage = Storage(client)
         db = Databases(client)

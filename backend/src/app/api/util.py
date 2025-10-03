@@ -5,7 +5,6 @@ from appwrite.client import Client
 from appwrite.services.account import Account
 from flask import request
 
-
 data = defaultdict(list)
 score_file_types = ["mxl", "musicxml", "xml", "mxmls", "pdf", "png", "jpg", "jpeg"]
 audio_file_types = ["mp4", "mp3", "mov", "wav", "ogg", "avi", "m4a"]
@@ -46,3 +45,25 @@ def get_user_client(jwt: str | None = None) -> Client:
 
 def get_user_account(jwt: str | None = None) -> Account:
     return Account(get_user_client(jwt))
+
+
+names = [
+    "C",
+    "C#",
+    "D",
+    "D#",
+    "E",
+    "F",
+    "F#",
+    "G",
+    "G#",
+    "A",
+    "A#",
+    "B",
+]
+
+
+def pitch_name(midi_pitch: int) -> str:
+    octave = midi_pitch // 12 - 1
+    name = names[midi_pitch % 12]
+    return f"{name}{octave}"

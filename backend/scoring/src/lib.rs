@@ -78,6 +78,14 @@ impl TempoSegmentationParams {
     }
 }
 
+fn free_insert(idx: usize, insertion_range: Option<(usize, usize)>) -> bool {
+    // if let Some((start, end)) = insertion_range {
+    //     idx >= start && idx < end
+    // } else {
+    false
+    // }
+}
+
 #[pyfunction]
 #[pyo3(
     name = "edit_dist",
@@ -87,20 +95,21 @@ impl TempoSegmentationParams {
         free_insertion_range=None
     )
 )]
+
 pub fn edit_dist_py(
     s_pitches: Vec<i64>,
     t_pitches: Vec<i64>,
     free_insertion_range: Option<(usize, usize)>,
-) -> PyResult<(Vec<OperationRecord>, Vec<(usize, usize)>)> {
-    let (ops, aligned) = edit_dist(&s_pitches, &t_pitches, free_insertion_range);
-    Ok((ops, aligned))
+) -> PyResult<(Vec<OperationRecord>, Vec<(usize, usize)>, i64)> {
+    let (ops, aligned, total_cost) = edit_dist(&s_pitches, &t_pitches, free_insertion_range);
+    Ok((ops, aligned, total_cost))
 }
 
 fn edit_dist(
     s_pitches: &[i64],
     t_pitches: &[i64],
     free_insertion_range: Option<(usize, usize)>,
-) -> (Vec<OperationRecord>, Vec<(usize, usize)>) {
+) -> (Vec<OperationRecord>, Vec<(usize, usize)>, i64) {
     let n = s_pitches.len();
     let m = t_pitches.len();
 
@@ -118,25 +127,21 @@ fn edit_dist(
         }
     });
 
-    let free_insert = |idx: usize| -> bool {
-        if let Some((start, end)) = insertion_range {
-            idx >= start && idx < end
-        } else {
-            false
-        }
-    };
-
     let mut dp = Array2::<i64>::zeros((n + 1, m + 1));
 
     for j in 1..=m {
-        let cost = if free_insert(j - 1) { 0 } else { OP_COST };
+        let cost = if free_insert(j - 1, insertion_range) {
+            REDUCED_COST
+        } else {
+            OP_COST
+        };
         dp[[0, j]] = dp[[0, j - 1]] + cost;
     }
 
     for i in 1..=n {
         dp[[i, 0]] = (i as i64) * OP_COST;
         for j in 1..=m {
-            let insert_cost = if free_insert(j - 1) {
+            let insert_cost = if free_insert(j - 1, insertion_range) {
                 REDUCED_COST
             } else {
                 OP_COST
@@ -188,31 +193,16 @@ fn backtrack(
     t_pitches: &[i64],
     insertion_range: Option<(usize, usize)>,
     m: usize,
-) -> (Vec<OperationRecord>, Vec<(usize, usize)>) {
+) -> (Vec<OperationRecord>, Vec<(usize, usize)>, i64) {
     if m == 0 {
-        return (Vec::new(), Vec::new());
+        return (Vec::new(), Vec::new(), 0);
     }
 
     let mut aligned_indices: Vec<(usize, usize)> = Vec::new();
     let mut edits: Vec<OperationRecord> = Vec::new();
 
-    let free_ins = |idx: usize| -> bool {
-        if let Some((start, end)) = insertion_range {
-            idx >= start && idx < end
-        } else {
-            false
-        }
-    };
-
-    let mut i = 0usize;
-    let mut min_cost = dp[[0, m]];
-    for row in 1..dp.nrows() {
-        let cost = dp[[row, m]];
-        if cost <= min_cost {
-            min_cost = cost;
-            i = row;
-        }
-    }
+    let mut i = dp.nrows().checked_sub(1).unwrap_or_default();
+    let min_cost = dp[[i, m]];
     let mut j = m;
 
     while i > 0 && j > 0 {
@@ -223,7 +213,7 @@ fn backtrack(
         };
 
         let delete_cost = if j == m { REDUCED_COST } else { OP_COST };
-        let insert_cost = if free_ins(j - 1) {
+        let insert_cost = if free_insert(j - 1, insertion_range) {
             REDUCED_COST
         } else {
             OP_COST
@@ -322,7 +312,7 @@ fn backtrack(
     edits.reverse();
     aligned_indices.reverse();
 
-    (edits, aligned_indices)
+    (edits, aligned_indices, min_cost)
 }
 
 fn min3(a: i64, b: i64, c: i64) -> i64 {
@@ -520,7 +510,7 @@ fn build_sections(
             continue;
         }
         let segment_view = slopes.slice(s![start..end]);
-        let tempo = segment_view.mean().unwrap_or(0.0) as f32;
+        let tempo = segment_view.mean().unwrap_or(0.0);
         let start_idx = aligned
             .get(start)
             .map(|(a_idx, _)| *a_idx)

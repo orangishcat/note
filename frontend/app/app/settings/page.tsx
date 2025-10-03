@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useRef } from "react";
 import { useTheme } from "next-themes";
 import { Laptop2, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,33 +8,11 @@ import { Input } from "@/components/ui/input";
 import { AccountContext } from "@/app/providers";
 import { Layout } from "@/components/layout";
 
-export default function SettingsPage() {
+export function SettingsPage() {
   const account = useContext(AccountContext)?.accountView;
   const { setTheme } = useTheme();
-  const [loadAll, setLoadAll] = useState(false);
-  const [verticalLoad, setVerticalLoad] = useState(false);
-
-  useEffect(() => {
-    setLoadAll(localStorage.getItem("score.displayAllPages") === "true");
-    setVerticalLoad(localStorage.getItem("score.verticalLoad") === "true");
-  }, []);
-
-  const toggleLoadAll = () => {
-    const newVal = !loadAll;
-    setLoadAll(newVal);
-    localStorage.setItem("score.displayAllPages", newVal ? "true" : "false");
-    window.dispatchEvent(new Event("storage"));
-  };
-
-  const toggleVerticalLoad = () => {
-    const newVal = !verticalLoad;
-    setVerticalLoad(newVal);
-    localStorage.setItem("score.verticalLoad", newVal ? "true" : "false");
-    window.dispatchEvent(new Event("storage"));
-  };
   const containerRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
-  const scoreRef = useRef<HTMLDivElement>(null);
 
   return (
     <Layout>
@@ -100,25 +78,6 @@ export default function SettingsPage() {
             </div>
           </div>
           <hr className="my-8" />
-          <h1 className="text-2xl pb-6 text-center">Score settings</h1>
-          <div ref={scoreRef} id="score" className="space-y-6">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={loadAll}
-                onChange={toggleLoadAll}
-              />
-              Scroll vertically (load all pages)
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={verticalLoad}
-                onChange={toggleVerticalLoad}
-              />
-              Vertical loading bar
-            </label>
-          </div>
         </div>
       </div>
     </Layout>

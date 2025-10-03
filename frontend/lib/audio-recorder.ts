@@ -116,18 +116,17 @@ export function useAudioRecorder({
           "Recording protobuf type still unavailable after refetch",
         );
       }
-      const recording = recordingType.decode(
+      const recordingMessage = recordingType.decode(
         new Uint8Array(buffer),
       ) as Recording;
-      const editListCopy = JSON.parse(
-        JSON.stringify(recording.computedEdits),
-      ) as ScoringResult;
-      onEditListChange(editListCopy);
-      if (recording.playedNotes) {
-        const playedNotesCopy = JSON.parse(
-          JSON.stringify(recording.playedNotes),
-        ) as NoteList;
-        onPlayedNotesChange?.(playedNotesCopy);
+      const recordingObject = recordingType.toObject(recordingMessage, {
+        defaults: true,
+        enums: String,
+        longs: Number,
+      }) as Recording;
+      onEditListChange(recordingObject.computedEdits ?? null);
+      if (recordingObject.playedNotes) {
+        onPlayedNotesChange?.(recordingObject.playedNotes);
       }
     } catch (err) {
       log.error("Error stopping/processing recording:", err);

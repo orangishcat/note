@@ -288,6 +288,8 @@ export default function ScorePage() {
           bucketId: process.env.NEXT_PUBLIC_FILES_BUCKET!,
           fileId: score.notes_id!,
         });
+        log.debug("note list type: ", noteListType);
+
         const response = await api.get(url, { responseType: "arraybuffer" });
         const buffer = response.data;
         log.debug(
@@ -674,9 +676,14 @@ export default function ScorePage() {
       const recordingMessage = recordingTypeLocal.decode(
         new Uint8Array(buffer),
       ) as Recording;
-      const edits = recordingMessage.computedEdits;
-      log.debug("Edit list:", edits);
-      setEditList(edits);
+      const recordingObject = recordingTypeLocal.toObject(recordingMessage, {
+        defaults: true,
+        enums: String,
+        longs: Number,
+      }) as Recording;
+      const edits = recordingObject.computedEdits;
+      log.debug("recording:", recordingObject);
+      setEditList(edits ?? null);
       addToast({
         title: "Recording Processed",
         description: "Manual input compared against the score.",
