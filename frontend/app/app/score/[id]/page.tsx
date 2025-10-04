@@ -248,6 +248,19 @@ export default function ScorePage() {
     onEditListChange: setEditList,
     onError: handleRecordingError,
   });
+
+  // noinspection TypeScriptUnresolvedReference
+  window.setScoreSize = function (w: number, h: number) {
+    if (!scoreNotes) {
+      log.warn("No score notes to set size");
+      return;
+    }
+
+    scoreNotes.size = [w, h];
+    setScoreNotes(scoreNotes);
+    log.debug("Set size to", w, h);
+  };
+
   useEffect(() => {
     if (score.$id || fetchedDataRef.current) {
       return;
@@ -684,6 +697,11 @@ export default function ScorePage() {
       const edits = recordingObject.computedEdits;
       log.debug("recording:", recordingObject);
       setEditList(edits ?? null);
+      setTimeout(() => {
+        document.dispatchEvent(
+          new CustomEvent("score:redrawAnnotations", { bubbles: true }),
+        );
+      }, 50);
       addToast({
         title: "Recording Processed",
         description: "Manual input compared against the score.",

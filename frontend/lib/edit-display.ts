@@ -243,7 +243,7 @@ export function useEditDisplay(
           scaleY,
           colorFor(edit.operation),
         );
-        sDiv.style.zIndex = "1001";
+        sDiv.style.zIndex = "41";
         overlay!.appendChild(sDiv);
         annotationsRef.current.push(sDiv);
         if (edit.tChar) {
@@ -264,7 +264,7 @@ export function useEditDisplay(
             scaleY,
             colorFor(edit.operation, true),
           );
-          tDiv.style.zIndex = "1001";
+          tDiv.style.zIndex = "41";
           overlay!.appendChild(tDiv);
           annotationsRef.current.push(tDiv);
         }
@@ -276,7 +276,7 @@ export function useEditDisplay(
           const brackets = createTempoBrackets(section, scaleX, scaleY);
           brackets.forEach((div) => {
             div.style.pointerEvents = "none";
-            div.style.zIndex = "1001";
+            div.style.zIndex = "41";
             overlay!.appendChild(div);
             annotationsRef.current.push(div);
           });

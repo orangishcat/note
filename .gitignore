@@ -20,6 +20,7 @@ node_modules
 coverage
 playwright-report/
 test-results/
+debug.py
 
 # next.js
 .next/
