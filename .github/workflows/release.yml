@@ -9,25 +9,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Clean target dir
-        run: rm -rf backend/scoring/target || true
+      - name: Prepare dist dir
+        run: mkdir -p dist && chmod -R a+rwx dist
 
       - name: Build wheels (manylinux2014)
         uses: PyO3/maturin-action@v1
         with:
           manylinux: "2014"
           command: build
-          args: --release --out /io/dist
+          args: --release --out ../../dist
           working-directory: backend/scoring
 
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
-          args: --out /io/dist
+          args: --out ../../dist
           working-directory: backend/scoring
-
-      - run: sudo chmod -R a+rX dist || true
 
       - uses: actions/upload-artifact@v4
         with:
