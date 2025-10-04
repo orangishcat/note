@@ -228,8 +228,7 @@ export function useEditDisplay(
       const pageEdits = (editList.edits ?? []).filter(
         (edit) =>
           edit.sChar.page === pageIndex &&
-          edit.sChar.confidence >= minConfidence &&
-          (edit.tChar?.confidence ?? 5) >= minConfidence,
+          edit.sChar.confidence >= minConfidence,
       );
       if (pageEdits.length === 0) {
         log.debug("No edits for page", pageIndex);
@@ -243,20 +242,23 @@ export function useEditDisplay(
           scaleY,
           colorFor(edit.operation),
         );
-        sDiv.style.zIndex = "41";
+        sDiv.style.zIndex = "11";
         overlay!.appendChild(sDiv);
         annotationsRef.current.push(sDiv);
         if (edit.tChar) {
-          if (!edit.tChar.bbox) {
-            edit.tChar.bbox = [0, 0, 0, 0];
+          if (!edit.tChar.bbox.length) {
             const sY = edit.sChar.bbox[3] - edit.sChar.bbox[1];
             const diff =
               ((sY * (edit.sChar.pitch - edit.tChar.pitch)) / 4) * 0.9;
-            edit.tChar.bbox[0] = edit.sChar.bbox[0];
-            edit.tChar.bbox[1] = edit.sChar.bbox[1] + diff;
-            edit.tChar.bbox[2] = edit.sChar.bbox[2];
-            edit.tChar.bbox[3] = edit.sChar.bbox[3] + diff;
+            log.debug("diff:", diff);
+            edit.tChar.bbox = [
+              edit.sChar.bbox[0],
+              edit.sChar.bbox[1] + diff,
+              edit.sChar.bbox[2],
+              edit.sChar.bbox[3] + diff,
+            ];
           }
+          log.debug("Target note bbox:", edit.tChar.bbox);
           const tDiv = createAnnotDiv(
             edit,
             edit.tChar,
@@ -264,7 +266,7 @@ export function useEditDisplay(
             scaleY,
             colorFor(edit.operation, true),
           );
-          tDiv.style.zIndex = "41";
+          tDiv.style.zIndex = "11";
           overlay!.appendChild(tDiv);
           annotationsRef.current.push(tDiv);
         }
@@ -276,7 +278,7 @@ export function useEditDisplay(
           const brackets = createTempoBrackets(section, scaleX, scaleY);
           brackets.forEach((div) => {
             div.style.pointerEvents = "none";
-            div.style.zIndex = "41";
+            div.style.zIndex = "11";
             overlay!.appendChild(div);
             annotationsRef.current.push(div);
           });
