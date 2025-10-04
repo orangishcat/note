@@ -86,7 +86,7 @@ def _deploy(args: argparse.Namespace) -> None:
 
     keep_warm = args.keep_warm
 
-    image = Image(python_version="python3.12", python_packages=["requirements.txt"])
+    image = Image().from_dockerfile("./Dockerfile")
 
     pod = Pod(
         app=app_name,
@@ -95,7 +95,7 @@ def _deploy(args: argparse.Namespace) -> None:
         ports=[port],
         image=image,
         env=env,
-        keep_warm_seconds=keep_warm if keep_warm is not None else 15,
+        keep_warm_seconds=keep_warm if keep_warm is not None else 30,
         authorized=False,
     )
 
