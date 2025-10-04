@@ -106,6 +106,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "note-scoring"
+version = "0.1.0"
+dependencies = [
+ "ndarray",
+ "ndarray-conv",
+ "pyo3",
+ "pyo3-build-config",
+]
+
+[[package]]
 name = "num"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -334,16 +344,6 @@ dependencies = [
  "primal-check",
  "strength_reduce",
  "transpose",
-]
-
-[[package]]
-name = "scoring-native"
-version = "0.1.0"
-dependencies = [
- "ndarray",
- "ndarray-conv",
- "pyo3",
- "pyo3-build-config",
 ]
 
 [[package]]

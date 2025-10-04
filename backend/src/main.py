@@ -13,20 +13,20 @@ BACKEND_DIR = Path(__file__).parent
 DEFAULT_PORT = 5000
 
 REQUIRED_ENV_VARS: List[str] = [
-    "SECRET_KEY",
+    "APPWRITE_PROJECT_ID",
+    "APPWRITE_ENDPOINT",
+    "APPWRITE_API_KEY",
     "DATABASE_ID",
+    "FOLDERS_COLLECTION_ID",
+    "SCORES_COLLECTION_ID",
+    "RECORDINGS_COLLECTION_ID",
+    "TEMPFILES_COLLECTION_ID",
     "SCORES_BUCKET_ID",
-    "IMAGES_BUCKET",
     "IMAGES_BUCKET_ID",
     "FILES_BUCKET_ID",
-    "SCORES_COLLECTION_ID",
-    "FOLDERS_COLLECTION_ID",
-    "COLLECTION_ID",
-    "APPWRITE_PROJECT_ID",
-    "APPWRITE_API_KEY",
-    "RECORDINGS_COLLECTION_ID",
-    "OEMER_DEPLOYMENT",
-    "TRANSKUN_DEPLOYMENT",
+    "BEAM_TOKEN",
+    "SECRET_KEY",
+    "MSCORE_COMMAND",
 ]
 
 OPTIONAL_ENV_VARS: List[str] = [
@@ -71,7 +71,6 @@ def _ensure_env_vars(required: List[str]) -> Dict[str, str]:
 
 def _deploy(args: argparse.Namespace) -> None:
     from beam import Image, Pod
-    from beta9.type import PythonVersion
 
     env = _ensure_env_vars(REQUIRED_ENV_VARS)
 
@@ -87,10 +86,7 @@ def _deploy(args: argparse.Namespace) -> None:
 
     keep_warm = args.keep_warm
 
-    image = Image(
-        python_version=PythonVersion.Python312,
-        python_packages=["-r requirements.txt"],
-    )
+    image = Image(python_version="python3.12", python_packages=["requirements.txt"])
 
     pod = Pod(
         app=app_name,

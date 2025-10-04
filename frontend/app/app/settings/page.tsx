@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { AccountContext } from "@/app/providers";
 import { Layout } from "@/components/layout";
 
-export function SettingsPage() {
+export default function SettingsPage() {
   const account = useContext(AccountContext)?.accountView;
   const { setTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);

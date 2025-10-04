@@ -69,6 +69,7 @@ type CapturedNote = {
 declare global {
   interface Window {
     lastRefetchTime?: number;
+    setScoreSize?: (w: number, h: number) => void;
     __manualCaptureStart?: () => void;
     __manualCaptureStop?: () => Promise<void> | void;
     __manualNoteOn?: (midi: number, velocity?: number) => void;
@@ -249,7 +250,6 @@ export default function ScorePage() {
     onError: handleRecordingError,
   });
 
-  // noinspection TypeScriptUnresolvedReference
   window.setScoreSize = function (w: number, h: number) {
     if (!scoreNotes) {
       log.warn("No score notes to set size");

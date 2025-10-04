@@ -1,5 +1,5 @@
 [package]
-name = "scoring-native"
+name = "note-scoring"
 version = "0.1.0"
 edition = "2021"
 
