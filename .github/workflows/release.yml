@@ -9,24 +9,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: PyO3/maturin-action@v1
+      - name: Build wheels (manylinux2014)
+        uses: PyO3/maturin-action@v1
         with:
           manylinux: "2014"
           command: build
-          args: --release
+          args: --release --out /io/dist
           working-directory: backend/scoring
 
-      - uses: PyO3/maturin-action@v1
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
         with:
           command: sdist
+          args: --out /io/dist
           working-directory: backend/scoring
+
+      # (Optional) Relax permissions so the runner can read everything without surprises
+      - run: sudo chmod -R a+rX dist || true
 
       - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: |
-            backend/scoring/target/wheels/*.whl
-            backend/scoring/target/wheels/*.tar.gz
+            dist/*.whl
+            dist/*.tar.gz
 
   publish:
     needs: build
@@ -39,6 +45,7 @@ jobs:
         with:
           name: dist
           path: dist
+
       - name: Publish to PyPI (OIDC)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

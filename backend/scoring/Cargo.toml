@@ -1,7 +1,11 @@
 [package]
 name = "note-scoring"
 version = "0.1.0"
-edition = "2021"
+description = "Rust-accelerated scoring"
+license = "MIT"
+repository = "https://github.com/orangishcat/note"
+homepage = "https://github.com/orangishcat/note"
+documentation = "https://github.com/orangishcat/note"
 
 [lib]
 name = "scoring_native"
