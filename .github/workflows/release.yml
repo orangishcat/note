@@ -16,11 +16,10 @@ jobs:
           args: --release
           working-directory: backend/scoring
 
-      - name: Build sdist
-        run: |
-          python -m pip install --upgrade pip maturin
-          maturin sdist
-        working-directory: backend/scoring
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          working-directory: backend/scoring
 
       - uses: actions/upload-artifact@v4
         with:
