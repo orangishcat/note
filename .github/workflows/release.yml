@@ -9,6 +9,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Clean target dir
+        run: rm -rf backend/scoring/target || true
+
       - name: Build wheels (manylinux2014)
         uses: PyO3/maturin-action@v1
         with:
@@ -24,7 +27,6 @@ jobs:
           args: --out /io/dist
           working-directory: backend/scoring
 
-      # (Optional) Relax permissions so the runner can read everything without surprises
       - run: sudo chmod -R a+rX dist || true
 
       - uses: actions/upload-artifact@v4
@@ -45,7 +47,6 @@ jobs:
         with:
           name: dist
           path: dist
-
       - name: Publish to PyPI (OIDC)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
