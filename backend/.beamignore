@@ -12,7 +12,7 @@ __pycache__
 drive/MyDrive
 .coverage
 resources
-scoring
+./scoring
 .pytest_cache
 .ipynb
 .ruff_cache

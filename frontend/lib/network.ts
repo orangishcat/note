@@ -49,30 +49,4 @@ api.interceptors.request.use(async (config) => {
   }
   return config;
 });
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response && error.response.status === 401) {
-      const currentPath =
-        typeof window !== "undefined" ? window.location.pathname : "";
-      log.debug(
-        `Received 401 error. Current path: ${currentPath}, navigateFunction available: ${!!navigateFunction}`,
-      );
-      if (currentPath !== "/" && navigateFunction) {
-        log.debug(
-          "Attempting to navigate to file manager with login parameter",
-        );
-        navigateFunction("/?login=true");
-      } else {
-        log.debug(
-          `Opening auth modal instead. openAuthModal available: ${!!openAuthModal}`,
-        );
-        if (openAuthModal) {
-          openAuthModal("login");
-        }
-      }
-    }
-    return Promise.reject(error);
-  },
-);
 export default api;

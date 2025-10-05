@@ -250,6 +250,7 @@ export default function ScorePage() {
     onError: handleRecordingError,
   });
 
+  // noinspection TypeScriptUnresolvedReference
   window.setScoreSize = function (w: number, h: number) {
     if (!scoreNotes) {
       log.warn("No score notes to set size");
