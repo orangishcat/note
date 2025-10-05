@@ -49,7 +49,7 @@ api.interceptors.request.use(async (config) => {
   }
   return config;
 });
-let intercept401 = false;
+const intercept401 = false;
 if (intercept401) {
   api.interceptors.response.use(
     (response) => response,
