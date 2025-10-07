@@ -5,22 +5,38 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            build_name: linux
+            maturin_args: "--release --out ../../dist"
+            manylinux: "2014"
+          - os: macos-14
+            build_name: macos
+            maturin_args: "--release --target universal2-apple-darwin --out ../../dist"
+
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Prepare dist dir
         run: mkdir -p dist && chmod -R a+rwx dist
 
-      - name: Build wheels (manylinux2014)
+      - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          manylinux: "2014"
           command: build
-          args: --release --out ../../dist
+          args: ${{ matrix.maturin_args }}
           working-directory: backend/scoring
+          manylinux: ${{ matrix.manylinux || '' }}
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
 
+      # Build sdist once (on Linux)
       - name: Build sdist
+        if: runner.os == 'Linux'
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
@@ -29,10 +45,11 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-${{ matrix.build_name }}
           path: |
             dist/*.whl
             dist/*.tar.gz
+          if-no-files-found: ignore
 
   publish:
     needs: build
@@ -43,8 +60,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: dist
+          pattern: dist-*
           path: dist
+          merge-multiple: true
 
       - name: Publish to PyPI (OIDC)
         uses: pypa/gh-action-pypi-publish@release/v1

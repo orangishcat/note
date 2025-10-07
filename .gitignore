@@ -7,6 +7,13 @@
 backend/resources/debug_info
 .env
 .env.prod
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.dist-info/
+build/
+dist/
+target
 
 # ---Frontend--- #
 
@@ -45,7 +52,6 @@ yarn-error.log*
 # vercel
 .vercel
 .venv
-target
 
 # typescript
 *.tsbuildinfo

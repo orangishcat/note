@@ -47,5 +47,10 @@ def logged_in():
     return wrapper
 
 
+@api_bp.route("/test", methods=["GET"])
+def test():
+    return {"message": "Hello World!"}
+
+
 needs_login.register_blueprint(scoring_bp)
 needs_login.register_blueprint(score_bp)

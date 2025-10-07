@@ -251,7 +251,7 @@ export default function ScorePage() {
   });
 
   // noinspection TypeScriptUnresolvedReference
-  window.setScoreSize = function (w: number, h: number) {
+  /*window.setScoreSize = function (w: number, h: number) {
     if (!scoreNotes) {
       log.warn("No score notes to set size");
       return;
@@ -260,7 +260,7 @@ export default function ScorePage() {
     scoreNotes.size = [w, h];
     setScoreNotes(scoreNotes);
     log.debug("Set size to", w, h);
-  };
+  };*/
 
   useEffect(() => {
     if (score.$id || fetchedDataRef.current) {

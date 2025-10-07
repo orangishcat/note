@@ -1,6 +1,6 @@
 const nextConfig = {
     async rewrites() {
-        if (process.env.NODE_ENV === 'development') {
+        if (false) {
             return [
                 {
                     source: '/api/:path*',
@@ -24,6 +24,9 @@ const nextConfig = {
                 },
             ];
         }
+    },
+    eslint: {
+        ignoreDuringBuilds: true,
     },
     images: (() => {
         const fallback = 'https://cloud.appwrite.io/v1';

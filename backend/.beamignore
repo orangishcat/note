@@ -36,6 +36,10 @@ target
 backend/resources/debug_info
 .env
 .env.prod
+*.egg-info/
+*.dist-info/
+build/
+dist/
 
 # ---Frontend--- #
 
