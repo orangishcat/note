@@ -5,11 +5,14 @@ import os
 from pathlib import Path
 from typing import Dict, List
 
-from dotenv import load_dotenv
+from .app import main as run_main
 
-load_dotenv()
+if os.getenv("PRODUCTION") != "True":
+    from dotenv import load_dotenv
 
-BACKEND_DIR = Path(__file__).parent
+    load_dotenv()
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_PORT = 5000
 
 REQUIRED_ENV_VARS: List[str] = [
@@ -72,6 +75,7 @@ def _deploy(args: argparse.Namespace) -> None:
     from beam import Image, Pod
 
     env = _ensure_env_vars(REQUIRED_ENV_VARS)
+    env["PRODUCTION"] = "True"
 
     if args.port is not None:
         env["PORT"] = str(args.port)
@@ -90,7 +94,21 @@ def _deploy(args: argparse.Namespace) -> None:
     pod = Pod(
         app=app_name,
         name=deployment_name,
-        entrypoint=["python", "-m", "src.main", "serve"],
+        entrypoint=[
+            "/bin/bash",
+            "-lc",
+            # everything after here is one shell line
+            "set -euxo pipefail; "
+            "echo '=== CWD & listing ==='; pwd; ls -la; "
+            "echo '=== PYTHON DIAG ==='; "
+            'python -c "import os,sys,importlib.util as u; '
+            "print('CWD:',os.getcwd()); "
+            "print('sys.executable:',sys.executable); "
+            "print('sys.path:',sys.path); "
+            "print('find_spec(app):',u.find_spec('app'))\"; "
+            "echo '=== LAUNCH ==='; "
+            "exec note-backend serve",
+        ],
         ports=[port],
         image=image,
         env=env,
@@ -120,8 +138,6 @@ def _serve(args: argparse.Namespace) -> None:
     port = getattr(args, "port", None)
     if port is not None:
         os.environ["PORT"] = str(port)
-
-    from app.app import main as run_main
 
     run_main()
 
