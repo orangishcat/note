@@ -64,10 +64,8 @@ def main():
 
     socketio.run(
         app,
-        host="127.0.0.1"
-        if os.getenv("PRODUCTION") != "True"
-        else os.getenv("PROD_HOST"),
-        port=5000 if os.getenv("PRODUCTION") != "True" else os.getenv("PORT", 8080),
+        host="0.0.0.0",  # nosec B104: required for container networking
+        port=8080,
         debug=debug,
         allow_unsafe_werkzeug=True,
     )

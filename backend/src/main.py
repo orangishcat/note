@@ -16,7 +16,7 @@ if os.getenv("PRODUCTION") != "True":
     load_dotenv()
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_PORT = 5000
+DEFAULT_PORT = 8080
 
 REQUIRED_ENV_VARS: List[str] = [
     "APPWRITE_PROJECT_ID",
@@ -61,8 +61,8 @@ def _ensure_env_vars(required: List[str]) -> Dict[str, str]:
         if value:
             env[key] = value
 
-    env["HOST"] = env.get("HOST", "127.0.0.1")
-    env["PORT"] = str(env.get("PORT", DEFAULT_PORT))
+    env["HOST"] = "0.0.0.0"  # nosec B104: container runtime requires public bind
+    env["PORT"] = "8080"
 
     token = os.getenv("BEAM_TOKEN")
     if not token:
