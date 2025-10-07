@@ -2,8 +2,7 @@ import axios from "axios";
 import log from "./logger";
 import { account } from "./appwrite";
 const api = axios.create({
-  baseURL: "/api",
-  withCredentials: true,
+  baseURL: `${process.env.NEXT_PUBLIC_BACKEND_ENDPOINT}/api`,
 });
 let openAuthModal: ((type: "login" | "signup") => void) | null = null;
 let navigateFunction: ((path: string) => void) | null = null;
