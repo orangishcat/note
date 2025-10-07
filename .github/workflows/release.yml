@@ -24,18 +24,21 @@ jobs:
       - name: Prepare dist dir
         run: mkdir -p dist && chmod -R a+rwx dist
 
-      - name: Build wheels
+      - name: Get short commit hash
+        id: vars
+        run: echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build wheel
         uses: PyO3/maturin-action@v1
         with:
           command: build
-          args: ${{ matrix.maturin_args }}
+          args: ${{ matrix.maturin_args }} --tag g${{ steps.vars.outputs.hash }}
           working-directory: backend/scoring
           manylinux: ${{ matrix.manylinux || '' }}
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
 
-      # Build sdist once (on Linux)
-      - name: Build sdist
+      - name: Build sdist (only once)
         if: runner.os == 'Linux'
         uses: PyO3/maturin-action@v1
         with:
@@ -46,9 +49,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.build_name }}
-          path: |
-            dist/*.whl
-            dist/*.tar.gz
+          path: dist/*
           if-no-files-found: ignore
 
   publish:
@@ -63,6 +64,9 @@ jobs:
           pattern: dist-*
           path: dist
           merge-multiple: true
+
+      - name: List built distributions
+        run: ls -lh dist
 
       - name: Publish to PyPI (OIDC)
         uses: pypa/gh-action-pypi-publish@release/v1
