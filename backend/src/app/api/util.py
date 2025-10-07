@@ -36,10 +36,8 @@ def _get_jwt(token: str | None) -> str | None:
 def get_user_client(jwt: str | None = None) -> Client:
     """Return an Appwrite client authorized with the given JWT."""
     if jwt is None:
-        jwt = _get_jwt(request.headers.get("Authorization"))
-    client = get_client()
-    if jwt:
-        client.set_jwt(jwt)
+        jwt = _get_jwt(request.headers.get("X-Appwrite-JWT"))
+    client = get_client().set_jwt(jwt)
     return client
 
 
@@ -47,20 +45,7 @@ def get_user_account(jwt: str | None = None) -> Account:
     return Account(get_user_client(jwt))
 
 
-names = [
-    "C",
-    "C#",
-    "D",
-    "D#",
-    "E",
-    "F",
-    "F#",
-    "G",
-    "G#",
-    "A",
-    "A#",
-    "B",
-]
+names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 
 def pitch_name(midi_pitch: int) -> str:

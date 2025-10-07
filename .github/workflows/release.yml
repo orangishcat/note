@@ -32,32 +32,19 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: build
-          args: ${{ matrix.maturin_args }}
+          args: ${{ matrix.maturin_args }} --tag g${{ steps.vars.outputs.hash }}
           working-directory: backend/scoring
           manylinux: ${{ matrix.manylinux || '' }}
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
 
-      - name: Build sdist (Linux only)
+      - name: Build sdist (only once)
         if: runner.os == 'Linux'
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
           args: --out ../../dist
           working-directory: backend/scoring
-
-      - name: Append commit hash to filenames
-        run: |
-          cd dist
-          for f in *; do
-            if [[ -f "$f" ]]; then
-              base="${f%.*}"
-              ext="${f##*.}"
-              mv "$f" "${base}+g${{ steps.vars.outputs.hash }}.${ext}"
-            fi
-          done
-          ls -lh
-        shell: bash
 
       - uses: actions/upload-artifact@v4
         with:
@@ -78,7 +65,7 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: List distributions
+      - name: List built distributions
         run: ls -lh dist
 
       - name: Publish to PyPI (OIDC)

@@ -5,7 +5,10 @@ import os
 from pathlib import Path
 from typing import Dict, List
 
-from .app import main as run_main
+try:
+    from app.app import main as run_main
+except ImportError:
+    from .app.app import main as run_main
 
 if os.getenv("PRODUCTION") != "True":
     from dotenv import load_dotenv
@@ -34,8 +37,6 @@ REQUIRED_ENV_VARS: List[str] = [
 OPTIONAL_ENV_VARS: List[str] = [
     "APP_NAME",
     "DEBUG",
-    "HOST",
-    "PORT",
 ]
 
 
@@ -107,12 +108,15 @@ def _deploy(args: argparse.Namespace) -> None:
             "print('sys.path:',sys.path); "
             "print('find_spec(app):',u.find_spec('app'))\"; "
             "echo '=== LAUNCH ==='; "
-            "exec note-backend serve",
+            'export PATH="${VIRTUAL_ENV:-/opt/venv}/bin:$PATH"; '
+            'echo "PATH: $PATH"; '
+            'echo "VIRTUAL_ENV: ${VIRTUAL_ENV:-unset}"; '
+            'exec "${VIRTUAL_ENV:-/opt/venv}/bin/note-backend" serve',
         ],
         ports=[port],
         image=image,
         env=env,
-        keep_warm_seconds=keep_warm if keep_warm is not None else 30,
+        keep_warm_seconds=keep_warm if keep_warm is not None else 60,
         authorized=False,
     )
 

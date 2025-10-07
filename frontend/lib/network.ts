@@ -38,13 +38,14 @@ api.interceptors.request.use(async (config) => {
       try {
         const { jwt } = await account.createJWT();
         cachedJwt = jwt;
-        jwtExpiry = now + 15 * 60 * 1000;
+        jwtExpiry = now + 14 * 60 * 1000;
       } catch (err) {
         log.error("Failed to create JWT", err);
       }
     }
     if (cachedJwt) {
-      config.headers.Authorization = `Bearer ${cachedJwt}`;
+      config.headers = config.headers ?? {};
+      config.headers["X-Appwrite-JWT"] = cachedJwt;
     }
   }
   return config;

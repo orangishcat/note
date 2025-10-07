@@ -64,8 +64,10 @@ def main():
 
     socketio.run(
         app,
-        host=os.getenv("HOST", "127.0.0.1"),
-        port=int(os.getenv("PORT", 5000)),
+        host="127.0.0.1"
+        if os.getenv("PRODUCTION") != "True"
+        else os.getenv("PROD_HOST"),
+        port=5000 if os.getenv("PRODUCTION") != "True" else os.getenv("PORT", 8080),
         debug=debug,
         allow_unsafe_werkzeug=True,
     )

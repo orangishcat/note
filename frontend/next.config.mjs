@@ -1,6 +1,6 @@
 const nextConfig = {
     async rewrites() {
-        if (false) {
+        if (process.env.NODE_ENV === 'development') {
             return [
                 {
                     source: '/api/:path*',
@@ -13,7 +13,7 @@ const nextConfig = {
             ];
         }
         else {
-            return [
+            const rules = [
                 {
                     source: '/api/:path*',
                     destination: `${process.env.NEXT_PUBLIC_BACKEND_ENDPOINT}/api/:path*`,
@@ -23,6 +23,8 @@ const nextConfig = {
                     destination: `${process.env.NEXT_PUBLIC_BACKEND_ENDPOINT}/static/:path*`,
                 },
             ];
+            console.log(rules);
+            return rules;
         }
     },
     eslint: {
